@@ -4,6 +4,10 @@ packages:
 allowBuilds:
   # esbuild's postinstall selects the platform binary; required by tsx
   esbuild: true
+# Supply-chain guard: refuse versions younger than 3 days at resolution time
+# (frozen-lockfile installs in CI are unaffected). Exceptions live in
+# minimumReleaseAgeExclude below.
+minimumReleaseAge: 4320
 minimumReleaseAgeExclude:
   - '@turbo/darwin-64@2.10.11'
   - '@turbo/darwin-arm64@2.10.11'
