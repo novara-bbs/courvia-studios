@@ -5,11 +5,15 @@
   "type": "module",
   "description": "Canonical DTCG tokens (from brand/courvia-tokens.json) + typed build script emitting CSS variables",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tokens.css": "./dist/tokens.css",
+    "./tokens.json": "./tokens.json"
   },
   "scripts": {
+    "build": "tsx src/build-css.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@courvia/config": "workspace:*"

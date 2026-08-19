@@ -18,6 +18,7 @@
 | Vitest | **4.1.11** | `latest` |
 | tsx | **4.23.12** | `latest` |
 | Zod | **4.4.3** | `latest` |
+| @types/node | **22.20.1** | Última 22.x, alineada con el runtime Node 22 (el `latest` 26.x tipa APIs que no existen en 22) |
 | ESLint | **10.8.1** | `latest`; soportado por typescript-eslint (`^10.0.0`) |
 | typescript-eslint | **8.67.0** | `latest` |
 | next-intl | **4.13.7** *(objetivo; se instala en su tarea)* | `latest` |
