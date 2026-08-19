@@ -85,15 +85,37 @@ describe("returns (14-day withdrawal ES/UK)", () => {
     expect(result.ok && result.sideEffects).toContain("create_rma_with_instructions");
   });
 
-  it("return_received → refunded executes the provider refund after approval", () => {
+  it("return_received → refunded only via human approval, which triggers the provider refund", () => {
     expectOk("return_requested", { type: "return.received" }, "return_received");
     const result = expectOk(
       "return_received",
-      { type: "payment.refunded", partial: false },
+      { type: "refund.approved", partial: false },
       "refunded",
     );
     expect(result.ok && result.sideEffects).toContain("execute_provider_refund");
     expect(result.ok && result.sideEffects).toContain("restock_if_applicable");
+  });
+
+  it("partial approval of a return lands in partially_refunded", () => {
+    expectOk(
+      "return_received",
+      { type: "refund.approved", partial: true },
+      "partially_refunded",
+    );
+  });
+
+  it("the provider webhook after an approved refund is rejected as a duplicate, never a second refund", () => {
+    // refund.approved already ran execute_provider_refund; the provider's
+    // payment.refunded webhook then finds the order in a terminal status.
+    expect(transition("refunded", { type: "payment.refunded", partial: false }).ok).toBe(false);
+    // And return_received itself never accepts the webhook directly — the
+    // refund must go through human approval (spec §10.2 row 10).
+    expect(transition("return_received", { type: "payment.refunded", partial: false }).ok).toBe(
+      false,
+    );
+    expect(transition("return_received", { type: "payment.refunded", partial: true }).ok).toBe(
+      false,
+    );
   });
 });
 
@@ -117,6 +139,8 @@ describe("invalid transitions", () => {
       { type: "refund.requested" },
       { type: "return.requested" },
       { type: "return.received" },
+      { type: "refund.approved", partial: false },
+      { type: "refund.approved", partial: true },
     ];
     for (const status of TERMINAL_STATUSES) {
       for (const trigger of triggers) {
@@ -147,6 +171,8 @@ describe("reachability", () => {
       { type: "refund.requested" },
       { type: "return.requested" },
       { type: "return.received" },
+      { type: "refund.approved", partial: false },
+      { type: "refund.approved", partial: true },
     ];
     let grew = true;
     while (grew) {

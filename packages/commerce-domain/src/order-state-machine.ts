@@ -29,7 +29,10 @@ export type OrderTrigger =
   /* after-sales (customer / support; human-approved where noted) */
   | { type: "refund.requested" }
   | { type: "return.requested" }
-  | { type: "return.received" };
+  | { type: "return.received" }
+  /** Human approval of a return refund — the ONLY trigger that instructs the
+   * adapter to call PaymentProvider.refund() (spec §10.2 row 10). */
+  | { type: "refund.approved"; partial: boolean };
 
 export type SideEffect =
   | "reserve_stock_temporarily"
@@ -126,8 +129,12 @@ const TRANSITIONS: Partial<Record<OrderStatus, Partial<Record<TriggerType, Rule>
     },
   },
   return_received: {
-    "payment.refunded": {
-      next: "refunded",
+    // Human approval triggers the outbound refund (execute_provider_refund →
+    // PaymentProvider.refund()). The provider's later `payment.refunded`
+    // webhook then arrives on an already-refunded order and is rejected by
+    // the machine as an expected duplicate — never a second refund call.
+    "refund.approved": {
+      next: "refunded", // partially_refunded when trigger.partial
       sideEffects: [
         "execute_provider_refund",
         "send_refund_email",
@@ -147,7 +154,9 @@ export function transition(current: OrderStatus, trigger: OrderTrigger): Transit
       reason: `Invalid transition: "${trigger.type}" is not allowed from "${current}"`,
     };
   }
-  if (trigger.type === "payment.refunded" && trigger.partial && current === "refund_requested") {
+  // Any refund-shaped trigger flagged partial lands on partially_refunded
+  // instead of the full-refund terminal status, wherever it is accepted.
+  if ("partial" in trigger && trigger.partial && rule.next === "refunded") {
     return { ok: true, next: "partially_refunded", sideEffects: rule.sideEffects };
   }
   return { ok: true, next: rule.next, sideEffects: rule.sideEffects };
