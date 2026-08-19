@@ -1,0 +1,12 @@
+{
+  "name": "@courvia/config",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Shared tsconfig and eslint configuration for the Courvia monorepo",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.react.json": "./tsconfig.react.json",
+    "./eslint": "./eslint.config.mjs"
+  }
+}

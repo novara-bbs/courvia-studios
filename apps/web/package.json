@@ -1,0 +1,7 @@
+{
+  "name": "@courvia/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Courvia storefront — Next.js app (installed in its roadmap task, after ADR-000)"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@courvia/ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Courvia UI components — consume semantic design tokens only, never raw hex",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@courvia/config": "workspace:*"
+  }
+}

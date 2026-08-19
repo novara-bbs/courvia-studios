@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# turbo
+.turbo/
+
+# env — secrets never enter the repo; only the example template is tracked
+.env*
+!.env.example
+
+# local agent context
+CLAUDE.local.md
+
+# deploy/tooling local state
+.vercel/
+.supabase/
+
+# test artifacts
+coverage/
+playwright-report/
+test-results/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# editors
+.idea/
+*.swp

@@ -1,0 +1,17 @@
+{
+  "name": "@courvia/design-tokens",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Canonical DTCG tokens (from brand/courvia-tokens.json) + typed build script emitting CSS variables",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@courvia/config": "workspace:*"
+  }
+}
