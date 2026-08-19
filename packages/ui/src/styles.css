@@ -1,0 +1,70 @@
+/* @courvia/ui — component styles. Semantic tokens only (--cv-*), never raw
+ * hex (CLAUDE.md §3): every color/space/radius/font comes from
+ * @courvia/design-tokens, so components restyle themselves per data-theme. */
+
+.cv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cv-space-2);
+  padding-block: var(--cv-space-3);
+  padding-inline: var(--cv-space-6);
+  border-radius: var(--cv-radius-pill);
+  border: none;
+  font-family: var(--cv-font-body);
+  font-size: var(--cv-font-size-sm);
+  font-weight: 600;
+  line-height: var(--cv-font-lineHeight-tight);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform var(--cv-motion-duration-fast) var(--cv-motion-easing-standard);
+}
+.cv-btn:hover {
+  transform: translateY(-2px);
+}
+.cv-btn:focus-visible {
+  outline: var(--cv-focus-width) solid var(--cv-color-accent);
+  outline-offset: var(--cv-focus-offset);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cv-btn,
+  .cv-btn:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+.cv-btn--primary {
+  background: var(--cv-color-accent);
+  color: var(--cv-color-accent-contrast);
+}
+.cv-btn--ghost {
+  background: transparent;
+  color: var(--cv-color-text);
+  border: 1.5px solid currentColor;
+}
+
+.cv-card {
+  background: var(--cv-color-surface);
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-lg);
+  padding: var(--cv-space-6);
+  color: var(--cv-color-text);
+}
+
+.cv-badge {
+  display: inline-block;
+  padding-block: var(--cv-space-1);
+  padding-inline: var(--cv-space-3);
+  border-radius: var(--cv-radius-pill);
+  border: 1px solid var(--cv-color-border);
+  color: var(--cv-color-text-muted);
+  font-family: var(--cv-font-data, var(--cv-font-body));
+  font-size: var(--cv-font-size-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.cv-badge--accent {
+  border-color: var(--cv-color-accent);
+  color: var(--cv-color-accent);
+}
