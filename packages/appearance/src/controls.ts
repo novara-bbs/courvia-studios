@@ -59,8 +59,13 @@ export const CONTROLS = {
       raised: "background: var(--cv-color-surface-raised); box-shadow: var(--cv-elevation-raised);",
       inverse:
         "background: var(--cv-color-surface-inverse); --cv-color-text: var(--cv-color-text-inverse); --cv-color-text-muted: var(--cv-color-text-inverse); --cv-color-border: var(--cv-color-text-inverse);",
+      // On an accent-filled band, anything that uses accent AS A FILL
+      // (primary button, badge, the ball dot) would melt into the band, so
+      // the fill/on-fill indirection pair flips: fill becomes the contrast
+      // colour, its label becomes the accent. Contrast is symmetric, so the
+      // pair keeps the exact AA ratio the theme already guarantees.
       accent:
-        "background: var(--cv-color-accent); --cv-color-text: var(--cv-color-accent-contrast); --cv-color-text-muted: var(--cv-color-accent-contrast);",
+        "background: var(--cv-color-accent); --cv-color-text: var(--cv-color-accent-contrast); --cv-color-text-muted: var(--cv-color-accent-contrast); --cv-fill-accent: var(--cv-color-accent-contrast); --cv-on-fill-accent: var(--cv-color-accent);",
     },
   },
   /** Content measure. */

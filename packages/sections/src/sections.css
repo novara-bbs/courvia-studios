@@ -21,7 +21,9 @@
   display: inline-block;
   inline-size: 0.15em;
   block-size: 0.15em;
-  background: var(--cv-color-accent);
+  /* Fill indirection: on an accent band the dot flips to the contrast
+   * colour instead of vanishing into the same accent. */
+  background: var(--cv-fill-accent, var(--cv-color-accent));
   border-radius: var(--cv-radius-pill);
   margin-inline-start: 0.06em;
 }

@@ -315,7 +315,9 @@ code {
   outline-offset: 1px;
 }
 
-.lead-form-consent {
+/* Chained with `label` so this beats `.lead-form label { display: grid }`:
+ * without it the grid wins and the checkbox stacks above its own text. */
+.lead-form label.lead-form-consent {
   display: flex;
   gap: var(--cv-space-2);
   align-items: start;
