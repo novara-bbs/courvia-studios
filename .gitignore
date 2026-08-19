@@ -41,3 +41,6 @@ Desktop.ini
 # editors
 .idea/
 *.swp
+
+# payload uploads (local dev)
+apps/web/media/

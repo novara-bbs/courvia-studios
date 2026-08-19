@@ -212,14 +212,14 @@ Las suites de contrato son la pieza de mayor apalancamiento: se exportan desde e
 
 ## 8. Estado y secuencia
 
-Hecho: monorepo · tokens con contrato semántico y contraste garantizado · primitivas sin escape hatches · puertos implementables con suites de contrato · `Money` · máquina de estados con outbox y códigos de razón · fronteras verificadas · CI.
+Hecho: monorepo · tokens con contrato semántico y contraste garantizado · primitivas sin escape hatches · puertos implementables con suites de contrato · `Money` · máquina de estados con outbox y códigos de razón · fronteras verificadas · CI · **Payload 3.88 embebido** (admin en `/admin`, schema `payload` en Supabase con RLS, `push:false` — solo migraciones, colecciones `users`/`media`, globals `ThemeSettings`/`MarketSettings`, localización es/en/ar).
 
 Pendiente, en orden (cada paquete = una sesión):
 
 | WP | Trabajo | Requiere | Reversible |
 |---|---|---|---|
-| 6 | Payload embebido + Supabase schema `payload`, admin logueable | **aprobación humana (BD)** | no |
-| 4/5 | Rutas `[region]`, `next-intl`, `dir`/`lang`, hreflang | 6 | **no** — §16 marca el refactor tardío de i18n como riesgo nº1 |
+| ~~6~~ | ~~Payload embebido + Supabase schema `payload`, admin logueable~~ **hecho 19-ago** | — | — |
+| 4/5 | Rutas `[region]`, `next-intl`, `dir`/`lang`, hreflang | — | **no** — §16 marca el refactor tardío de i18n como riesgo nº1 |
 | 9 | `ThemeSettings` + overrides Zod + preview en draft mode | 6, 4 | sí |
 | 7 | Registro de secciones + controles de apariencia + 3 secciones | 9 | parcial |
 | 8 | `pages` + composición + versiones + live preview | 7 | sí |

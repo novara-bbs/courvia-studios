@@ -14,7 +14,8 @@
 | TypeScript | **5.9.3** | Ver justificación abajo (no 7.0.2) |
 | Next.js | **16.3.1** | `latest` de la serie 16.x estable |
 | React / React DOM | **19.2.8** | `latest`; dentro del peer range de Next 16 (`^19.0.0`) |
-| Payload | **3.88.0** *(objetivo; se instala en su tarea)* | `latest`; `@payloadcms/next@3.88.0` acepta `next >=16.2.6 <17` ✔ compatible con 16.3.1 |
+| Payload | **3.88.0** (instalado) | `latest`; `@payloadcms/next@3.88.0` acepta `next >=16.2.6 <17` ✔ verificado en build y runtime |
+| graphql | **16.14.2** | Última 16.x; peer de Payload (`^16.8.1`) |
 | Vitest | **4.1.11** | `latest` |
 | tsx | **4.23.12** | `latest` |
 | Zod | **4.4.3** *(objetivo; se instala en su tarea)* | `latest`; re-verificar al instalarlo |
@@ -26,7 +27,7 @@
 ## Justificación de las decisiones no obvias
 
 1. **TypeScript 5.9.3, no 7.0.2.** El `latest` del registro es TS 7 (compilador nativo), pero `typescript-eslint@8.67.0` declara `peerDependencies: typescript >=4.8.4 <6.1.0`. Adoptar TS 7 hoy rompería el lint del monorepo y arriesga incompatibilidades con el resto del ecosistema (Payload genera tipos, Next transpila). Se pinea la última 5.x de mantenimiento y se abre gate de upgrade cuando typescript-eslint y Payload declaren soporte de TS ≥6/7.
-2. **Payload 3.88.0 como objetivo, no instalado aún.** La compatibilidad con Next 16.3.1 está verificada por peer range, pero Payload solo se instala en su tarea del roadmap (necesita decisión de schema en Supabase). Re-verificar `latest` en ese momento.
+2. **Payload 3.88.0 instalado** (19 ago 2026): admin logueable verificado contra el servidor real; migración inicial aplicada en local y en Supabase (schema `payload`, RLS activado, sin políticas permisivas).
 3. **pnpm por `packageManager` + corepack**, de modo que CI y cualquier máquina usan exactamente 11.22.0 con independencia del pnpm global instalado.
 4. **Sin rangos abiertos**: todas las dependencias se guardan exactas (`save-exact=true` en `.npmrc`); las subidas de versión son diffs de lockfile revisables, nunca implícitas.
 

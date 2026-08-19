@@ -10,8 +10,10 @@ Arquitectura: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) · Decisiones: [`
 corepack enable          # activa el pnpm pineado en package.json
 pnpm install
 pnpm verify              # build · typecheck · lint · stylelint · arch · test
-pnpm dev                 # storefront en http://localhost:3000 (turbo compila los tokens antes)
+pnpm dev                 # storefront en http://localhost:3000 · admin en /admin
 ```
+
+El admin (Payload) necesita Postgres: copia `.env.example` a `apps/web/.env.local` con tu `DATABASE_URL` local y un `PAYLOAD_SECRET` aleatorio, aplica las migraciones con `pnpm --filter @courvia/web migrate` y siembra el primer admin con `ADMIN_EMAIL=... ADMIN_PASSWORD=... pnpm --filter @courvia/web seed:admin`. Los cambios de schema son siempre migraciones (`migrate:create`); no hay push de desarrollo.
 
 Requisitos: Node 22 o 24 (`.nvmrc`), pnpm 11 vía corepack.
 

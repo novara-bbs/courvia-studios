@@ -120,6 +120,6 @@ describe("token variable usage", () => {
   });
 
   it("apps/web styles only reference declared tokens", () => {
-    assertVarsExist("apps/web/app/app.css");
+    assertVarsExist("apps/web/app/(frontend)/app.css");
   });
 });
