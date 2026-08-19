@@ -3,34 +3,49 @@ export type {
   Availability,
   Checkout,
   CheckoutInput,
-  Currency,
-  Incoterm,
-  LocaleId,
-  Market,
-  MarketId,
+  MarketConfig,
   MarketPaymentProvider,
-  Money,
   Order,
   OrderLine,
   OrderStatus,
-  PaymentProviderId,
+  Price,
   Product,
+  ProductFilter,
   ReturnInput,
   ReturnRequest,
   ReturnStatus,
-  Sport,
+  TaxBehavior,
   Variant,
 } from "./types";
 export type { CommerceService } from "./commerce-service";
+export {
+  CurrencyMismatchError,
+  add,
+  allocate,
+  compare,
+  equals,
+  format,
+  isNegative,
+  isZero,
+  money,
+  multiply,
+  subtract,
+  sum,
+  zero,
+} from "./money";
+export type { Money } from "./money";
+export { WebhookSignatureError } from "./payment";
 export type {
   PaymentEvent,
   PaymentEventType,
   PaymentProvider,
+  PaymentProviderId,
   PaymentSession,
   ProviderEvent,
   RefundResult,
 } from "./payment";
 export {
+  SIDE_EFFECT_EXECUTION,
   TERMINAL_STATUSES,
   canTransition,
   paymentEventToTrigger,
@@ -39,5 +54,6 @@ export {
 export type {
   OrderTrigger,
   SideEffect,
+  TransitionRejection,
   TransitionResult,
 } from "./order-state-machine";

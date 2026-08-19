@@ -6,6 +6,7 @@
   "description": "Canonical DTCG tokens (from brand/courvia-tokens.json) + typed build script emitting CSS variables",
   "exports": {
     ".": "./src/index.ts",
+    "./build": "./src/build-css.ts",
     "./tokens.css": "./dist/tokens.css",
     "./tokens.json": "./tokens.json"
   },

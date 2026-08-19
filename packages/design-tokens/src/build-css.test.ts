@@ -18,14 +18,9 @@ const doc = JSON.parse(
   readFileSync(join(pkgRoot, "tokens.json"), "utf8"),
 ) as TokensDocument;
 
-describe("tokens.json parity", () => {
-  it("is byte-identical in content to the canonical brand/courvia-tokens.json", () => {
-    const brand = JSON.parse(
-      readFileSync(join(pkgRoot, "..", "..", "brand", "courvia-tokens.json"), "utf8"),
-    ) as TokensDocument;
-    expect(doc).toEqual(brand);
-  });
-
+describe("tokens.json", () => {
+  // Value fidelity against brand/ is asserted in semantic-contract.test.ts;
+  // this file covers the compiler.
   it("contains the three canonical themes for the three aliases", () => {
     for (const themeKey of Object.values(THEME_ALIASES)) {
       expect(doc.theme[themeKey]).toBeDefined();
@@ -156,16 +151,30 @@ describe("buildCss", () => {
     expect(css).not.toContain("{global.");
   });
 
-  it("neutralizes variables a theme does not define, so var() fallbacks win", () => {
-    // volt defines --cv-font-data; club does not → club must reset it to
-    // `initial` or club pages would inherit volt's mono font via :root.
-    const clubBlock = /\[data-theme='club'\] \{([^}]*)\}/s.exec(css)?.[1] ?? "";
-    expect(clubBlock).toContain("--cv-font-data: initial;");
-    expect(clubBlock).toContain("--cv-color-link: initial;");
-    expect(clubBlock).toContain("--cv-color-surface-raised: initial;");
-    // and the inverse: volt neutralizes club-only tokens
+  it("neutralizes theme-specific extras so they never leak across themes", () => {
+    // Required roles are now defined by every theme (semantic contract), so
+    // only theme-specific flourishes need neutralizing. Without this, club's
+    // trophy gold would bleed into volt through the bare :root block.
     const voltBlock = /:root,\n\[data-theme='volt'\] \{([^}]*)\}/s.exec(css)?.[1] ?? "";
     expect(voltBlock).toContain("--cv-color-highlight: initial;");
+    expect(voltBlock).toContain("--cv-color-surface-brand: initial;");
     expect(voltBlock).toContain("--cv-font-voice: initial;");
+
+    const carbonBlock = /\[data-theme='carbon'\] \{([^}]*)\}/s.exec(css)?.[1] ?? "";
+    expect(carbonBlock).toContain("--cv-color-highlight: initial;");
+  });
+
+  it("defines every required semantic role in every theme block", () => {
+    for (const alias of ["volt", "carbon", "club"]) {
+      const pattern =
+        alias === "volt"
+          ? /:root,\n\[data-theme='volt'\] \{([^}]*)\}/s
+          : new RegExp(`\\[data-theme='${alias}'\\] \\{([^}]*)\\}`, "s");
+      const block = pattern.exec(css)?.[1] ?? "";
+      for (const role of ["bg", "surface", "surface-inverse", "text", "link", "border"]) {
+        expect(block, `${alias} missing ${role}`).toContain(`--cv-color-${role}:`);
+        expect(block).not.toContain(`--cv-color-${role}: initial;`);
+      }
+    }
   });
 });

@@ -1,39 +1,33 @@
 /**
- * Core commerce domain types (CLAUDE.md §10.1). Only what the store's
- * use-cases need — the ports are deliberately small (§3.1).
+ * Core commerce domain types (CLAUDE.md §10.1).
+ *
+ * Cross-cutting vocabulary (Sport, LocaleId, MarketId, Currency, Incoterm)
+ * lives in @courvia/platform: i18n and the CMS need it too and must not
+ * import the commerce domain to get it.
  */
+import type { Currency, Incoterm, MarketId, Sport } from "@courvia/platform";
 
-export type Sport = "tenis" | "padel" | "pickleball";
-
-export type MarketId = "es" | "uk" | "ae";
-
-export type LocaleId = "es" | "en" | "ar";
-
-export type Currency = "EUR" | "GBP" | "AED";
-
-/** Amount in minor units (cents/pence/fils) — never floats. */
-export interface Money {
-  amount: number;
-  currency: Currency;
-}
-
-export type Incoterm = "DDP" | "DDU";
-
-export interface Market {
-  id: MarketId;
-  currency: Currency;
-  incoterm: Incoterm;
-  /** Ordered list of payment providers offered at checkout (§3.2). */
-  paymentProviders: MarketPaymentProvider[];
-}
+import type { Money } from "./money";
+import type { PaymentProviderId } from "./payment";
 
 export interface MarketPaymentProvider {
   provider: PaymentProviderId;
   enabled: boolean;
+  /** Presentation order at checkout; the customer picks (ADR-14). */
   order: number;
 }
 
-export type PaymentProviderId = "stripe" | "tabby" | "tamara" | "adyen";
+export type TaxBehavior = "inclusive" | "exclusive";
+
+/** Runtime market configuration, sourced from the MarketSettings global. */
+export interface MarketConfig {
+  id: MarketId;
+  currency: Currency;
+  taxBehavior: TaxBehavior;
+  incoterm: Incoterm;
+  shippingZone: string;
+  paymentProviders: MarketPaymentProvider[];
+}
 
 export interface Product {
   id: string;
@@ -50,6 +44,19 @@ export interface Variant {
   sport: Sport;
   attributes: Record<string, string>;
   weightKg?: number;
+  dims?: { lengthCm: number; widthCm: number; heightCm: number };
+}
+
+/**
+ * A price is fixed per market and currency and is never converted at runtime
+ * (ADR-05): 1.290 € must not become 1.312,47 £.
+ */
+export interface Price {
+  variantId: string;
+  market: MarketId;
+  unitAmount: Money;
+  compareAtAmount?: Money;
+  taxBehavior: TaxBehavior;
 }
 
 export interface Availability {
@@ -67,6 +74,7 @@ export type OrderStatus =
   | "shipped"
   | "delivered"
   | "refund_requested"
+  | "refund_failed"
   | "refunded"
   | "partially_refunded"
   | "return_requested"
@@ -88,6 +96,8 @@ export interface Order {
   /** Totals are always computed and validated server-side (§4). */
   total: Money;
   taxTotal: Money;
+  /** Running total of what has already been refunded. */
+  refundedTotal: Money;
 }
 
 export interface Address {
@@ -99,9 +109,17 @@ export interface Address {
   country: string;
 }
 
+/** Filter for catalog listing pages and the comparator (§12). */
+export interface ProductFilter {
+  sport?: Sport;
+  category?: string;
+  slugs?: string[];
+  limit?: number;
+  offset?: number;
+}
+
 export interface CheckoutInput {
   market: MarketId;
-  locale: LocaleId;
   lines: Array<{ sku: string; quantity: number }>;
   email: string;
   shippingAddress: Address;

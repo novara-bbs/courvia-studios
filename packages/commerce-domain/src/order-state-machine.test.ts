@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 
+import { money } from "./money";
 import {
+  SIDE_EFFECT_EXECUTION,
   TERMINAL_STATUSES,
   canTransition,
   paymentEventToTrigger,
   transition,
 } from "./order-state-machine";
-import type { OrderTrigger } from "./order-state-machine";
+import type { OrderTrigger, SideEffect } from "./order-state-machine";
 import type { PaymentEvent } from "./payment";
 import type { OrderStatus } from "./types";
+
+const EUR = (amount: number) => money(amount, "EUR");
+const FULL = EUR(129_000);
+const PART = EUR(20_000);
 
 const ALL_STATUSES: OrderStatus[] = [
   "draft",
@@ -19,10 +25,30 @@ const ALL_STATUSES: OrderStatus[] = [
   "shipped",
   "delivered",
   "refund_requested",
+  "refund_failed",
   "refunded",
   "partially_refunded",
   "return_requested",
   "return_received",
+];
+
+const EVERY_TRIGGER: OrderTrigger[] = [
+  { type: "checkout.created" },
+  { type: "checkout.expired" },
+  { type: "payment.paid" },
+  { type: "payment.failed" },
+  { type: "payment.refunded", amount: FULL, partial: false },
+  { type: "payment.refunded", amount: PART, partial: true },
+  { type: "payment.refund_failed" },
+  { type: "fulfilment.picking_started" },
+  { type: "fulfilment.shipment_created" },
+  { type: "fulfilment.delivered" },
+  { type: "refund.requested" },
+  { type: "return.requested" },
+  { type: "return.received" },
+  { type: "refund.approved", amount: FULL, partial: false },
+  { type: "refund.approved", amount: PART, partial: true },
+  { type: "refund.retried", amount: FULL, partial: false },
 ];
 
 function expectOk(current: OrderStatus, trigger: OrderTrigger, next: OrderStatus) {
@@ -48,7 +74,7 @@ describe("happy path §10.2", () => {
 
     const paid = transition("pending_payment", { type: "payment.paid" });
     expect(paid.ok && paid.sideEffects).toContain("commit_stock");
-    expect(paid.ok && paid.sideEffects).toContain("issue_verifactu_invoice_if_es");
+    expect(paid.ok && paid.sideEffects).toContain("issue_tax_invoice");
   });
 
   it("cancels on failure or expiry without committing stock", () => {
@@ -70,12 +96,23 @@ describe("refunds", () => {
   });
 
   it("full refund → refunded, partial refund → partially_refunded", () => {
-    expectOk("refund_requested", { type: "payment.refunded", partial: false }, "refunded");
+    expectOk("refund_requested", { type: "payment.refunded", amount: FULL, partial: false }, "refunded");
     expectOk(
       "refund_requested",
-      { type: "payment.refunded", partial: true },
+      { type: "payment.refunded", amount: PART, partial: true },
       "partially_refunded",
     );
+  });
+
+  it("refund-without-return does not re-trigger the provider refund", () => {
+    // Support already refunded in the provider dashboard; the webhook only
+    // records it. Emitting execute_provider_refund here would double-refund.
+    const result = transition("refund_requested", {
+      type: "payment.refunded",
+      amount: FULL,
+      partial: false,
+    });
+    expect(result.ok && result.sideEffects).not.toContain("execute_provider_refund");
   });
 });
 
@@ -85,100 +122,125 @@ describe("returns (14-day withdrawal ES/UK)", () => {
     expect(result.ok && result.sideEffects).toContain("create_rma_with_instructions");
   });
 
-  it("return_received → refunded only via human approval, which triggers the provider refund", () => {
+  it("only human approval executes the provider refund, and it carries the amount", () => {
     expectOk("return_requested", { type: "return.received" }, "return_received");
-    const result = expectOk(
-      "return_received",
-      { type: "refund.approved", partial: false },
-      "refunded",
-    );
+    const trigger: OrderTrigger = { type: "refund.approved", amount: FULL, partial: false };
+    const result = expectOk("return_received", trigger, "refunded");
     expect(result.ok && result.sideEffects).toContain("execute_provider_refund");
     expect(result.ok && result.sideEffects).toContain("restock_if_applicable");
+    // The adapter can answer "how much?" — the whole point of the amount.
+    expect("amount" in trigger && trigger.amount).toEqual(FULL);
   });
 
   it("partial approval of a return lands in partially_refunded", () => {
     expectOk(
       "return_received",
-      { type: "refund.approved", partial: true },
+      { type: "refund.approved", amount: PART, partial: true },
       "partially_refunded",
     );
   });
 
-  it("the provider webhook after an approved refund is rejected as a duplicate, never a second refund", () => {
-    // refund.approved already ran execute_provider_refund; the provider's
-    // payment.refunded webhook then finds the order in a terminal status.
-    expect(transition("refunded", { type: "payment.refunded", partial: false }).ok).toBe(false);
-    // And return_received itself never accepts the webhook directly — the
-    // refund must go through human approval (spec §10.2 row 10).
-    expect(transition("return_received", { type: "payment.refunded", partial: false }).ok).toBe(
+  it("the provider webhook after an approved refund is a replay, not a second refund", () => {
+    const result = transition("refunded", { type: "payment.refunded", amount: FULL, partial: false });
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.rejection).toBe("already_applied");
+    // And return_received never accepts the webhook directly.
+    expect(transition("return_received", { type: "payment.refunded", amount: FULL, partial: false }).ok).toBe(
       false,
     );
-    expect(transition("return_received", { type: "payment.refunded", partial: true }).ok).toBe(
-      false,
-    );
+  });
+});
+
+describe("failed provider refunds", () => {
+  it("parks the order in refund_failed instead of marking it refunded", () => {
+    for (const from of ["return_received", "refund_requested"] as const) {
+      const result = expectOk(from, { type: "payment.refund_failed" }, "refund_failed");
+      expect(result.ok && result.sideEffects).toContain("alert_refund_failure");
+    }
+  });
+
+  it("allows a retry that completes the refund", () => {
+    expectOk("refund_failed", { type: "refund.retried", amount: FULL, partial: false }, "refunded");
+    expectOk("refund_failed", { type: "refund.retried", amount: PART, partial: true }, "partially_refunded");
+  });
+
+  it("refund_failed is not reachable from unrelated statuses", () => {
+    expect(transition("paid", { type: "payment.refund_failed" }).ok).toBe(false);
+    expect(transition("shipped", { type: "payment.refund_failed" }).ok).toBe(false);
+  });
+});
+
+describe("rejection codes", () => {
+  it("distinguishes a replayed webhook from an invalid transition", () => {
+    const replay = transition("paid", { type: "payment.paid" });
+    expect(!replay.ok && replay.rejection).toBe("invalid_for_status");
+
+    const terminalReplay = transition("cancelled", { type: "payment.paid" });
+    expect(!terminalReplay.ok && terminalReplay.rejection).toBe("already_applied");
+
+    const nonsense = transition("draft", { type: "fulfilment.delivered" });
+    expect(!nonsense.ok && nonsense.rejection).toBe("invalid_for_status");
+
+    const terminal = transition("refunded", { type: "fulfilment.delivered" });
+    expect(!terminal.ok && terminal.rejection).toBe("terminal_status");
+  });
+
+  it("still carries a human-readable reason for logs", () => {
+    const result = transition("draft", { type: "fulfilment.delivered" });
+    expect(!result.ok && result.reason).toMatch(/not allowed from "draft"/);
   });
 });
 
 describe("invalid transitions", () => {
   it("rejects payment events on wrong states", () => {
     expect(transition("draft", { type: "payment.paid" }).ok).toBe(false);
-    expect(transition("paid", { type: "payment.paid" }).ok).toBe(false); // double webhook
+    expect(transition("paid", { type: "payment.paid" }).ok).toBe(false);
     expect(transition("shipped", { type: "payment.failed" }).ok).toBe(false);
   });
 
   it("terminal statuses accept no trigger at all", () => {
-    const triggers: OrderTrigger[] = [
-      { type: "checkout.created" },
-      { type: "checkout.expired" },
-      { type: "payment.paid" },
-      { type: "payment.failed" },
-      { type: "payment.refunded", partial: false },
-      { type: "fulfilment.picking_started" },
-      { type: "fulfilment.shipment_created" },
-      { type: "fulfilment.delivered" },
-      { type: "refund.requested" },
-      { type: "return.requested" },
-      { type: "return.received" },
-      { type: "refund.approved", partial: false },
-      { type: "refund.approved", partial: true },
-    ];
     for (const status of TERMINAL_STATUSES) {
-      for (const trigger of triggers) {
+      for (const trigger of EVERY_TRIGGER) {
         expect(transition(status, trigger).ok, `${status} ${trigger.type}`).toBe(false);
       }
     }
   });
+});
 
-  it("returns a diagnostic reason", () => {
-    const result = transition("draft", { type: "fulfilment.delivered" });
-    expect(!result.ok && result.reason).toMatch(/not allowed from "draft"/);
+describe("side-effect execution classification", () => {
+  it("classifies every side-effect the machine can emit", () => {
+    const emitted = new Set<SideEffect>();
+    for (const status of ALL_STATUSES) {
+      for (const trigger of EVERY_TRIGGER) {
+        const result = transition(status, trigger);
+        if (result.ok) result.sideEffects.forEach((effect) => emitted.add(effect));
+      }
+    }
+    for (const effect of emitted) {
+      expect(SIDE_EFFECT_EXECUTION[effect], `${effect} unclassified`).toBeDefined();
+    }
+  });
+
+  it("keeps outside-world effects out of the transaction", () => {
+    // A rollback cannot unsend an email, and a provider call inside the
+    // transaction holds a row lock across a network round-trip.
+    expect(SIDE_EFFECT_EXECUTION.send_confirmation_email).toBe("outbox");
+    expect(SIDE_EFFECT_EXECUTION.issue_tax_invoice).toBe("outbox");
+    expect(SIDE_EFFECT_EXECUTION.execute_provider_refund).toBe("outbox");
+    // Stock is ours and must move atomically with the status.
+    expect(SIDE_EFFECT_EXECUTION.commit_stock).toBe("transactional");
+    expect(SIDE_EFFECT_EXECUTION.release_reservation).toBe("transactional");
   });
 });
 
 describe("reachability", () => {
-  it("every non-draft status is reachable from draft", () => {
+  it("every status is reachable from draft", () => {
     const reachable = new Set<OrderStatus>(["draft"]);
-    const triggerTypes: OrderTrigger[] = [
-      { type: "checkout.created" },
-      { type: "checkout.expired" },
-      { type: "payment.paid" },
-      { type: "payment.failed" },
-      { type: "payment.refunded", partial: false },
-      { type: "payment.refunded", partial: true },
-      { type: "fulfilment.picking_started" },
-      { type: "fulfilment.shipment_created" },
-      { type: "fulfilment.delivered" },
-      { type: "refund.requested" },
-      { type: "return.requested" },
-      { type: "return.received" },
-      { type: "refund.approved", partial: false },
-      { type: "refund.approved", partial: true },
-    ];
     let grew = true;
     while (grew) {
       grew = false;
       for (const status of [...reachable]) {
-        for (const trigger of triggerTypes) {
+        for (const trigger of EVERY_TRIGGER) {
           const result = transition(status, trigger);
           if (result.ok && !reachable.has(result.next)) {
             reachable.add(result.next);
@@ -197,18 +259,20 @@ describe("paymentEventToTrigger", () => {
     providerEventId: "evt_1",
     providerPaymentId: "pi_1",
     orderId: "o_1",
-    amount: { amount: 129_000, currency: "EUR" as const },
+    amount: FULL,
     occurredAt: "2026-08-19T00:00:00Z",
   };
 
-  it("maps paid/failed/refunded and ignores authorized", () => {
+  it("maps paid/failed/refunded/refund_failed and ignores authorized", () => {
     expect(paymentEventToTrigger({ ...base, type: "paid" })).toEqual({ type: "payment.paid" });
-    expect(paymentEventToTrigger({ ...base, type: "failed" })).toEqual({
-      type: "payment.failed",
-    });
-    expect(paymentEventToTrigger({ ...base, type: "refunded", partial: true })).toEqual({
+    expect(paymentEventToTrigger({ ...base, type: "failed" })).toEqual({ type: "payment.failed" });
+    expect(paymentEventToTrigger({ ...base, type: "refunded", amount: PART, partial: true })).toEqual({
       type: "payment.refunded",
+      amount: PART,
       partial: true,
+    });
+    expect(paymentEventToTrigger({ ...base, type: "refund_failed" })).toEqual({
+      type: "payment.refund_failed",
     });
     const authorized: PaymentEvent = { ...base, type: "authorized" };
     expect(paymentEventToTrigger(authorized)).toBeNull();
@@ -219,5 +283,7 @@ describe("canTransition", () => {
   it("agrees with transition()", () => {
     expect(canTransition("draft", "checkout.created")).toBe(true);
     expect(canTransition("draft", "payment.paid")).toBe(false);
+    expect(canTransition("return_received", "payment.refund_failed")).toBe(true);
+    expect(canTransition("paid", "payment.refund_failed")).toBe(false);
   });
 });

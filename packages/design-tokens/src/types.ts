@@ -56,8 +56,19 @@ export const THEME_ALIASES = {
 
 export type ThemeAlias = keyof typeof THEME_ALIASES;
 
+export const THEME_ALIAS_LIST = Object.keys(THEME_ALIASES) as ThemeAlias[];
+
 /** Default theme for pages without an explicit choice (dark-first). */
 export const DEFAULT_THEME: ThemeAlias = "volt";
+
+/**
+ * Guard for values arriving from outside (CMS field, cookie, URL).
+ * Uses Object.hasOwn rather than `in`: `in` accepts Object.prototype keys
+ * such as "toString" and would stamp garbage into the DOM.
+ */
+export function isThemeAlias(value: unknown): value is ThemeAlias {
+  return typeof value === "string" && Object.hasOwn(THEME_ALIASES, value);
+}
 
 export function isToken(node: TokenGroup | Token): node is Token {
   return "$type" in node && "$value" in node;

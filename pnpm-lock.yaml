@@ -59,12 +59,23 @@ importers:
         version: 19.2.4(@types/react@19.2.18)
 
   packages/commerce-domain:
+    dependencies:
+      '@courvia/platform':
+        specifier: workspace:*
+        version: link:../platform
     devDependencies:
       '@courvia/config':
         specifier: workspace:*
         version: link:../config
 
-  packages/commerce-stripe-supabase:
+  packages/commerce-payload:
+    dependencies:
+      '@courvia/commerce-domain':
+        specifier: workspace:*
+        version: link:../commerce-domain
+      '@courvia/platform':
+        specifier: workspace:*
+        version: link:../platform
     devDependencies:
       '@courvia/config':
         specifier: workspace:*
@@ -78,7 +89,27 @@ importers:
         specifier: workspace:*
         version: link:../config
 
+  packages/payments-stripe:
+    dependencies:
+      '@courvia/commerce-domain':
+        specifier: workspace:*
+        version: link:../commerce-domain
+    devDependencies:
+      '@courvia/config':
+        specifier: workspace:*
+        version: link:../config
+
+  packages/platform:
+    devDependencies:
+      '@courvia/config':
+        specifier: workspace:*
+        version: link:../config
+
   packages/ui:
+    dependencies:
+      '@courvia/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
     devDependencies:
       '@courvia/config':
         specifier: workspace:*

@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Domain types, CommerceService and PaymentProvider ports, normalized PaymentEvents and the order state machine",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -14,5 +15,8 @@
   },
   "devDependencies": {
     "@courvia/config": "workspace:*"
+  },
+  "dependencies": {
+    "@courvia/platform": "workspace:*"
   }
 }

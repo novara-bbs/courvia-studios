@@ -1,0 +1,22 @@
+{
+  "name": "@courvia/commerce-payload",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "CommerceService implementation over Payload's Local API. Owns persistence and catalog — never gateway concerns.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@courvia/commerce-domain": "workspace:*",
+    "@courvia/platform": "workspace:*"
+  },
+  "devDependencies": {
+    "@courvia/config": "workspace:*"
+  }
+}

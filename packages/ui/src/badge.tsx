@@ -1,20 +1,19 @@
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import type { ReactNode } from "react";
 
-export interface BadgeProps extends ComponentPropsWithoutRef<"span"> {
+export interface BadgeProps {
   variant?: "default" | "accent";
   children: ReactNode;
 }
 
-export function Badge({ variant = "default", className, children, ...rest }: BadgeProps) {
-  const classes = [
-    "cv-badge",
-    variant === "accent" ? "cv-badge--accent" : undefined,
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+/**
+ * No `className` or `style` prop by design (ADR-16): the moment a primitive
+ * forwards arbitrary classes, CMS content can inject styling and the
+ * token-bound guardrail becomes advisory. Visual variation arrives through
+ * declared variants and the section-level appearance controls.
+ */
+export function Badge({ variant = "default", children }: BadgeProps) {
   return (
-    <span {...rest} className={classes}>
+    <span className={variant === "accent" ? "cv-badge cv-badge--accent" : "cv-badge"}>
       {children}
     </span>
   );

@@ -64,7 +64,16 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+/* Accent is a FILL, never small text: as text it measures 3.55:1 on carbon's
+ * surface, below the 4.5:1 AA floor, and CLAUDE.md §5 states carbon's accent
+ * carries dark text. As a fill it clears AA in all three themes. */
 .cv-badge--accent {
+  background: var(--cv-color-accent);
   border-color: var(--cv-color-accent);
-  color: var(--cv-color-accent);
+  color: var(--cv-color-accent-contrast);
+}
+
+.cv-card--raised {
+  background: var(--cv-color-surface-raised);
+  box-shadow: var(--cv-elevation-raised);
 }

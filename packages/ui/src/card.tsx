@@ -1,14 +1,11 @@
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import type { ReactNode } from "react";
 
-export interface CardProps extends ComponentPropsWithoutRef<"div"> {
+export interface CardProps {
+  /** Surface role this card sits on; bound to semantic tokens, not colours. */
+  surface?: "surface" | "raised";
   children: ReactNode;
 }
 
-export function Card({ className, children, ...rest }: CardProps) {
-  const classes = ["cv-card", className].filter(Boolean).join(" ");
-  return (
-    <div {...rest} className={classes}>
-      {children}
-    </div>
-  );
+export function Card({ surface = "surface", children }: CardProps) {
+  return <div className={`cv-card cv-card--${surface}`}>{children}</div>;
 }

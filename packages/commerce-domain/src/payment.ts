@@ -3,7 +3,12 @@
  * The order state machine consumes only normalized PaymentEvents; the
  * domain never knows which gateway sits behind them.
  */
-import type { Market, Money, Order, PaymentProviderId } from "./types";
+import type { MarketId } from "@courvia/platform";
+
+import type { Money } from "./money";
+import type { Order } from "./types";
+
+export type PaymentProviderId = "stripe" | "tabby" | "tamara" | "adyen";
 
 /** Raw, signature-verified webhook event, still provider-shaped. */
 export interface ProviderEvent {
@@ -15,7 +20,7 @@ export interface ProviderEvent {
   payload: unknown;
 }
 
-export type PaymentEventType = "authorized" | "paid" | "failed" | "refunded";
+export type PaymentEventType = "authorized" | "paid" | "failed" | "refunded" | "refund_failed";
 
 /** Normalized payment event — the only payment input the domain accepts. */
 export interface PaymentEvent {
@@ -24,8 +29,9 @@ export interface PaymentEvent {
   providerEventId: string;
   providerPaymentId: string;
   orderId: string;
+  /** For refunds this is the refunded amount, not the order total. */
   amount: Money;
-  /** Only meaningful for `refunded`: true when the refund is partial. */
+  /** Only meaningful for `refunded`: true when it does not cover the order. */
   partial?: boolean;
   occurredAt: string; // ISO-8601
 }
@@ -44,11 +50,39 @@ export interface RefundResult {
   status: "succeeded" | "pending" | "failed";
 }
 
+/** Raised by `verifyWebhook` when a signature does not match. */
+export class WebhookSignatureError extends Error {
+  constructor(provider: PaymentProviderId, cause?: unknown) {
+    super(`Invalid webhook signature for provider "${provider}"`);
+    this.name = "WebhookSignatureError";
+    this.cause = cause;
+  }
+}
+
 export interface PaymentProvider {
   id: PaymentProviderId;
-  createSession(order: Order, market: Market): Promise<PaymentSession>;
+
+  createSession(order: Order, market: MarketId): Promise<PaymentSession>;
+
   refund(providerPaymentId: string, amount?: Money): Promise<RefundResult>;
-  /** Verifies the webhook signature; throws on an invalid signature. */
-  verifyWebhook(req: Request): ProviderEvent;
-  normalizeEvent(e: ProviderEvent): PaymentEvent;
+
+  /**
+   * Verifies the webhook signature over the EXACT bytes received.
+   *
+   * Takes the raw body rather than a `Request` and is async on purpose:
+   * every gateway signs the unparsed payload, and reading a `Request` body
+   * requires awaiting it. An earlier synchronous `(req: Request)` signature
+   * was literally unimplementable — caught by the contract suite in
+   * `./testing`, which every adapter must pass.
+   *
+   * Implementations MUST be `async` (or return a rejected promise): a
+   * synchronous throw escapes before the promise exists, so callers using
+   * `.catch()` never see it. The contract suite asserts this.
+   *
+   * @throws WebhookSignatureError when the signature does not match.
+   */
+  verifyWebhook(rawBody: string, signature: string): Promise<ProviderEvent>;
+
+  /** Returns null for provider events the domain has no meaning for. */
+  normalizeEvent(event: ProviderEvent): PaymentEvent | null;
 }

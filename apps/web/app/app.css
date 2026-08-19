@@ -24,10 +24,8 @@
 [data-theme='club'] {
   --cv-font-display: var(--font-bricolage-grotesque), sans-serif;
   --cv-font-body: var(--font-instrument-sans), sans-serif;
+  --cv-font-data: var(--font-ibm-plex-mono), monospace;
   --cv-font-voice: var(--font-instrument-serif), serif;
-  /* club defines no data font — keep it neutralized so var() fallbacks win
-   * (this file loads after tokens.css, so it must restate the reset). */
-  --cv-font-data: initial;
 }
 
 body {

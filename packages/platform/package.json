@@ -1,15 +1,16 @@
 {
-  "name": "@courvia/commerce-stripe-supabase",
+  "name": "@courvia/platform",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Current adapter implementing the commerce/payment ports on Stripe + Supabase",
+  "description": "Cross-cutting vocabulary: sports, locales, markets, currencies. Zero dependencies by design.",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@courvia/config": "workspace:*"
