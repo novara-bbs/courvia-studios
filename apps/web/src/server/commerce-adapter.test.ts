@@ -1,57 +1,277 @@
 /**
  * The real adapter, through the real composition root, against a real
- * Postgres with the seeded demo catalog (`pnpm seed:catalog`). Skipped when
- * no DATABASE_URL is configured; CI provides one plus migrations and seeds.
+ * Postgres with the seeded demo catalog (`pnpm seed:catalog` +
+ * `pnpm seed:markets`). Skipped when no DATABASE_URL is configured; CI
+ * provides one plus migrations and seeds.
+ *
+ * Covers the FULL CommerceService contract (catalog + checkout, ADR-13's
+ * proof) and the §4 payment pipeline: ledger-first idempotency, state
+ * machine in a transaction, stock movements and the outbox.
  */
-import { NotImplementedError } from "@courvia/commerce-domain";
-import { describeCatalogContract } from "@courvia/commerce-domain/testing";
-import { describe, expect, it } from "vitest";
-
-import { getCommerce } from "./container";
+import { CheckoutError } from "@courvia/commerce-domain";
+import type { PaymentEvent } from "@courvia/commerce-domain";
+import { describeCommerceServiceContract } from "@courvia/commerce-domain/testing";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const hasDb = typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL !== "";
+// The fake gateway drives checkout/webhooks end-to-end without credentials.
+process.env.PAYMENT_FAKE_SECRET ??= "test-secret";
+
+const CHECKOUT_INPUT = {
+  market: "es" as const,
+  lines: [{ sku: "DRL-PRO-P", quantity: 1 }],
+  email: "contract@courvia.test",
+  provider: "stripe" as const,
+  shippingAddress: {
+    name: "Test",
+    line1: "Calle Uno 1",
+    city: "Madrid",
+    postalCode: "28001",
+    country: "ES",
+  },
+};
+
+async function loadContainer() {
+  return import("./container");
+}
+
+async function loadPayload() {
+  const { getPayload } = await import("payload");
+  const { default: config } = await import("@payload-config");
+  return getPayload({ config });
+}
+
+/** The canonical seed stock (src/payload/seed-catalog.ts): tests commit
+ *  real units, so both hooks restore this exact profile — runs stay
+ *  deterministic and the dev DB keeps its demo state (incl. the agotado). */
+const SEED_STOCK: Record<string, number> = {
+  "DRL-ONE-P": 12,
+  "DRL-ONE-T": 8,
+  "DRL-PRO-P": 9,
+  "DRL-PRO-T": 0,
+  "DRL-PRO-PB": 5,
+  "DRL-CLB-P": 3,
+  "DRL-CLB-T": 2,
+};
+
+async function resetCommerceRows() {
+  const payload = await loadPayload();
+  for (const collection of ["outbox", "payments", "returns"] as const) {
+    await payload.delete({ collection, where: { id: { exists: true } }, overrideAccess: true });
+  }
+  await payload.delete({
+    collection: "orders",
+    where: { id: { exists: true } },
+    overrideAccess: true,
+  });
+  const variants = await payload.find({
+    collection: "variants",
+    limit: 100,
+    depth: 0,
+    overrideAccess: true,
+  });
+  const skuByVariant = new Map(variants.docs.map((doc) => [doc.id, doc.sku]));
+  const inventory = await payload.find({
+    collection: "inventory",
+    limit: 100,
+    depth: 0,
+    overrideAccess: true,
+  });
+  for (const row of inventory.docs) {
+    const variantId = typeof row.variant === "object" ? row.variant.id : row.variant;
+    const sku = skuByVariant.get(variantId);
+    const qtyOnHand = sku !== undefined && sku in SEED_STOCK ? SEED_STOCK[sku]! : row.qtyOnHand;
+    await payload.update({
+      collection: "inventory",
+      id: row.id,
+      data: { qtyOnHand, qtyCommitted: 0 },
+      overrideAccess: true,
+    });
+  }
+}
 
 if (hasDb) {
-  describeCatalogContract("PayloadCommerceService (via container)", () => getCommerce("es"), {
-    knownSlug: "drill-pro",
-    unknownSlug: "no-such-robot",
-    knownSku: "DRL-PRO-P",
-    unknownSku: "NOPE-0",
-    market: "es",
-    otherMarket: "uk",
-  });
+  beforeAll(resetCommerceRows);
+  afterAll(resetCommerceRows);
 
-  describe("checkout half is staged, not pretended", () => {
-    it("createCheckout throws NotImplementedError until S2", async () => {
+  describeCommerceServiceContract(
+    "PayloadCommerceService (via container)",
+    async () => {
+      const { getCommerce } = await loadContainer();
+      return getCommerce("es");
+    },
+    {
+      knownSlug: "drill-pro",
+      unknownSlug: "no-such-robot",
+      knownSku: "DRL-PRO-P",
+      unknownSku: "NOPE-0",
+      market: "es",
+      otherMarket: "uk",
+      checkout: CHECKOUT_INPUT,
+    },
+  );
+
+  describe("checkout guardrails (§4)", () => {
+    it("rejects a provider the market does not offer", async () => {
+      const { getCommerce } = await loadContainer();
       const service = await getCommerce("es");
       await expect(
-        service.createCheckout({
-          market: "es",
-          lines: [{ sku: "DRL-PRO-P", quantity: 1 }],
-          email: "test@example.com",
-          provider: "stripe",
-          shippingAddress: {
-            name: "Test",
-            line1: "Calle Uno 1",
-            city: "Madrid",
-            postalCode: "28001",
-            country: "ES",
-          },
-        }),
-      ).rejects.toBeInstanceOf(NotImplementedError);
+        service.createCheckout({ ...CHECKOUT_INPUT, provider: "tabby" }),
+      ).rejects.toMatchObject({ code: "provider_not_available" });
+    });
+
+    it("rejects an unknown sku with a typed code", async () => {
+      const { getCommerce } = await loadContainer();
+      const service = await getCommerce("es");
+      const failure = await service
+        .createCheckout({ ...CHECKOUT_INPUT, lines: [{ sku: "NOPE-0", quantity: 1 }] })
+        .catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(CheckoutError);
+      expect((failure as CheckoutError).code).toBe("unknown_sku");
+    });
+
+    it("rejects quantities beyond available stock", async () => {
+      const { getCommerce } = await loadContainer();
+      const service = await getCommerce("es");
+      await expect(
+        service.createCheckout({ ...CHECKOUT_INPUT, lines: [{ sku: "DRL-PRO-P", quantity: 999 }] }),
+      ).rejects.toMatchObject({ code: "insufficient_stock" });
+    });
+
+    it("reserves stock on checkout and computes the total server-side", async () => {
+      const { getCommerce } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+
+      const before = await service.getAvailability(["DRL-PRO-P"]);
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+      const after = await service.getAvailability(["DRL-PRO-P"]);
+      expect(after[0]!.available).toBe(before[0]!.available - 1);
+
+      const order = await service.getOrder(checkout.orderId);
+      expect(order?.status).toBe("pending_payment");
+      // 129000 comes from the prices table, not from anything the client sent.
+      expect(order?.total).toMatchObject({ amount: 129_000, currency: "EUR" });
+
+      const stored = await payload.findByID({
+        collection: "orders",
+        id: Number(checkout.orderId),
+        depth: 0,
+        overrideAccess: true,
+      });
+      expect(stored.providerPaymentId).toBe(`pi_${checkout.orderId}`);
     });
   });
 
-  describe("localized reads", () => {
-    it("serves the locale it was built for", async () => {
-      const es = await getCommerce("es");
-      const en = await getCommerce("en");
-      const [a, b] = await Promise.all([
-        es.getProductDetail("drill-pro", "es"),
-        en.getProductDetail("drill-pro", "uk"),
-      ]);
-      expect(a?.product.excerpt).toContain("sparring que no se cansa");
-      expect(b?.product.excerpt).toContain("never tires");
+  describe("payment pipeline (§4: ledger-first, transactional, outbox)", () => {
+    function paidEvent(orderId: string, eventId: string): PaymentEvent {
+      return {
+        type: "paid",
+        provider: "stripe",
+        providerEventId: eventId,
+        providerPaymentId: `pi_${orderId}`,
+        orderId,
+        amount: { amount: 129_000, currency: "EUR" },
+        occurredAt: "2026-08-19T12:00:00.000Z",
+      };
+    }
+
+    it("paid moves the order, commits stock and fills the outbox — once", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+      const first = await applyPaymentEvent(paidEvent(checkout.orderId, "evt_paid_1"));
+      expect(first).toMatchObject({ outcome: "applied", status: "paid" });
+
+      const order = await service.getOrder(checkout.orderId);
+      expect(order?.status).toBe("paid");
+
+      const outbox = await payload.find({
+        collection: "outbox",
+        where: { order: { equals: Number(checkout.orderId) } },
+        depth: 0,
+        overrideAccess: true,
+      });
+      const effects = outbox.docs.map((doc) => doc.effect).sort();
+      expect(effects).toEqual(["issue_tax_invoice", "notify_crm", "send_confirmation_email"]);
+
+      // Same event id replayed: the UNIQUE ledger row absorbs it, no effects.
+      const replay = await applyPaymentEvent(paidEvent(checkout.orderId, "evt_paid_1"));
+      expect(replay).toMatchObject({ outcome: "duplicate" });
+
+      // A DIFFERENT event that says the same thing: expected replay, logged,
+      // no second transition and no extra outbox rows.
+      const semantic = await applyPaymentEvent(paidEvent(checkout.orderId, "evt_paid_2"));
+      expect(semantic).toMatchObject({ outcome: "already_applied" });
+      const outboxAfter = await payload.find({
+        collection: "outbox",
+        where: { order: { equals: Number(checkout.orderId) } },
+        depth: 0,
+        overrideAccess: true,
+      });
+      expect(outboxAfter.totalDocs).toBe(outbox.totalDocs);
+    });
+
+    it("a refund webhook out of order is rejected as invalid, not applied", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const service = await getCommerce("es");
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+
+      // pending_payment does not accept payment.refunded (§10.2).
+      const result = await applyPaymentEvent({
+        type: "refunded",
+        provider: "stripe",
+        providerEventId: "evt_refund_early",
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount: 129_000, currency: "EUR" },
+        partial: false,
+        occurredAt: "2026-08-19T12:00:00.000Z",
+      });
+      expect(result).toMatchObject({ outcome: "invalid" });
+      // Rolled back entirely: the same event id can apply cleanly later.
+      const retried = await applyPaymentEvent({
+        type: "paid",
+        provider: "stripe",
+        providerEventId: "evt_refund_early",
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount: 129_000, currency: "EUR" },
+        occurredAt: "2026-08-19T12:00:00.000Z",
+      });
+      expect(retried).toMatchObject({ outcome: "applied", status: "paid" });
+    });
+
+    it("refund after approval reaches refunded and tracks the refunded total", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+      await applyPaymentEvent(paidEvent(checkout.orderId, `evt_paid_${checkout.orderId}`));
+      // Support marks the refund request (manual-assisted phase 1).
+      await payload.update({
+        collection: "orders",
+        id: Number(checkout.orderId),
+        data: { status: "refund_requested" },
+        overrideAccess: true,
+      });
+
+      const result = await applyPaymentEvent({
+        type: "refunded",
+        provider: "stripe",
+        providerEventId: `evt_refund_${checkout.orderId}`,
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount: 50_000, currency: "EUR" },
+        partial: true,
+        occurredAt: "2026-08-19T13:00:00.000Z",
+      });
+      expect(result).toMatchObject({ outcome: "applied", status: "partially_refunded" });
+      const order = await service.getOrder(checkout.orderId);
+      expect(order?.refundedTotal).toMatchObject({ amount: 50_000 });
     });
   });
 } else {

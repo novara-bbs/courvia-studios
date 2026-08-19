@@ -227,7 +227,8 @@ Pendiente, en orden (cada paquete = una sesión):
 | ~~12~~ | ~~`commerce-payload` contra las suites de contrato~~ **hecho 19-ago** (catálogo; checkout rechaza `NotImplementedError` hasta S2) | 10, 11 | — |
 | 13 | Plantillas (PDP editable como plantilla, secciones *binding*) + comparador | 8, 12 | parcial |
 | 14 | Resto de secciones (SpecsTable/LeadForm/etc. como bloques) | 7, 13 | parcial |
-| 15 | `payments-stripe` + webhook + outbox + checkout | 12 | **no** + aprobación humana |
+| ~~15a~~ | ~~Fontanería de pagos: orders/payments/outbox/returns, checkout transaccional, webhook `/next/webhooks/{provider}`, registro multi-proveedor, Stripe verify+normalize~~ **hecho 19-ago** (circuito completo verde con el proveedor fake) | 12 | — |
+| 15b | Conectar Stripe: SDK + createSession/refund + credenciales | 15a | **no** + aprobación humana |
 | 16 | Playwright, axe, regresión visual, jobs de CI separados | 7, 14 | sí |
 
 **Los WP 6, 4/5, 10/11 y 15 son los caros de cambiar después.** El resto es aditivo.

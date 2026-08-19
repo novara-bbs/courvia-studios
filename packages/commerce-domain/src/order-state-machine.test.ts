@@ -172,8 +172,9 @@ describe("failed provider refunds", () => {
 
 describe("rejection codes", () => {
   it("distinguishes a replayed webhook from an invalid transition", () => {
+    // A repeated paid on an already-paid order is a replay, not a fault.
     const replay = transition("paid", { type: "payment.paid" });
-    expect(!replay.ok && replay.rejection).toBe("invalid_for_status");
+    expect(!replay.ok && replay.rejection).toBe("already_applied");
 
     const terminalReplay = transition("cancelled", { type: "payment.paid" });
     expect(!terminalReplay.ok && terminalReplay.rejection).toBe("already_applied");
@@ -285,5 +286,15 @@ describe("canTransition", () => {
     expect(canTransition("draft", "payment.paid")).toBe(false);
     expect(canTransition("return_received", "payment.refund_failed")).toBe(true);
     expect(canTransition("paid", "payment.refund_failed")).toBe(false);
+  });
+});
+
+describe("webhook replays past payment", () => {
+  it("a second payment.paid on any post-paid status is already_applied, not invalid", () => {
+    for (const status of ["paid", "preparing", "shipped", "delivered"] as const) {
+      const result = transition(status, { type: "payment.paid" });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.rejection).toBe("already_applied");
+    }
   });
 });

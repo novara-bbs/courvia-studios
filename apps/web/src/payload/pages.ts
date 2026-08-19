@@ -20,6 +20,7 @@ export const Pages: CollectionConfig = {
   slug: "pages",
   admin: {
     useAsTitle: "title",
+    group: "Contenido",
     defaultColumns: ["title", "slug", "_status", "updatedAt"],
     description: "Páginas componibles. El orden de las secciones es el orden en pantalla.",
     livePreview: {

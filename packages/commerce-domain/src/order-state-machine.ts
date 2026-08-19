@@ -197,6 +197,20 @@ const REPLAYABLE_TRIGGERS: readonly TriggerType[] = [
   "payment.failed",
 ];
 
+/** Every status an order can only reach AFTER payment.paid was consumed: a
+ *  second `paid` webhook (retried with a NEW event id, or delivered out of
+ *  order) landing on any of these already did its work. */
+const DOWNSTREAM_OF_PAID: readonly OrderStatus[] = [
+  "paid",
+  "preparing",
+  "shipped",
+  "delivered",
+  "refund_requested",
+  "refund_failed",
+  "return_requested",
+  "return_received",
+];
+
 export function transition(current: OrderStatus, trigger: OrderTrigger): TransitionResult {
   // A failed provider refund parks the order wherever it was awaiting one.
   if (trigger.type === "payment.refund_failed") {
@@ -212,6 +226,15 @@ export function transition(current: OrderStatus, trigger: OrderTrigger): Transit
 
   const rule = TRANSITIONS[current]?.[trigger.type];
   if (rule === undefined) {
+    // A repeated `paid` (same meaning, possibly a different event id) on an
+    // order that is already past payment is a replay, not a fault.
+    if (trigger.type === "payment.paid" && DOWNSTREAM_OF_PAID.includes(current)) {
+      return {
+        ok: false,
+        rejection: "already_applied",
+        reason: `Order is already "${current}"; "payment.paid" is a replay`,
+      };
+    }
     const terminal = TERMINAL_STATUSES.includes(current);
     if (terminal && REPLAYABLE_TRIGGERS.includes(trigger.type)) {
       return {

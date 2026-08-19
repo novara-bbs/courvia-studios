@@ -18,7 +18,15 @@ export interface ProviderEvent {
   payload: unknown;
 }
 
-export type PaymentEventType = "authorized" | "paid" | "failed" | "refunded" | "refund_failed";
+export const PAYMENT_EVENT_TYPES = [
+  "authorized",
+  "paid",
+  "failed",
+  "refunded",
+  "refund_failed",
+] as const;
+
+export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
 
 /** Normalized payment event — the only payment input the domain accepts. */
 export interface PaymentEvent {

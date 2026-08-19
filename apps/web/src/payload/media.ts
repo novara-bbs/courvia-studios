@@ -15,6 +15,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 export const Media: CollectionConfig = {
   slug: "media",
   admin: {
+    group: "Contenido",
     description: "Imágenes y vídeo. El alt es obligatorio y se traduce.",
   },
   access: {

@@ -7,6 +7,7 @@ import { buildConfig } from "payload";
 import sharp from "sharp";
 
 import { Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
+import { Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
 import { Media } from "./src/payload/media";
 import { Pages } from "./src/payload/pages";
 import { MarketSettings } from "./src/payload/market-settings";
@@ -61,7 +62,21 @@ export default buildConfig({
     },
   },
 
-  collections: [Users, Media, Pages, Categories, Products, Variants, Prices, Inventory, Leads],
+  collections: [
+    Users,
+    Media,
+    Pages,
+    Categories,
+    Products,
+    Variants,
+    Prices,
+    Inventory,
+    Leads,
+    Orders,
+    Payments,
+    Outbox,
+    Returns,
+  ],
   globals: [ThemeSettings, MarketSettings],
 
   typescript: {

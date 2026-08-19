@@ -14,6 +14,7 @@ export const Users: CollectionConfig = {
   slug: "users",
   auth: true,
   admin: {
+    group: "Sistema",
     useAsTitle: "email",
     description: "Cuentas del panel. Los clientes de la tienda no viven aquí.",
   },

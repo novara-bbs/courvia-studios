@@ -1,0 +1,77 @@
+# Despliegue
+
+> Objetivo: ver Courvia en una URL real. Primera opción: **Vercel** (soporte
+> de primera clase para Next 16, PPR/cacheComponents y el proxy). Netlify u
+> otros funcionan pero exigen adaptación propia; abajo se anota lo mínimo.
+> Los secretos viven en Vercel/GitHub Environments — nunca en el repo, y el
+> agente nunca los lee ni los pide (CLAUDE.md §4).
+
+## Vercel — configuración del proyecto
+
+| Ajuste | Valor |
+|---|---|
+| Framework | Next.js (autodetectado) |
+| **Root Directory** | `apps/web` |
+| Install Command | `pnpm install --frozen-lockfile` (desde la raíz; Vercel detecta el workspace) |
+| Build Command | el por defecto (`next build`); Turbo no hace falta en Vercel |
+| Node | 22.x (lo fija `package.json#engines` / `.nvmrc`) |
+
+### Variables de entorno (las pone el propietario, no el agente)
+
+| Variable | Entorno | Qué es |
+|---|---|---|
+| `DATABASE_URL` | Production/Preview | Supabase con **pooler** (puerto 6543, `?pgbouncer=true`): serverless abre muchas conexiones cortas y el pooler las absorbe. La contraseña la pega el propietario. |
+| `PAYLOAD_SECRET` | Production/Preview | Aleatorio largo; distinto del local. |
+| `NEXT_PUBLIC_SITE_URL` | Production | `https://{dominio}` — canónicas/hreflang; `siteUrl()` revienta el build de producción si falta. |
+| `STRIPE_WEBHOOK_SECRET` | cuando se conecte | Activa el adaptador Stripe (solo webhooks). |
+| `STRIPE_SECRET_KEY` | cuando se conecte | Solo para la tarea de integración aprobada. |
+| `PAYMENT_FAKE_SECRET` | **solo Preview/dev** | El container lo ignora en producción. |
+
+### Migraciones: nunca en el build
+
+`push: false` — el esquema solo cambia por migraciones, y su aplicación a
+producción va **únicamente por CI con aprobación humana** (§4). El deploy de
+Vercel NO ejecuta `payload migrate`. Flujo:
+
+1. La migración se crea y prueba en local (`pnpm migrate`).
+2. CI la valida contra Postgres real en cada push.
+3. Aplicación a la BD de producción: paso manual aprobado (hoy vía MCP de
+   Supabase con aprobación explícita; a futuro un job de GitHub Actions con
+   environment protegido).
+4. Solo entonces se despliega el código que la necesita.
+
+### Lo que hay que decidir ANTES de subir tráfico real
+
+- **Uploads (Media)**: el filesystem de Vercel es efímero — `apps/web/media/`
+  no sirve en producción. Falta elegir adaptador de almacenamiento
+  (`@payloadcms/storage-s3` contra Supabase Storage es lo natural aquí) e
+  instalarlo. Hasta entonces: no subir media en producción.
+- **Dominio**: courvia.com/es sin verificar (pendiente legal, CLAUDE.md §1).
+  Mientras, el subdominio `*.vercel.app` sirve para previews.
+- **Outbox**: el despacho es manual-asistido; el cron/worker (Vercel Cron)
+  llega con la integración de pagos.
+
+### Por qué el build funciona sin base de datos y con ella
+
+- Sin `DATABASE_URL`: el build prerenderiza con catálogo vacío y las páginas
+  se rellenan bajo demanda en runtime (que SÍ necesita la BD).
+- Con `DATABASE_URL` configurada y la BD caída: **el build falla a
+  propósito** en vez de hornear un catálogo vacío en caché de larga vida.
+
+## Netlify u otros
+
+Posible con el adaptador Next de Netlify, pero PPR/cacheComponents y el
+proxy están probados solo en Vercel. Si algún día importa, es un spike
+propio: no asumir paridad. Autohospedado (Docker + `next start`) también
+funciona — es exactamente lo que corre en desarrollo — pero pierdes el CDN
+y el ISR distribuido.
+
+## Checklist del primer deploy (Vercel)
+
+1. Importar el repo en Vercel · Root Directory `apps/web`.
+2. Pegar `DATABASE_URL` (pooler 6543), `PAYLOAD_SECRET`, `NEXT_PUBLIC_SITE_URL`.
+3. Confirmar que las 4 migraciones están aplicadas en Supabase (lo están).
+4. Deploy → smoke: `/es`, `/es/robots`, `/es/robots/drill-pro`, `/admin`,
+   403 en `/api/prices`, 404 en `/next/webhooks/stripe` (sin configurar: correcto).
+5. Sembrar contenido real desde `/admin` (o ejecutar los seeds una vez
+   contra la BD de producción si se quiere el demo).

@@ -76,6 +76,10 @@ export interface Config {
     prices: Price;
     inventory: Inventory;
     leads: Lead;
+    orders: Order;
+    payments: Payment;
+    outbox: Outbox;
+    returns: Return;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -92,6 +96,10 @@ export interface Config {
     prices: PricesSelect<false> | PricesSelect<true>;
     inventory: InventorySelect<false> | InventorySelect<true>;
     leads: LeadsSelect<false> | LeadsSelect<true>;
+    orders: OrdersSelect<false> | OrdersSelect<true>;
+    payments: PaymentsSelect<false> | PaymentsSelect<true>;
+    outbox: OutboxSelect<false> | OutboxSelect<true>;
+    returns: ReturnsSelect<false> | ReturnsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -461,6 +469,154 @@ export interface Lead {
   createdAt: string;
 }
 /**
+ * SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (§10.2).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders".
+ */
+export interface Order {
+  id: number;
+  /**
+   * Solo lo mueve la máquina de estados. No editar.
+   */
+  status:
+    | 'draft'
+    | 'pending_payment'
+    | 'paid'
+    | 'cancelled'
+    | 'preparing'
+    | 'shipped'
+    | 'delivered'
+    | 'refund_requested'
+    | 'refund_failed'
+    | 'refunded'
+    | 'partially_refunded'
+    | 'return_requested'
+    | 'return_received';
+  market: 'es' | 'uk' | 'ae';
+  email: string;
+  locale?: string | null;
+  lines: {
+    variant: number | Variant;
+    sku: string;
+    quantity: number;
+    /**
+     * Unidades menores, copiadas del precio del mercado al crear.
+     */
+    unitAmount: number;
+    id?: string | null;
+  }[];
+  totalAmount: number;
+  /**
+   * 0 mientras los precios son inclusive; el motor fiscal llega con la pasarela.
+   */
+  taxAmount: number;
+  refundedAmount: number;
+  shippingAddress: {
+    name: string;
+    line1: string;
+    line2?: string | null;
+    city: string;
+    postalCode: string;
+    country: string;
+  };
+  billingAddress?: {
+    name?: string | null;
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  };
+  /**
+   * Pasarela elegida por el cliente (ADR-14).
+   */
+  provider?: ('stripe' | 'tabby' | 'tamara' | 'adyen') | null;
+  /**
+   * Id del pago en la pasarela; llega al crear la sesión.
+   */
+  providerPaymentId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * SOLO SERVIDOR. Libro de eventos de pago normalizados. La fila se inserta ANTES de la transición: (provider, providerEventId) UNIQUE es la idempotencia — un webhook repetido revienta aquí, sin efectos.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payments".
+ */
+export interface Payment {
+  id: number;
+  provider: 'stripe' | 'tabby' | 'tamara' | 'adyen';
+  providerEventId: string;
+  type: 'authorized' | 'paid' | 'failed' | 'refunded' | 'refund_failed';
+  order: number | Order;
+  providerPaymentId?: string | null;
+  amount: number;
+  partial?: boolean | null;
+  occurredAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * SOLO SERVIDOR. Efectos externos (email, factura, reembolso en pasarela) escritos en la MISMA transacción que la transición y despachados después del commit — un rollback no des-envía un email.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "outbox".
+ */
+export interface Outbox {
+  id: number;
+  effect:
+    | 'send_confirmation_email'
+    | 'notify_crm'
+    | 'issue_tax_invoice'
+    | 'send_tracking_email'
+    | 'send_post_sale_email'
+    | 'open_withdrawal_window'
+    | 'execute_provider_refund'
+    | 'send_refund_email'
+    | 'issue_credit_note'
+    | 'alert_refund_failure';
+  order: number | Order;
+  status: 'pending' | 'dispatched' | 'failed';
+  /**
+   * Datos del efecto (p. ej. importe de un reembolso, en unidades menores).
+   */
+  payload?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  attempts: number;
+  lastError?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * SOLO SERVIDOR. RMA: la aprobación humana del reembolso (refund.approved) es el ÚNICO disparador que ordena ejecutar un reembolso en la pasarela.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "returns".
+ */
+export interface Return {
+  id: number;
+  order: number | Order;
+  status: 'requested' | 'received' | 'refunded' | 'rejected';
+  lines: {
+    sku: string;
+    quantity: number;
+    id?: string | null;
+  }[];
+  reason: string;
+  refundAmount?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -519,6 +675,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'leads';
         value: number | Lead;
+      } | null)
+    | ({
+        relationTo: 'orders';
+        value: number | Order;
+      } | null)
+    | ({
+        relationTo: 'payments';
+        value: number | Payment;
+      } | null)
+    | ({
+        relationTo: 'outbox';
+        value: number | Outbox;
+      } | null)
+    | ({
+        relationTo: 'returns';
+        value: number | Return;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -812,6 +984,101 @@ export interface LeadsSelect<T extends boolean = true> {
   consent?: T;
   locale?: T;
   sourcePath?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders_select".
+ */
+export interface OrdersSelect<T extends boolean = true> {
+  status?: T;
+  market?: T;
+  email?: T;
+  locale?: T;
+  lines?:
+    | T
+    | {
+        variant?: T;
+        sku?: T;
+        quantity?: T;
+        unitAmount?: T;
+        id?: T;
+      };
+  totalAmount?: T;
+  taxAmount?: T;
+  refundedAmount?: T;
+  shippingAddress?:
+    | T
+    | {
+        name?: T;
+        line1?: T;
+        line2?: T;
+        city?: T;
+        postalCode?: T;
+        country?: T;
+      };
+  billingAddress?:
+    | T
+    | {
+        name?: T;
+        line1?: T;
+        line2?: T;
+        city?: T;
+        postalCode?: T;
+        country?: T;
+      };
+  provider?: T;
+  providerPaymentId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payments_select".
+ */
+export interface PaymentsSelect<T extends boolean = true> {
+  provider?: T;
+  providerEventId?: T;
+  type?: T;
+  order?: T;
+  providerPaymentId?: T;
+  amount?: T;
+  partial?: T;
+  occurredAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "outbox_select".
+ */
+export interface OutboxSelect<T extends boolean = true> {
+  effect?: T;
+  order?: T;
+  status?: T;
+  payload?: T;
+  attempts?: T;
+  lastError?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "returns_select".
+ */
+export interface ReturnsSelect<T extends boolean = true> {
+  order?: T;
+  status?: T;
+  lines?:
+    | T
+    | {
+        sku?: T;
+        quantity?: T;
+        id?: T;
+      };
+  reason?: T;
+  refundAmount?: T;
   updatedAt?: T;
   createdAt?: T;
 }

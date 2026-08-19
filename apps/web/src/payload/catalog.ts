@@ -28,7 +28,11 @@ const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const Categories: CollectionConfig = {
   slug: "categories",
-  admin: { useAsTitle: "title", description: "Facetas de catálogo: robots, palas, bolas…" },
+  admin: {
+    useAsTitle: "title",
+    group: "Catálogo",
+    description: "Facetas de catálogo: robots, palas, bolas…",
+  },
   access: { read: anyone, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
   hooks: {
     afterChange: [() => revalidateCatalog()],
@@ -53,6 +57,7 @@ export const Products: CollectionConfig = {
   slug: "products",
   admin: {
     useAsTitle: "title",
+    group: "Catálogo",
     defaultColumns: ["title", "slug", "sports", "_status", "updatedAt"],
     description:
       "La familia (Drill Pro, Drill One…). La configuración por deporte vive en sus variantes (ADR-04).",
@@ -134,6 +139,7 @@ export const Variants: CollectionConfig = {
   slug: "variants",
   admin: {
     useAsTitle: "sku",
+    group: "Catálogo",
     defaultColumns: ["sku", "product", "sport", "active"],
     description: "Un SKU por deporte y configuración (Drill Pro → T / P / PB).",
   },
@@ -173,6 +179,7 @@ export const Prices: CollectionConfig = {
   slug: "prices",
   admin: {
     useAsTitle: "id",
+    group: "Catálogo",
     defaultColumns: ["variant", "market", "amount", "active"],
     description:
       "SOLO SERVIDOR. Importes en unidades menores (129000 = 1.290,00). La moneda la fija el mercado en código: nunca hay conversión en runtime (ADR-05).",
@@ -218,6 +225,7 @@ export const Inventory: CollectionConfig = {
   slug: "inventory",
   admin: {
     useAsTitle: "id",
+    group: "Catálogo",
     defaultColumns: ["variant", "qtyOnHand", "qtyCommitted"],
     description: "SOLO SERVIDOR. Disponible = en mano − comprometido; se compromete solo tras `paid`.",
   },
@@ -241,6 +249,7 @@ export const Leads: CollectionConfig = {
   slug: "leads",
   admin: {
     useAsTitle: "email",
+    group: "Comercio",
     defaultColumns: ["email", "market", "sportInterest", "createdAt"],
     description: "Captación comercial. Se crean desde el formulario web (server action), nunca por REST público.",
   },

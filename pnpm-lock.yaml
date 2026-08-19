@@ -59,6 +59,9 @@ importers:
       '@courvia/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@courvia/payments-stripe':
+        specifier: workspace:*
+        version: link:../../packages/payments-stripe
       '@courvia/platform':
         specifier: workspace:*
         version: link:../../packages/platform
@@ -183,10 +186,16 @@ importers:
       '@courvia/commerce-domain':
         specifier: workspace:*
         version: link:../commerce-domain
+      '@courvia/platform':
+        specifier: workspace:*
+        version: link:../platform
     devDependencies:
       '@courvia/config':
         specifier: workspace:*
         version: link:../config
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@types/node@22.20.1)(happy-dom@20.11.2)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(sass@1.77.4)(tsx@4.23.12))
 
   packages/platform:
     devDependencies:

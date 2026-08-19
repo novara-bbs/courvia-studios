@@ -62,6 +62,9 @@ jobs:
       - name: Seed demo catalog
         run: pnpm --filter @courvia/web seed:catalog
 
+      - name: Seed market settings
+        run: pnpm --filter @courvia/web seed:markets
+
       # Runs the same entry point a contributor runs locally, so a broken
       # root script cannot ship green.
       - name: Verify

@@ -16,13 +16,15 @@
     "migrate:create": "payload migrate:create",
     "seed:admin": "tsx src/payload/seed-admin.ts",
     "seed:catalog": "tsx src/payload/seed-catalog.ts",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "seed:markets": "tsx src/payload/seed-markets.ts"
   },
   "dependencies": {
     "@courvia/appearance": "workspace:*",
     "@courvia/commerce-domain": "workspace:*",
     "@courvia/commerce-payload": "workspace:*",
     "@courvia/design-tokens": "workspace:*",
+    "@courvia/payments-stripe": "workspace:*",
     "@courvia/platform": "workspace:*",
     "@courvia/sections": "workspace:*",
     "@courvia/ui": "workspace:*",

@@ -80,7 +80,7 @@ packages/
   payments-stripe/            # adaptador de PaymentProvider (pasarela)
   payments-tabby/ payments-tamara/  # adaptadores BNPL EAU (S4)
   config/                     # eslint/tsconfig/stylelint compartidos
-docs/  ARCHITECTURE.md · adr/ · recipes/ · orders-state-machine.md · payments-runbook.md (crear en S2)
+docs/  ARCHITECTURE.md · adr/ · recipes/ · orders-state-machine.md · payments-runbook.md · deployment.md
 brand/ # activos entregados, congelados
 ```
 

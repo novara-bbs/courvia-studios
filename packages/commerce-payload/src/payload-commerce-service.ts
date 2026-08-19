@@ -5,17 +5,23 @@
  * imports the app's config, so the dependency direction stays app -> adapter
  * and the adapter is testable against any Payload instance.
  *
- * Checkout methods throw NotImplementedError until the payments stage (S2):
- * an adapter must never pretend. Prices carry no currency column — the
+ * Checkout is implemented against the injected PaymentProvider registry:
+ * totals are computed server-side from the prices table, the order and its
+ * stock reservation commit in one transaction, and the gateway session is
+ * created only after commit. Prices carry no currency column — the
  * market registry in @courvia/platform is the single source of the
  * market -> currency mapping, so the two can never drift.
  */
 import { MARKET_DEFINITIONS } from "@courvia/platform";
 import type { LocaleId, MarketId, Sport } from "@courvia/platform";
 import {
-  NotImplementedError,
+  CheckoutError,
   compare,
   money,
+  multiply,
+  sum,
+  transition,
+  zero,
 } from "@courvia/commerce-domain";
 import type {
   Availability,
@@ -24,6 +30,8 @@ import type {
   CommerceService,
   Money,
   Order,
+  OrderStatus,
+  PaymentProvider,
   Product,
   ProductDetail,
   ProductFilter,
@@ -33,9 +41,13 @@ import type {
   Spec,
   Variant,
 } from "@courvia/commerce-domain";
-import type { BasePayload, Where } from "payload";
+import type { PaymentProviderId } from "@courvia/platform";
+import type { BasePayload, PayloadRequest, Where } from "payload";
+import { commitTransaction, initTransaction, killTransaction } from "payload";
 
-const STAGE = "catalog";
+/** Gateways available to checkout, keyed by id. Injected by the composition
+ *  root — this package never knows which adapters exist (ADR-13/17). */
+export type PaymentProviderRegistry = Partial<Record<PaymentProviderId, PaymentProvider>>;
 
 interface ProductDoc {
   id: number | string;
@@ -117,6 +129,7 @@ export class PayloadCommerceService implements CommerceService {
   constructor(
     private readonly payload: BasePayload,
     private readonly locale: LocaleId,
+    private readonly providers: PaymentProviderRegistry = {},
   ) {}
 
   private async findVariants(productIds: readonly string[]): Promise<VariantDoc[]> {
@@ -272,17 +285,222 @@ export class PayloadCommerceService implements CommerceService {
     return skus.map((sku) => ({ sku, available: bySku.get(sku) ?? 0 }));
   }
 
-  // Staged methods reject rather than throw synchronously: callers of a
-  // Promise-returning port must never need try/catch around the call itself.
-  createCheckout(_input: CheckoutInput): Promise<Checkout> {
-    return Promise.reject(new NotImplementedError("createCheckout", STAGE));
+  /** True when MarketSettings enables this provider for this market. */
+  private async providerEnabledFor(
+    market: MarketId,
+    provider: PaymentProviderId,
+  ): Promise<boolean> {
+    const settings = (await this.payload.findGlobal({
+      slug: "market-settings",
+      depth: 0,
+      overrideAccess: true,
+    })) as {
+      markets?: Array<{
+        market: MarketId;
+        enabled?: boolean | null;
+        paymentProviders?: Array<{ provider: PaymentProviderId; enabled?: boolean | null }> | null;
+      }> | null;
+    };
+    const row = (settings.markets ?? []).find((m) => m.market === market);
+    if (row === undefined || row.enabled !== true) return false;
+    return (row.paymentProviders ?? []).some((p) => p.provider === provider && p.enabled === true);
   }
 
-  getOrder(_id: string): Promise<Order | null> {
-    return Promise.reject(new NotImplementedError("getOrder", STAGE));
+  /**
+   * Server-computed checkout (§4): every amount comes from the prices table,
+   * never the client. Order creation + stock reservation commit in ONE
+   * transaction; the gateway session is created AFTER commit — an external
+   * call must never run inside a DB transaction (payments.md).
+   */
+  async createCheckout(input: CheckoutInput): Promise<Checkout> {
+    const gateway = this.providers[input.provider];
+    if (gateway === undefined) throw new CheckoutError("provider_not_available", input.provider);
+    if (!(await this.providerEnabledFor(input.market, input.provider))) {
+      throw new CheckoutError("market_disabled", `${input.provider} in ${input.market}`);
+    }
+
+    const currency = MARKET_DEFINITIONS[input.market].currency;
+    const skus = input.lines.map((line) => line.sku);
+    const variantResult = await this.payload.find({
+      collection: "variants",
+      where: { sku: { in: skus }, active: { equals: true } } as Where,
+      limit: skus.length,
+      depth: 0,
+      overrideAccess: true,
+    });
+    const variantsBySku = new Map(
+      (variantResult.docs as unknown as VariantDoc[]).map((doc) => [doc.sku, doc]),
+    );
+
+    const variantIds = [...variantsBySku.values()].map((doc) => String(doc.id));
+    const [prices, availability] = await Promise.all([
+      this.findPrices(variantIds, input.market),
+      this.findInventory(variantIds),
+    ]);
+    const priceByVariant = new Map(prices.map((p) => [relationId(p.variant), p.amount]));
+
+    const lines = input.lines.map((line) => {
+      const variantDoc = variantsBySku.get(line.sku);
+      if (variantDoc === undefined) throw new CheckoutError("unknown_sku", line.sku);
+      const unitMinor = priceByVariant.get(String(variantDoc.id));
+      if (unitMinor === undefined) throw new CheckoutError("not_sold_in_market", line.sku);
+      const available = availability.get(String(variantDoc.id));
+      if (available !== undefined && available < line.quantity) {
+        throw new CheckoutError("insufficient_stock", line.sku);
+      }
+      return { variantDoc, quantity: line.quantity, unitAmount: money(unitMinor, currency) };
+    });
+
+    const total = sum(
+      lines.map((line) => multiply(line.unitAmount, line.quantity)),
+      currency,
+    );
+
+    const req: Partial<PayloadRequest> = { payload: this.payload };
+    await initTransaction(req as Parameters<typeof initTransaction>[0]);
+    let orderId: number;
+    try {
+      const draft = transition("draft", { type: "checkout.created" });
+      if (!draft.ok) throw new Error(draft.reason); // unreachable by construction
+      const created = await this.payload.create({
+        collection: "orders",
+        overrideAccess: true,
+        req,
+        data: {
+          status: draft.next,
+          market: input.market,
+          email: input.email,
+          locale: this.locale,
+          lines: lines.map((line) => ({
+            variant: Number(line.variantDoc.id),
+            sku: line.variantDoc.sku,
+            quantity: line.quantity,
+            unitAmount: line.unitAmount.amount,
+          })),
+          totalAmount: total.amount,
+          // Prices are tax-inclusive in phase 1; the tax engine arrives with
+          // the gateway integration (Stripe Tax) and fills this in.
+          taxAmount: zero(currency).amount,
+          refundedAmount: 0,
+          shippingAddress: input.shippingAddress,
+          ...(input.billingAddress === undefined ? {} : { billingAddress: input.billingAddress }),
+          provider: input.provider,
+        },
+      });
+      orderId = created.id as number;
+
+      // reserve_stock_temporarily (transactional side effect of the draft
+      // transition): soft reservation, released on failure/expiry.
+      for (const line of lines) {
+        const inv = await this.payload.find({
+          collection: "inventory",
+          where: { variant: { equals: Number(line.variantDoc.id) } } as Where,
+          limit: 1,
+          depth: 0,
+          overrideAccess: true,
+          req,
+        });
+        const row = inv.docs[0] as { id: number; qtyCommitted: number } | undefined;
+        if (row !== undefined) {
+          await this.payload.update({
+            collection: "inventory",
+            id: row.id,
+            data: { qtyCommitted: row.qtyCommitted + line.quantity },
+            overrideAccess: true,
+            req,
+          });
+        }
+      }
+      await commitTransaction(req as Parameters<typeof commitTransaction>[0]);
+    } catch (error) {
+      await killTransaction(req as Parameters<typeof killTransaction>[0]);
+      throw error;
+    }
+
+    // Gateway session AFTER commit: if this fails the order stays
+    // pending_payment and a checkout.expired sweep releases it later.
+    const order = await this.getOrder(String(orderId));
+    if (order === null) throw new CheckoutError("order_not_found", String(orderId));
+    const session = await gateway.createSession(order, input.market);
+    await this.payload.update({
+      collection: "orders",
+      id: orderId,
+      overrideAccess: true,
+      data: { providerPaymentId: session.providerPaymentId },
+    });
+
+    return {
+      orderId: String(orderId),
+      provider: input.provider,
+      ...(session.url === undefined ? {} : { url: session.url }),
+      ...(session.clientSecret === undefined ? {} : { clientSecret: session.clientSecret }),
+    };
   }
 
-  requestReturn(_input: ReturnInput): Promise<ReturnRequest> {
-    return Promise.reject(new NotImplementedError("requestReturn", STAGE));
+  async getOrder(id: string): Promise<Order | null> {
+    const numeric = Number(id);
+    if (!Number.isInteger(numeric)) return null;
+    const doc = (await this.payload
+      .findByID({ collection: "orders", id: numeric, depth: 0, overrideAccess: true })
+      .catch(() => null)) as {
+      id: number;
+      market: MarketId;
+      status: OrderStatus;
+      totalAmount: number;
+      taxAmount: number;
+      refundedAmount: number;
+      lines: Array<{ variant: number | { id: number }; sku: string; quantity: number; unitAmount: number }>;
+    } | null;
+    if (doc === null) return null;
+    const currency = MARKET_DEFINITIONS[doc.market].currency;
+    return {
+      id: String(doc.id),
+      market: doc.market,
+      currency,
+      status: doc.status,
+      lines: doc.lines.map((line) => ({
+        variantId: relationId(line.variant),
+        sku: line.sku,
+        quantity: line.quantity,
+        unitAmount: money(line.unitAmount, currency),
+      })),
+      total: money(doc.totalAmount, currency),
+      taxTotal: money(doc.taxAmount, currency),
+      refundedTotal: money(doc.refundedAmount, currency),
+    };
+  }
+
+  /**
+   * Logs the RMA always — support triages every request — and moves the
+   * order only when the state machine allows it from its current status
+   * (delivered → return_requested). A request against an undelivered order
+   * is a support conversation, not a state change.
+   */
+  async requestReturn(input: ReturnInput): Promise<ReturnRequest> {
+    const order = await this.getOrder(input.orderId);
+    if (order === null) throw new CheckoutError("order_not_found", input.orderId);
+
+    const created = await this.payload.create({
+      collection: "returns",
+      overrideAccess: true,
+      data: {
+        order: Number(input.orderId),
+        status: "requested",
+        lines: input.lines.map((line) => ({ sku: line.sku, quantity: line.quantity })),
+        reason: input.reason,
+      },
+    });
+
+    const result = transition(order.status, { type: "return.requested" });
+    if (result.ok) {
+      await this.payload.update({
+        collection: "orders",
+        id: Number(input.orderId),
+        overrideAccess: true,
+        data: { status: result.next },
+      });
+    }
+
+    return { id: String(created.id), orderId: input.orderId, status: "requested" };
   }
 }

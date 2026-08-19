@@ -21,8 +21,10 @@ export type {
   Variant,
   VariantOffer,
 } from "./types";
+export { ORDER_STATUSES } from "./types";
 export type { CommerceService } from "./commerce-service";
-export { NotImplementedError } from "./errors";
+export { CheckoutError, NotImplementedError } from "./errors";
+export type { CheckoutErrorCode } from "./errors";
 export {
   CurrencyMismatchError,
   add,
@@ -39,7 +41,7 @@ export {
   zero,
 } from "./money";
 export type { Money } from "./money";
-export { WebhookSignatureError } from "./payment";
+export { PAYMENT_EVENT_TYPES, WebhookSignatureError } from "./payment";
 export type {
   PaymentEvent,
   PaymentEventType,

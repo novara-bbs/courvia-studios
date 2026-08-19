@@ -111,20 +111,23 @@ export interface Availability {
   available: number;
 }
 
-export type OrderStatus =
-  | "draft"
-  | "pending_payment"
-  | "paid"
-  | "cancelled"
-  | "preparing"
-  | "shipped"
-  | "delivered"
-  | "refund_requested"
-  | "refund_failed"
-  | "refunded"
-  | "partially_refunded"
-  | "return_requested"
-  | "return_received";
+export const ORDER_STATUSES = [
+  "draft",
+  "pending_payment",
+  "paid",
+  "cancelled",
+  "preparing",
+  "shipped",
+  "delivered",
+  "refund_requested",
+  "refund_failed",
+  "refunded",
+  "partially_refunded",
+  "return_requested",
+  "return_received",
+] as const;
+
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export interface OrderLine {
   variantId: string;

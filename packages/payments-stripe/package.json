@@ -13,9 +13,11 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@courvia/commerce-domain": "workspace:*"
+    "@courvia/commerce-domain": "workspace:*",
+    "@courvia/platform": "workspace:*"
   },
   "devDependencies": {
-    "@courvia/config": "workspace:*"
+    "@courvia/config": "workspace:*",
+    "vitest": "4.1.11"
   }
 }
