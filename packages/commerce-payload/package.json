@@ -17,6 +17,10 @@
     "@courvia/platform": "workspace:*"
   },
   "devDependencies": {
-    "@courvia/config": "workspace:*"
+    "@courvia/config": "workspace:*",
+    "payload": "3.88.0"
+  },
+  "peerDependencies": {
+    "payload": "^3.0.0"
   }
 }

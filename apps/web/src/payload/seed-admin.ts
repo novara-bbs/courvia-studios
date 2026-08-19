@@ -4,11 +4,12 @@
  *
  *   ADMIN_EMAIL=... ADMIN_PASSWORD=... ADMIN_NAME=... pnpm --filter @courvia/web seed:admin
  */
-import { loadEnvConfig } from "@next/env";
+// Default-import interop: @next/env ships bundled CJS whose named exports
+// the ESM lexer cannot detect statically.
+import nextEnv from "@next/env";
 
-// tsx loads no env files by itself; without this the documented command
-// dies on a missing PAYLOAD_SECRET/DATABASE_URL. Must run before the config
-// import below, hence the dynamic imports.
+const { loadEnvConfig } = nextEnv;
+
 loadEnvConfig(process.cwd());
 
 const { getPayload } = await import("payload");

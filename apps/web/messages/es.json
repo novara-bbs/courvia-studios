@@ -26,5 +26,38 @@
     "title": "Fuera de pista",
     "body": "Esta página no existe o cambió de sitio.",
     "back": "Volver al inicio"
+  },
+  "catalog": {
+    "eyebrow": "Robots de entrenamiento",
+    "listTitle": "Robots lanzapelotas",
+    "listDescription": "Tres gamas, un criterio: que entrenes más y montes menos. Cada robot se configura por deporte — la bola manda sobre el hardware.",
+    "empty": "Estamos preparando el catálogo. Vuelve en unos días.",
+    "fromPrice": "Desde {price}",
+    "sport": {
+      "tenis": "Tenis",
+      "padel": "Pádel",
+      "pickleball": "Pickleball"
+    },
+    "variantsTitle": "Configuraciones",
+    "variantSku": "Referencia",
+    "variantSport": "Deporte",
+    "variantPrice": "Precio",
+    "variantAvailability": "Disponibilidad",
+    "inStock": "En stock",
+    "outOfStock": "Agotado",
+    "specsTitle": "Especificaciones",
+    "warranty": "{months} meses de garantía. Repuestos y soporte desde España.",
+    "leadTitle": "Pide una demo",
+    "leadName": "Nombre",
+    "leadEmail": "Email",
+    "leadMessage": "¿Dónde juegas y qué quieres mejorar? (opcional)",
+    "leadConsent": "Acepto que Courvia me contacte sobre esta solicitud. Sin listas, sin spam.",
+    "leadSubmit": "Enviar solicitud",
+    "leadInvalid": "Revisa el nombre y el email: algo no cuadra."
+  },
+  "thanks": {
+    "title": "Recibido",
+    "body": "Tu solicitud está en la mesa del equipo. Te escribimos en menos de 24 horas laborables — una persona, no un autorespondedor.",
+    "back": "Volver a los robots"
   }
 }

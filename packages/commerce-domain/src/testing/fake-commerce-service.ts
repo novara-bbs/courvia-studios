@@ -2,7 +2,11 @@
  * In-memory CommerceService. Proves the port is implementable and gives
  * Storybook and E2E a catalog with no database behind it.
  */
-import { money, multiply, sum, zero } from "../money";
+import { MARKET_DEFINITIONS } from "@courvia/platform";
+import type { MarketId } from "@courvia/platform";
+
+import { compare, money, multiply, sum, zero } from "../money";
+import type { CommerceService } from "../commerce-service";
 import type {
   Availability,
   Checkout,
@@ -10,13 +14,13 @@ import type {
   Order,
   Price,
   Product,
+  ProductDetail,
   ProductFilter,
+  ProductSummary,
   ReturnInput,
   ReturnRequest,
   Variant,
 } from "../types";
-import type { CommerceService } from "../commerce-service";
-import { MARKET_DEFINITIONS } from "@courvia/platform";
 
 export interface FakeCatalog {
   products: Product[];
@@ -27,28 +31,59 @@ export interface FakeCatalog {
 
 export class FakeCommerceService implements CommerceService {
   private readonly orders = new Map<string, Order>();
-  private readonly returns = new Map<string, ReturnRequest>();
   private sequence = 0;
 
   constructor(private readonly catalog: FakeCatalog) {}
 
-  getProductBySlug(slug: string): Promise<Product | null> {
-    return Promise.resolve(this.catalog.products.find((p) => p.slug === slug) ?? null);
+  private priceFor(variantId: string, market: MarketId) {
+    return this.catalog.prices.find((p) => p.variantId === variantId && p.market === market);
   }
 
-  listProducts(filter: ProductFilter): Promise<Product[]> {
+  getProductDetail(slug: string, market: MarketId): Promise<ProductDetail | null> {
+    const product = this.catalog.products.find((p) => p.slug === slug);
+    if (product === undefined) return Promise.resolve(null);
+    const variants = this.catalog.variants
+      .filter((v) => v.productId === product.id)
+      .map((variant) => ({
+        ...variant,
+        price: this.priceFor(variant.id, market)?.unitAmount ?? null,
+        available: this.catalog.stock[variant.sku] ?? 0,
+      }));
+    return Promise.resolve({ product, variants });
+  }
+
+  listProducts(filter: ProductFilter): Promise<ProductSummary[]> {
     let found = [...this.catalog.products];
-    if (filter.sport !== undefined) found = found.filter((p) => p.sport === filter.sport);
+    if (filter.sport !== undefined) found = found.filter((p) => p.sports.includes(filter.sport as never));
     if (filter.slugs !== undefined) found = found.filter((p) => filter.slugs?.includes(p.slug));
     const offset = filter.offset ?? 0;
     const limit = filter.limit ?? found.length;
-    return Promise.resolve(found.slice(offset, offset + limit));
+    const page = found.slice(offset, offset + limit);
+    return Promise.resolve(
+      page.map((product) => {
+        let fromPrice = null;
+        if (filter.market !== undefined) {
+          const amounts = product.variantIds
+            .map((id) => this.priceFor(id, filter.market as MarketId)?.unitAmount)
+            .filter((value): value is NonNullable<typeof value> => value != null);
+          fromPrice = amounts.length
+            ? amounts.reduce((min, value) => (compare(value, min) < 0 ? value : min))
+            : null;
+        }
+        return {
+          id: product.id,
+          slug: product.slug,
+          title: product.title,
+          sports: product.sports,
+          ...(product.excerpt === undefined ? {} : { excerpt: product.excerpt }),
+          fromPrice,
+        };
+      }),
+    );
   }
 
   getAvailability(skus: readonly string[]): Promise<Availability[]> {
-    return Promise.resolve(
-      skus.map((sku) => ({ sku, available: this.catalog.stock[sku] ?? 0 })),
-    );
+    return Promise.resolve(skus.map((sku) => ({ sku, available: this.catalog.stock[sku] ?? 0 })));
   }
 
   createCheckout(input: CheckoutInput): Promise<Checkout> {
@@ -56,26 +91,11 @@ export class FakeCommerceService implements CommerceService {
     const lines = input.lines.map((line) => {
       const variant = this.catalog.variants.find((v) => v.sku === line.sku);
       if (variant === undefined) throw new Error(`Unknown SKU: ${line.sku}`);
-      const price = this.catalog.prices.find(
-        (p) => p.variantId === variant.id && p.market === input.market,
-      );
-      if (price === undefined) {
-        throw new Error(`No price for ${line.sku} in market ${input.market}`);
-      }
-      return {
-        variantId: variant.id,
-        sku: line.sku,
-        quantity: line.quantity,
-        unitAmount: price.unitAmount,
-      };
+      const price = this.priceFor(variant.id, input.market);
+      if (price === undefined) throw new Error(`No price for ${line.sku} in ${input.market}`);
+      return { variantId: variant.id, sku: line.sku, quantity: line.quantity, unitAmount: price.unitAmount };
     });
-
-    // Totals are computed here, server-side, never trusted from the client.
-    const total = sum(
-      lines.map((line) => multiply(line.unitAmount, line.quantity)),
-      currency,
-    );
-
+    const total = sum(lines.map((l) => multiply(l.unitAmount, l.quantity)), currency);
     this.sequence += 1;
     const id = `order_${this.sequence}`;
     this.orders.set(id, {
@@ -88,12 +108,7 @@ export class FakeCommerceService implements CommerceService {
       taxTotal: zero(currency),
       refundedTotal: zero(currency),
     });
-
-    return Promise.resolve({
-      orderId: id,
-      provider: input.provider,
-      url: `https://pay.example.test/${id}`,
-    });
+    return Promise.resolve({ orderId: id, provider: input.provider, url: `https://pay.example.test/${id}` });
   }
 
   getOrder(id: string): Promise<Order | null> {
@@ -104,14 +119,12 @@ export class FakeCommerceService implements CommerceService {
     const order = this.orders.get(input.orderId);
     if (order === undefined) throw new Error(`Unknown order: ${input.orderId}`);
     this.sequence += 1;
-    const request: ReturnRequest = {
+    return Promise.resolve({
       id: `rma_${this.sequence}`,
       orderId: input.orderId,
       status: "requested",
       refundAmount: money(0, order.currency),
-    };
-    this.returns.set(request.id, request);
-    return Promise.resolve(request);
+    });
   }
 }
 
@@ -121,34 +134,41 @@ export function makeFakeCatalog(): FakeCatalog {
     id: "prod_drill_pro",
     slug: "drill-pro",
     title: "Drill Pro",
-    sport: "padel",
-    variantIds: ["var_drill_pro_p"],
+    sports: ["padel", "tenis"],
+    excerpt: "Doble rueda, 140 pelotas, 6 h de sesión.",
+    specs: [
+      { key: "speed", value: "16-100", unit: "km/h" },
+      { key: "capacity", value: "140", unit: "pelotas" },
+    ],
+    warrantyMonths: 24,
+    variantIds: ["var_drill_pro_p", "var_drill_pro_t"],
   };
-  const variant: Variant = {
-    id: "var_drill_pro_p",
-    productId: product.id,
-    sku: "DRL-PRO-P",
-    sport: "padel",
-    attributes: { hopper: "140" },
-    weightKg: 12.4,
-  };
+  const variants: Variant[] = [
+    {
+      id: "var_drill_pro_p",
+      productId: product.id,
+      sku: "DRL-PRO-P",
+      sport: "padel",
+      attributes: { hopper: "140" },
+      weightKg: 12.4,
+    },
+    {
+      id: "var_drill_pro_t",
+      productId: product.id,
+      sku: "DRL-PRO-T",
+      sport: "tenis",
+      attributes: { hopper: "140" },
+      weightKg: 12.9,
+    },
+  ];
   return {
     products: [product],
-    variants: [variant],
+    variants,
     prices: [
-      {
-        variantId: variant.id,
-        market: "es",
-        unitAmount: money(129_000, "EUR"),
-        taxBehavior: "inclusive",
-      },
-      {
-        variantId: variant.id,
-        market: "uk",
-        unitAmount: money(112_000, "GBP"),
-        taxBehavior: "inclusive",
-      },
+      { variantId: "var_drill_pro_p", market: "es", unitAmount: money(129_000, "EUR"), taxBehavior: "inclusive" },
+      { variantId: "var_drill_pro_t", market: "es", unitAmount: money(139_000, "EUR"), taxBehavior: "inclusive" },
+      { variantId: "var_drill_pro_p", market: "uk", unitAmount: money(112_000, "GBP"), taxBehavior: "inclusive" },
     ],
-    stock: { "DRL-PRO-P": 5 },
+    stock: { "DRL-PRO-P": 5, "DRL-PRO-T": 0 },
   };
 }

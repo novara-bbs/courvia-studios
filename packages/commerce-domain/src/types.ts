@@ -34,12 +34,49 @@ export interface MarketConfig {
   paymentProviders: MarketPaymentProvider[];
 }
 
+/** One technical specification row; keys align across SKUs for comparison. */
+export interface Spec {
+  key: string;
+  value: string;
+  unit?: string;
+}
+
 export interface Product {
   id: string;
   slug: string;
   title: string;
-  sport: Sport;
+  /** Facet: the sports this product serves. The chassis is shared; the
+   * sport-specific configuration lives on the variant (ADR-04). */
+  sports: Sport[];
+  excerpt?: string;
+  /** Opaque rich text; rendered through the injected serializer. */
+  description?: unknown;
+  specs: Spec[];
+  warrantyMonths?: number;
   variantIds: string[];
+}
+
+/** Listing card: enough to render a grid without N+1 price lookups. */
+export interface ProductSummary {
+  id: string;
+  slug: string;
+  title: string;
+  sports: Sport[];
+  excerpt?: string;
+  /** Cheapest active variant price in the requested market, if any. */
+  fromPrice: Money | null;
+}
+
+/** A variant enriched with its offer for one market. */
+export interface VariantOffer extends Variant {
+  price: Money | null;
+  available: number;
+}
+
+/** Everything a PDP needs in one call. */
+export interface ProductDetail {
+  product: Product;
+  variants: VariantOffer[];
 }
 
 export interface Variant {
@@ -119,6 +156,8 @@ export interface ProductFilter {
   sport?: Sport;
   category?: string;
   slugs?: string[];
+  /** When present, summaries include fromPrice in this market's currency. */
+  market?: MarketId;
   limit?: number;
   offset?: number;
 }

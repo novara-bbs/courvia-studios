@@ -62,6 +62,8 @@ describeCommerceServiceContract(
     unknownSlug: "does-not-exist",
     knownSku: "DRL-PRO-P",
     unknownSku: "NOPE-1",
+    market: "es",
+    otherMarket: "uk",
     checkout: {
       market: "es",
       lines: [{ sku: "DRL-PRO-P", quantity: 1 }],

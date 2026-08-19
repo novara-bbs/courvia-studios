@@ -6,6 +6,7 @@ import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { buildConfig } from "payload";
 import sharp from "sharp";
 
+import { Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
 import { Media } from "./src/payload/media";
 import { Pages } from "./src/payload/pages";
 import { MarketSettings } from "./src/payload/market-settings";
@@ -60,7 +61,7 @@ export default buildConfig({
     },
   },
 
-  collections: [Users, Media, Pages],
+  collections: [Users, Media, Pages, Categories, Products, Variants, Prices, Inventory, Leads],
   globals: [ThemeSettings, MarketSettings],
 
   typescript: {

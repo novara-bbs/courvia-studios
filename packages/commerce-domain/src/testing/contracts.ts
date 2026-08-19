@@ -12,6 +12,8 @@
  */
 import { describe, expect, it } from "vitest";
 
+import type { MarketId } from "@courvia/platform";
+
 import { WebhookSignatureError } from "../payment";
 import type { PaymentProvider } from "../payment";
 import type { CommerceService } from "../commerce-service";
@@ -85,36 +87,65 @@ export function describePaymentProviderContract(
   });
 }
 
-export interface CommerceServiceFixtures {
+export interface CatalogFixtures {
   knownSlug: string;
   unknownSlug: string;
   knownSku: string;
   unknownSku: string;
+  market: MarketId;
+  /** A market other than `market`, to prove per-market pricing. */
+  otherMarket: MarketId;
+}
+
+export interface CommerceServiceFixtures extends CatalogFixtures {
   checkout: CheckoutInput;
 }
 
-export function describeCommerceServiceContract(
+/**
+ * The catalog half of the port: what a storefront needs before payments
+ * exist. Adapters implement this first; the checkout half joins in S2 and
+ * until then the adapter must THROW NotImplementedError, never pretend.
+ */
+export function describeCatalogContract(
   name: string,
   make: () => Promise<CommerceService> | CommerceService,
-  fixtures: CommerceServiceFixtures,
+  fixtures: CatalogFixtures,
 ): void {
-  describe(`CommerceService contract: ${name}`, () => {
-    it("finds a product by slug — every route in the sitemap is slug-based", async () => {
+  describe(`Catalog contract: ${name}`, () => {
+    it("returns the full PDP view in one market-aware call", async () => {
       const service = await make();
-      const product = await service.getProductBySlug(fixtures.knownSlug);
-      expect(product?.slug).toBe(fixtures.knownSlug);
+      const detail = await service.getProductDetail(fixtures.knownSlug, fixtures.market);
+      expect(detail?.product.slug).toBe(fixtures.knownSlug);
+      expect(detail?.variants.length).toBeGreaterThan(0);
+      const priced = detail?.variants.find((v) => v.price !== null);
+      expect(priced, "at least one variant must carry a price in the market").toBeDefined();
+      expect(priced?.price?.currency).toBeDefined();
+      expect(detail?.variants.every((v) => Number.isSafeInteger(v.available))).toBe(true);
     });
 
     it("returns null for an unknown slug instead of throwing", async () => {
       const service = await make();
-      expect(await service.getProductBySlug(fixtures.unknownSlug)).toBeNull();
+      expect(await service.getProductDetail(fixtures.unknownSlug, fixtures.market)).toBeNull();
     });
 
-    it("lists products and honours the limit", async () => {
+    it("lists summaries with a from-price for the requested market", async () => {
       const service = await make();
-      const all = await service.listProducts({});
+      const all = await service.listProducts({ market: fixtures.market });
       expect(all.length).toBeGreaterThan(0);
+      const withPrice = all.find((p) => p.fromPrice !== null);
+      expect(withPrice, "at least one summary must carry fromPrice").toBeDefined();
       expect((await service.listProducts({ limit: 1 })).length).toBeLessThanOrEqual(1);
+    });
+
+    it("prices differ by market, never converted at runtime (ADR-05)", async () => {
+      const service = await make();
+      const detail = await service.getProductDetail(fixtures.knownSlug, fixtures.market);
+      const other = await service.getProductDetail(fixtures.knownSlug, fixtures.otherMarket);
+      const a = detail?.variants.find((v) => v.price !== null)?.price;
+      // The other market either has its own currency price or no price at
+      // all — silently reusing the first market's currency would be the bug.
+      const b = other?.variants.map((v) => v.price).find((p) => p !== null);
+      if (a && b) expect(b.currency).not.toBe(a.currency);
     });
 
     it("answers availability in one batched call, preserving order", async () => {
@@ -124,7 +155,17 @@ export function describeCommerceServiceContract(
       expect(availability.map((a) => a.sku)).toEqual(skus);
       expect(availability.every((a) => Number.isSafeInteger(a.available))).toBe(true);
     });
+  });
+}
 
+export function describeCommerceServiceContract(
+  name: string,
+  make: () => Promise<CommerceService> | CommerceService,
+  fixtures: CommerceServiceFixtures,
+): void {
+  describeCatalogContract(name, make, fixtures);
+
+  describe(`Checkout contract: ${name}`, () => {
     it("creates a checkout whose totals are computed server-side", async () => {
       const service = await make();
       const checkout = await service.createCheckout(fixtures.checkout);

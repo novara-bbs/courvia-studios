@@ -8,20 +8,24 @@
  * list call, and availability is batched — one call per SKU would make the
  * comparator N+1.
  */
+import type { MarketId } from "@courvia/platform";
+
 import type {
   Availability,
   Checkout,
   CheckoutInput,
   Order,
-  Product,
+  ProductDetail,
   ProductFilter,
+  ProductSummary,
   ReturnInput,
   ReturnRequest,
 } from "./types";
 
 export interface CommerceService {
-  getProductBySlug(slug: string): Promise<Product | null>;
-  listProducts(filter: ProductFilter): Promise<Product[]>;
+  /** Everything a PDP renders, in one market-aware call. */
+  getProductDetail(slug: string, market: MarketId): Promise<ProductDetail | null>;
+  listProducts(filter: ProductFilter): Promise<ProductSummary[]>;
   getAvailability(skus: readonly string[]): Promise<Availability[]>;
   createCheckout(input: CheckoutInput): Promise<Checkout>;
   getOrder(id: string): Promise<Order | null>;

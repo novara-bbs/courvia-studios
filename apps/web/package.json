@@ -14,11 +14,17 @@
     "generate:types": "payload generate:types",
     "migrate": "payload migrate",
     "migrate:create": "payload migrate:create",
-    "seed:admin": "tsx src/payload/seed-admin.ts"
+    "seed:admin": "tsx src/payload/seed-admin.ts",
+    "seed:catalog": "tsx src/payload/seed-catalog.ts",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@courvia/appearance": "workspace:*",
+    "@courvia/commerce-domain": "workspace:*",
+    "@courvia/commerce-payload": "workspace:*",
     "@courvia/design-tokens": "workspace:*",
     "@courvia/platform": "workspace:*",
+    "@courvia/sections": "workspace:*",
     "@courvia/ui": "workspace:*",
     "@next/env": "16.3.1",
     "@payloadcms/db-postgres": "3.88.0",
@@ -31,12 +37,12 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "sharp": "0.35.3",
-    "@courvia/sections": "workspace:*",
-    "@courvia/appearance": "workspace:*"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@courvia/config": "workspace:*",
     "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.4"
+    "@types/react-dom": "19.2.4",
+    "vitest": "4.1.11"
   }
 }

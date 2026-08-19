@@ -70,6 +70,12 @@ export interface Config {
     users: User;
     media: Media;
     pages: Page;
+    categories: Category;
+    products: Product;
+    variants: Variant;
+    prices: Price;
+    inventory: Inventory;
+    leads: Lead;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -80,6 +86,12 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    products: ProductsSelect<false> | ProductsSelect<true>;
+    variants: VariantsSelect<false> | VariantsSelect<true>;
+    prices: PricesSelect<false> | PricesSelect<true>;
+    inventory: InventorySelect<false> | InventorySelect<true>;
+    leads: LeadsSelect<false> | LeadsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -301,6 +313,144 @@ export interface Page {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Facetas de catálogo: robots, palas, bolas…
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  title: string;
+  slug: string;
+  sport?: ('tenis' | 'padel' | 'pickleball') | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * La familia (Drill Pro, Drill One…). La configuración por deporte vive en sus variantes (ADR-04).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "products".
+ */
+export interface Product {
+  id: number;
+  title: string;
+  /**
+   * Forma la URL /{región}/robots/{slug}. No se traduce.
+   */
+  slug: string;
+  /**
+   * Faceta de listado. La variante concreta fija SU deporte.
+   */
+  sports: ('tenis' | 'padel' | 'pickleball')[];
+  category?: (number | null) | Category;
+  excerpt?: string | null;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * key técnica estable (velocidad, capacidad…) para alinear el comparador; el valor sí se traduce.
+   */
+  specs?:
+    | {
+        key: string;
+        value: string;
+        unit?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  warrantyMonths?: number | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Un SKU por deporte y configuración (Drill Pro → T / P / PB).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variants".
+ */
+export interface Variant {
+  id: number;
+  product: number | Product;
+  sku: string;
+  sport: 'tenis' | 'padel' | 'pickleball';
+  attributes?:
+    | {
+        name: string;
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
+  weightKg?: number | null;
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * SOLO SERVIDOR. Importes en unidades menores (129000 = 1.290,00). La moneda la fija el mercado en código: nunca hay conversión en runtime (ADR-05).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "prices".
+ */
+export interface Price {
+  id: number;
+  variant: number | Variant;
+  market: 'es' | 'uk' | 'ae';
+  amount: number;
+  compareAtAmount?: number | null;
+  taxBehavior: 'inclusive' | 'exclusive';
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * SOLO SERVIDOR. Disponible = en mano − comprometido; se compromete solo tras `paid`.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "inventory".
+ */
+export interface Inventory {
+  id: number;
+  variant: number | Variant;
+  qtyOnHand: number;
+  qtyCommitted: number;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Captación comercial. Se crean desde el formulario web (server action), nunca por REST público.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "leads".
+ */
+export interface Lead {
+  id: number;
+  name: string;
+  email: string;
+  market: 'es' | 'uk' | 'ae';
+  sportInterest?: ('tenis' | 'padel' | 'pickleball') | null;
+  product?: (number | null) | Product;
+  message?: string | null;
+  consent: boolean;
+  locale?: string | null;
+  sourcePath?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -335,6 +485,30 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'pages';
         value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'products';
+        value: number | Product;
+      } | null)
+    | ({
+        relationTo: 'variants';
+        value: number | Variant;
+      } | null)
+    | ({
+        relationTo: 'prices';
+        value: number | Price;
+      } | null)
+    | ({
+        relationTo: 'inventory';
+        value: number | Inventory;
+      } | null)
+    | ({
+        relationTo: 'leads';
+        value: number | Lead;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -532,6 +706,103 @@ export interface PagesSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  sport?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "products_select".
+ */
+export interface ProductsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  sports?: T;
+  category?: T;
+  excerpt?: T;
+  description?: T;
+  specs?:
+    | T
+    | {
+        key?: T;
+        value?: T;
+        unit?: T;
+        id?: T;
+      };
+  warrantyMonths?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variants_select".
+ */
+export interface VariantsSelect<T extends boolean = true> {
+  product?: T;
+  sku?: T;
+  sport?: T;
+  attributes?:
+    | T
+    | {
+        name?: T;
+        value?: T;
+        id?: T;
+      };
+  weightKg?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "prices_select".
+ */
+export interface PricesSelect<T extends boolean = true> {
+  variant?: T;
+  market?: T;
+  amount?: T;
+  compareAtAmount?: T;
+  taxBehavior?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "inventory_select".
+ */
+export interface InventorySelect<T extends boolean = true> {
+  variant?: T;
+  qtyOnHand?: T;
+  qtyCommitted?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "leads_select".
+ */
+export interface LeadsSelect<T extends boolean = true> {
+  name?: T;
+  email?: T;
+  market?: T;
+  sportInterest?: T;
+  product?: T;
+  message?: T;
+  consent?: T;
+  locale?: T;
+  sourcePath?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

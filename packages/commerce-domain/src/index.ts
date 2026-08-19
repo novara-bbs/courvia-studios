@@ -10,14 +10,19 @@ export type {
   OrderStatus,
   Price,
   Product,
+  ProductDetail,
   ProductFilter,
+  ProductSummary,
+  Spec,
   ReturnInput,
   ReturnRequest,
   ReturnStatus,
   TaxBehavior,
   Variant,
+  VariantOffer,
 } from "./types";
 export type { CommerceService } from "./commerce-service";
+export { NotImplementedError } from "./errors";
 export {
   CurrencyMismatchError,
   add,

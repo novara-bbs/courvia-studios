@@ -1,8 +1,10 @@
 export {
+  describeCatalogContract,
   describeCommerceServiceContract,
   describePaymentProviderContract,
 } from "./contracts";
 export type {
+  CatalogFixtures,
   CommerceServiceFixtures,
   PaymentProviderFixtures,
 } from "./contracts";

@@ -26,5 +26,38 @@
     "title": "Out of bounds",
     "body": "This page does not exist or has moved.",
     "back": "Back to home"
+  },
+  "catalog": {
+    "eyebrow": "Training robots",
+    "listTitle": "Ball machines",
+    "listDescription": "Three ranges, one rule: more drilling, less setup. Every robot is configured per sport — the ball dictates the hardware.",
+    "empty": "The catalogue is on its way. Check back in a few days.",
+    "fromPrice": "From {price}",
+    "sport": {
+      "tenis": "Tennis",
+      "padel": "Padel",
+      "pickleball": "Pickleball"
+    },
+    "variantsTitle": "Configurations",
+    "variantSku": "Reference",
+    "variantSport": "Sport",
+    "variantPrice": "Price",
+    "variantAvailability": "Availability",
+    "inStock": "In stock",
+    "outOfStock": "Sold out",
+    "specsTitle": "Specifications",
+    "warranty": "{months}-month warranty. Spare parts and support shipped from Spain.",
+    "leadTitle": "Book a demo",
+    "leadName": "Name",
+    "leadEmail": "Email",
+    "leadMessage": "Where do you play, and what do you want to improve? (optional)",
+    "leadConsent": "I agree that Courvia may contact me about this request. No lists, no spam.",
+    "leadSubmit": "Send request",
+    "leadInvalid": "Check the name and email — something doesn't add up."
+  },
+  "thanks": {
+    "title": "Got it",
+    "body": "Your request is on the team's desk. We'll write back within one working day — a person, not an autoresponder.",
+    "back": "Back to the robots"
   }
 }
