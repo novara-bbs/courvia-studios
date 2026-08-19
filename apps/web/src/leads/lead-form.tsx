@@ -54,17 +54,35 @@ export function LeadForm({
         </label>
       </div>
 
+      {/* defaultValue from the returned state: React 19 auto-resets the form
+          on every action dispatch, so on a validation failure this is what
+          keeps the visitor's text from vanishing. */}
       <label>
         <span>{labels.name}</span>
-        <input type="text" name="name" required minLength={2} maxLength={120} autoComplete="name" />
+        <input
+          type="text"
+          name="name"
+          required
+          minLength={2}
+          maxLength={120}
+          autoComplete="name"
+          defaultValue={state.values?.name ?? ""}
+        />
       </label>
       <label>
         <span>{labels.email}</span>
-        <input type="email" name="email" required maxLength={254} autoComplete="email" />
+        <input
+          type="email"
+          name="email"
+          required
+          maxLength={254}
+          autoComplete="email"
+          defaultValue={state.values?.email ?? ""}
+        />
       </label>
       <label>
         <span>{labels.message}</span>
-        <textarea name="message" rows={4} maxLength={1000} />
+        <textarea name="message" rows={4} maxLength={1000} defaultValue={state.values?.message ?? ""} />
       </label>
       <label className="lead-form-consent">
         <input type="checkbox" name="consent" required />

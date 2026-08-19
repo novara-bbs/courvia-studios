@@ -365,7 +365,14 @@ export interface Product {
    */
   specs?:
     | {
+        /**
+         * Identificador estable para alinear el comparador. No se muestra.
+         */
         key: string;
+        /**
+         * Etiqueta visible de la fila (Capacidad, Velocidad…).
+         */
+        label: string;
         value: string;
         unit?: string | null;
         id?: string | null;
@@ -410,6 +417,9 @@ export interface Price {
   variant: number | Variant;
   market: 'es' | 'uk' | 'ae';
   amount: number;
+  /**
+   * Precio anterior tachado, mismas unidades menores que amount.
+   */
   compareAtAmount?: number | null;
   taxBehavior: 'inclusive' | 'exclusive';
   active?: boolean | null;
@@ -733,6 +743,7 @@ export interface ProductsSelect<T extends boolean = true> {
     | T
     | {
         key?: T;
+        label?: T;
         value?: T;
         unit?: T;
         id?: T;

@@ -44,7 +44,7 @@ interface ProductDoc {
   sports: Sport[];
   excerpt?: string | null;
   description?: unknown;
-  specs?: Array<{ key: string; value: string; unit?: string | null }> | null;
+  specs?: Array<{ key: string; label?: string | null; value: string; unit?: string | null }> | null;
   warrantyMonths?: number | null;
 }
 
@@ -76,6 +76,9 @@ function relationId(value: number | string | { id: number | string }): string {
 function toSpecs(docSpecs: ProductDoc["specs"]): Spec[] {
   return (docSpecs ?? []).map((spec) => ({
     key: spec.key,
+    // Fall back to the key only for pre-label rows; new content always
+    // carries a localized label.
+    label: spec.label ?? spec.key,
     value: spec.value,
     ...(spec.unit ? { unit: spec.unit } : {}),
   }));
@@ -204,12 +207,18 @@ export class PayloadCommerceService implements CommerceService {
     if (filter.slugs !== undefined) where.slug = { in: filter.slugs };
     if (filter.category !== undefined) where.category = { equals: Number(filter.category) };
 
+    // Payload paginates by page, not raw offset. Derive a page from the
+    // offset against the effective limit and floor it: a fractional page
+    // reaches Postgres as `OFFSET (page-1)*limit` and silently skips rows.
+    // Offset is honoured even when no explicit limit is passed.
+    const limit = filter.limit ?? 50;
+    const page = filter.offset ? Math.floor(filter.offset / limit) + 1 : 1;
     const result = await this.payload.find({
       collection: "products",
       where,
       locale: this.locale,
-      limit: filter.limit ?? 50,
-      page: filter.offset !== undefined && filter.limit ? filter.offset / filter.limit + 1 : 1,
+      limit,
+      page,
       depth: 0,
       overrideAccess: true,
       sort: "title",

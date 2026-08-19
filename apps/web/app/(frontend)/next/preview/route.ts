@@ -10,11 +10,13 @@ import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { getPayload } from "payload";
 
+import { isSafeRelativePath } from "../../../../src/preview/safe-path";
+
 export async function GET(request: NextRequest): Promise<Response> {
   const path = request.nextUrl.searchParams.get("path") ?? "/";
-  // Only same-site relative paths: an absolute URL here would be an open
-  // redirect on an authenticated endpoint.
-  if (!path.startsWith("/") || path.startsWith("//")) {
+  // Only same-origin relative paths: an absolute or scheme-relative URL here
+  // would be an open redirect on an authenticated endpoint.
+  if (!isSafeRelativePath(path)) {
     return new Response("Invalid path", { status: 400 });
   }
 

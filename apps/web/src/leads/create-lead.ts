@@ -32,6 +32,18 @@ const leadSchema = z.object({
 
 export interface LeadFormState {
   status: "idle" | "invalid";
+  /** Echoed back on failure so React 19's automatic form reset does not wipe
+   *  what the visitor typed. Only the free-text fields, never the checkbox. */
+  values?: { name: string; email: string; message: string };
+}
+
+/** A region we control, for redirects. Never trust the raw field: an
+ *  unvalidated value interpolated into a path is an open-redirect gadget
+ *  (e.g. "/\\evil.com"). */
+function safeRegion(raw: FormDataEntryValue | null): (typeof REGIONS)[number] {
+  return typeof raw === "string" && (REGIONS as readonly string[]).includes(raw)
+    ? (raw as (typeof REGIONS)[number])
+    : "es";
 }
 
 export async function createLead(
@@ -42,7 +54,6 @@ export async function createLead(
     name: formData.get("name"),
     email: formData.get("email"),
     message: formData.get("message") ?? undefined,
-    sportInterest: formData.get("sportInterest") || undefined,
     productId: formData.get("productId") || undefined,
     consent: formData.get("consent"),
     region: formData.get("region"),
@@ -51,11 +62,19 @@ export async function createLead(
   });
 
   if (!parsed.success) {
-    // Honeypot hits redirect like a success: no signal for the bot.
+    // Honeypot hits redirect like a success: no signal for the bot. The
+    // region is validated against the registry, never echoed raw.
     if (typeof formData.get("website") === "string" && formData.get("website") !== "") {
-      redirect(`/${String(formData.get("region") ?? "es")}/gracias`);
+      redirect(`/${safeRegion(formData.get("region"))}/gracias`);
     }
-    return { status: "invalid" };
+    return {
+      status: "invalid",
+      values: {
+        name: String(formData.get("name") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        message: String(formData.get("message") ?? ""),
+      },
+    };
   }
 
   const { region, productId, website: _website, consent: _consent, ...lead } = parsed.data;

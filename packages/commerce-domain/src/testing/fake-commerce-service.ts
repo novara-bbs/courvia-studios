@@ -137,8 +137,8 @@ export function makeFakeCatalog(): FakeCatalog {
     sports: ["padel", "tenis"],
     excerpt: "Doble rueda, 140 pelotas, 6 h de sesión.",
     specs: [
-      { key: "speed", value: "16-100", unit: "km/h" },
-      { key: "capacity", value: "140", unit: "pelotas" },
+      { key: "speed", label: "Speed", value: "16-100", unit: "km/h" },
+      { key: "capacity", label: "Capacity", value: "140", unit: "pelotas" },
     ],
     warrantyMonths: 24,
     variantIds: ["var_drill_pro_p", "var_drill_pro_t"],

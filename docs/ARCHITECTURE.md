@@ -212,7 +212,7 @@ Las suites de contrato son la pieza de mayor apalancamiento: se exportan desde e
 
 ## 8. Estado y secuencia
 
-Hecho: monorepo · tokens con contrato semántico y contraste garantizado · primitivas sin escape hatches · puertos implementables con suites de contrato · `Money` · máquina de estados con outbox y códigos de razón · fronteras verificadas · CI · **Payload 3.88 embebido** (admin en `/admin`, schema `payload` en Supabase con RLS, `push:false` — solo migraciones, colecciones `users`/`media`, globals `ThemeSettings`/`MarketSettings`, localización es/en/ar).
+Hecho: monorepo · tokens con contrato semántico y contraste garantizado · primitivas sin escape hatches · puertos implementables con suites de contrato · `Money` · máquina de estados con outbox y códigos de razón · fronteras verificadas · CI (con Postgres real: migra + siembra + test de contrato del adaptador) · **Payload 3.88 embebido** (admin en `/admin`, schema `payload` en Supabase con RLS, `push:false` — solo migraciones, localización es/en/ar) · **catálogo completo** (`categories`/`products`/`variants`/`prices`/`inventory`/`leads`; precios/inventario/leads solo-servidor; precios fijos por mercado en unidades menores) · **adaptador `commerce-payload`** pasando la suite de contrato contra Postgres real vía el composition root · **rutas `/robots` y `/robots/[slug]`** cacheadas por tags con revalidación desde hooks · **captación de leads** (server action validada, honeypot, consentimiento) · **live preview + draft mode** (`/next/preview` autenticado con payload.auth, sin secreto compartido).
 
 Pendiente, en orden (cada paquete = una sesión):
 
@@ -220,14 +220,14 @@ Pendiente, en orden (cada paquete = una sesión):
 |---|---|---|---|
 | ~~6~~ | ~~Payload embebido + Supabase schema `payload`, admin logueable~~ **hecho 19-ago** | — | — |
 | ~~4/5~~ | ~~Rutas `[region]`, `next-intl`, `dir`/`lang`, hreflang~~ **hecho 19-ago** (+ proxy de negociación, sitemap, robots, llms.txt, JSON-LD) | — | — |
-| 9 | ~~Tema desde CMS con `cacheTag`~~ **hecho 19-ago** · quedan overrides Zod de tokens + preview en draft mode | 6, 4 | sí |
-| 7 | Registro de secciones + controles de apariencia + 3 secciones | 9 | parcial |
-| 8 | `pages` + composición + versiones + live preview | 7 | sí |
-| 10/11 | Catálogo + precios/inventario solo-servidor + RLS | 6 | **no** + aprobación humana |
-| 12 | `commerce-payload` contra las suites de contrato | 10, 11 | sí |
-| 13 | Plantillas + PDP/PLP | 8, 12 | parcial |
-| 14 | Resto de secciones | 7, 13 | parcial |
-| 15 | `payments-stripe` + webhook + outbox | 12 | **no** + aprobación humana |
+| ~~9~~ | ~~Tema desde CMS con `cacheTag` + preview en draft mode~~ **hecho 19-ago** · quedan overrides Zod de tokens | 6, 4 | sí |
+| ~~7~~ | ~~Registro de secciones + controles de apariencia + Hero/RichText/CTABand~~ **hecho 19-ago** | 9 | — |
+| ~~8~~ | ~~`pages` + composición + versiones + live preview~~ **hecho 19-ago** | 7 | — |
+| ~~10/11~~ | ~~Catálogo + precios/inventario solo-servidor + RLS~~ **hecho 19-ago** (aprobación explícita del propietario) | 6 | — |
+| ~~12~~ | ~~`commerce-payload` contra las suites de contrato~~ **hecho 19-ago** (catálogo; checkout rechaza `NotImplementedError` hasta S2) | 10, 11 | — |
+| 13 | Plantillas (PDP editable como plantilla, secciones *binding*) + comparador | 8, 12 | parcial |
+| 14 | Resto de secciones (SpecsTable/LeadForm/etc. como bloques) | 7, 13 | parcial |
+| 15 | `payments-stripe` + webhook + outbox + checkout | 12 | **no** + aprobación humana |
 | 16 | Playwright, axe, regresión visual, jobs de CI separados | 7, 14 | sí |
 
 **Los WP 6, 4/5, 10/11 y 15 son los caros de cambiar después.** El resto es aditivo.

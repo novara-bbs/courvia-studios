@@ -30,8 +30,15 @@ export async function getPage(slug: string, locale: LocaleId): Promise<PageDocum
     if (doc === undefined) return null;
     return { slug: doc.slug, title: doc.title, blocks: doc.blocks ?? [] };
   } catch (error) {
-    if (process.env.NEXT_PHASE === "phase-production-build") return null;
     console.error(`page read failed for "${slug}"`, error);
+    // Swallow only a genuinely DB-less build; a configured DB that fails is
+    // a real fault and must not bake an empty page into a max-life cache.
+    if (
+      process.env.NEXT_PHASE === "phase-production-build" &&
+      (process.env.DATABASE_URL ?? "") === ""
+    ) {
+      return null;
+    }
     throw error;
   }
 }

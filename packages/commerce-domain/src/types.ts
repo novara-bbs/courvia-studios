@@ -36,7 +36,11 @@ export interface MarketConfig {
 
 /** One technical specification row; keys align across SKUs for comparison. */
 export interface Spec {
+  /** Stable machine key that aligns the same row across products in the
+   *  comparator (e.g. "capacity"). Never shown to the user. */
   key: string;
+  /** Localized visible label for the row (e.g. "Capacidad"). */
+  label: string;
   value: string;
   unit?: string;
 }

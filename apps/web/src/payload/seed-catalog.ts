@@ -80,6 +80,17 @@ interface SeedProduct {
   variants: SeedVariant[];
 }
 
+// The visible label per spec key, per locale. The key stays a stable machine
+// id (it aligns the comparator); the label is what the PDP renders.
+const SPEC_LABELS: Record<string, { es: string; en: string }> = {
+  capacidad: { es: "Capacidad", en: "Capacity" },
+  velocidad: { es: "Velocidad", en: "Speed" },
+  bateria: { es: "Batería", en: "Battery" },
+  peso: { es: "Peso", en: "Weight" },
+  rutinas: { es: "Rutinas", en: "Drills" },
+  alimentacion: { es: "Alimentación", en: "Power" },
+};
+
 const PRODUCTS: SeedProduct[] = [
   {
     slug: "drill-one",
@@ -169,11 +180,22 @@ for (const seed of PRODUCTS) {
       category: robots.id,
       excerpt: seed.excerpt.es,
       description: richText(seed.description.es),
-      specs: seed.specs.map((s) => ({ key: s.key, value: s.value.es, unit: s.unit })),
+      specs: seed.specs.map((s) => ({
+        key: s.key,
+        label: SPEC_LABELS[s.key]?.es ?? s.key,
+        value: s.value.es,
+        unit: s.unit,
+      })),
       warrantyMonths: seed.warrantyMonths,
       _status: "published",
     },
   });
+
+  // The specs array is non-localized but its `label`/`value` subfields are
+  // localized. Updating in EN must carry each row's id, or Payload recreates
+  // the rows and orphans the Spanish subfield values (they vanish). So we
+  // read back the created ids and address each row by id.
+  const createdSpecIds = (product.specs ?? []).map((row) => row.id);
   await payload.update({
     collection: "products",
     id: product.id,
@@ -183,7 +205,13 @@ for (const seed of PRODUCTS) {
       title: seed.title.en,
       excerpt: seed.excerpt.en,
       description: richText(seed.description.en),
-      specs: seed.specs.map((s) => ({ key: s.key, value: s.value.en, unit: s.unit })),
+      specs: seed.specs.map((s, i) => ({
+        id: createdSpecIds[i],
+        key: s.key,
+        label: SPEC_LABELS[s.key]?.en ?? s.key,
+        value: s.value.en,
+        unit: s.unit,
+      })),
       _status: "published",
     },
   });

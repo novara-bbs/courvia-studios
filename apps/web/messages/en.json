@@ -53,7 +53,8 @@
     "leadMessage": "Where do you play, and what do you want to improve? (optional)",
     "leadConsent": "I agree that Courvia may contact me about this request. No lists, no spam.",
     "leadSubmit": "Send request",
-    "leadInvalid": "Check the name and email — something doesn't add up."
+    "leadInvalid": "Check the name and email — something doesn't add up.",
+    "notSoldHere": "Not sold here"
   },
   "thanks": {
     "title": "Got it",

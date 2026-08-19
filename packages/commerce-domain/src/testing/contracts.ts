@@ -128,13 +128,26 @@ export function describeCatalogContract(
       expect(await service.getProductDetail(fixtures.unknownSlug, fixtures.market)).toBeNull();
     });
 
-    it("lists summaries with a from-price for the requested market", async () => {
+    it("lists summaries with a from-price in the requested market's currency", async () => {
       const service = await make();
       const all = await service.listProducts({ market: fixtures.market });
       expect(all.length).toBeGreaterThan(0);
       const withPrice = all.find((p) => p.fromPrice !== null);
       expect(withPrice, "at least one summary must carry fromPrice").toBeDefined();
-      expect((await service.listProducts({ limit: 1 })).length).toBeLessThanOrEqual(1);
+
+      // The summary's fromPrice must be in the same currency the PDP reports
+      // for that market — a summary silently priced in another market's
+      // currency is the ADR-05 bug this guards against.
+      const detail = await service.getProductDetail(fixtures.knownSlug, fixtures.market);
+      const detailCurrency = detail?.variants.find((v) => v.price !== null)?.price?.currency;
+      const knownSummary = all.find((p) => p.slug === fixtures.knownSlug);
+      expect(knownSummary?.fromPrice, "the known product must be priced in-market").not.toBeNull();
+      expect(knownSummary?.fromPrice?.currency).toBe(detailCurrency);
+
+      // limit is a hard cap, and the fixtures guarantee >= 1 product, so a
+      // limited query returns exactly one — not zero (which the old
+      // <= assertion silently tolerated).
+      expect((await service.listProducts({ market: fixtures.market, limit: 1 })).length).toBe(1);
     });
 
     it("prices differ by market, never converted at runtime (ADR-05)", async () => {
@@ -142,10 +155,13 @@ export function describeCatalogContract(
       const detail = await service.getProductDetail(fixtures.knownSlug, fixtures.market);
       const other = await service.getProductDetail(fixtures.knownSlug, fixtures.otherMarket);
       const a = detail?.variants.find((v) => v.price !== null)?.price;
-      // The other market either has its own currency price or no price at
-      // all — silently reusing the first market's currency would be the bug.
       const b = other?.variants.map((v) => v.price).find((p) => p !== null);
-      if (a && b) expect(b.currency).not.toBe(a.currency);
+      // The fixtures price the known product in BOTH markets, so both sides
+      // must exist and carry different currencies — the assertion is no
+      // longer skipped when one market happens to be unpriced.
+      expect(a, "known product must be priced in fixtures.market").toBeDefined();
+      expect(b, "known product must be priced in fixtures.otherMarket").toBeDefined();
+      expect(b?.currency).not.toBe(a?.currency);
     });
 
     it("answers availability in one batched call, preserving order", async () => {

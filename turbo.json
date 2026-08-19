@@ -1,8 +1,10 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalPassThroughEnv": ["DATABASE_URL", "PAYLOAD_SECRET", "NEXT_PHASE"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["NODE_ENV", "NEXT_PUBLIC_*", "VERCEL_ENV"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "typecheck": {

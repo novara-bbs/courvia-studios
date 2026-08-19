@@ -77,7 +77,11 @@ export default async function RobotDetailPage({ params }: PageArgs) {
                   <td>{t(`sport.${offer.sport}`)}</td>
                   <td>{offer.price === null ? "—" : format(offer.price, def.hreflang)}</td>
                   <td>
-                    {offer.available > 0 ? (
+                    {offer.price === null ? (
+                      // Not sold in this market: stock is irrelevant, and
+                      // showing "in stock" for an unbuyable variant misleads.
+                      <span className="stock stock--out">{t("notSoldHere")}</span>
+                    ) : offer.available > 0 ? (
                       <span className="stock stock--in">{t("inStock")}</span>
                     ) : (
                       <span className="stock stock--out">{t("outOfStock")}</span>
@@ -102,7 +106,7 @@ export default async function RobotDetailPage({ params }: PageArgs) {
           <dl className="specs-list">
             {product.specs.map((spec) => (
               <div key={spec.key} className="specs-row">
-                <dt>{t.has(`spec.${spec.key}`) ? t(`spec.${spec.key}`) : spec.key}</dt>
+                <dt>{spec.label}</dt>
                 <dd>
                   {spec.value}
                   {spec.unit === undefined ? "" : ` ${spec.unit}`}
@@ -122,7 +126,6 @@ export default async function RobotDetailPage({ params }: PageArgs) {
           region={region}
           productId={product.id}
           sourcePath={`/${region}/robots/${product.slug}`}
-          sportInterest={product.sports[0]}
           labels={{
             title: t("leadTitle"),
             name: t("leadName"),

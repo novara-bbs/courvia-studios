@@ -1,18 +1,28 @@
 /**
  * Catalog collections (CLAUDE.md §10.1/§11).
  *
- * Public read: products, variants, categories — the storefront's raw
- * material. SERVER-ONLY: prices and inventory. Raw commercial data never
- *  leaves through REST/GraphQL; the storefront reads it through the
- * CommerceService adapter over the Local API, and the market -> currency
- * mapping lives once in @courvia/platform (prices store amount + market
- * only, so the two can never drift).
+ * Public read: products and categories only — the storefront navigation
+ * surface. Variants, prices, inventory and leads are SERVER-ONLY: the
+ * storefront reads them through the CommerceService adapter over the Local
+ * API (overrideAccess), never through public REST/GraphQL. Variants are
+ * server-only too, not because a SKU is a secret on its own, but because a
+ * variant carries no draft state of its own — leaving it public would leak
+ * the SKUs and configuration of products still in `draft`. The market ->
+ * currency mapping lives once in @courvia/platform (prices store amount +
+ * market only, so the two can never drift).
  */
 import { MARKETS, SPORTS } from "@courvia/platform";
 import type { CollectionConfig } from "payload";
 
 import { anyone, isAdmin, isAuthenticated } from "./access";
 import { catalogHooks, revalidateCatalog } from "./catalog-revalidation";
+
+/** True once a document is (or has ever been) publicly visible. Draft
+ *  autosaves — which never change what an anonymous reader sees — must not
+ *  thrash the public cache tags. */
+function affectsPublished(doc: { _status?: unknown }, previousDoc?: { _status?: unknown }): boolean {
+  return doc?._status === "published" || previousDoc?._status === "published";
+}
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -57,6 +67,9 @@ export const Products: CollectionConfig = {
   hooks: {
     afterChange: [
       ({ doc, previousDoc }) => {
+        // Draft autosave (375 ms) does not alter the published page; only
+        // revalidate when a published version is involved.
+        if (!affectsPublished(doc, previousDoc)) return;
         revalidateCatalog(doc.slug);
         if (previousDoc?.slug && previousDoc.slug !== doc.slug) revalidateCatalog(previousDoc.slug);
       },
@@ -98,8 +111,16 @@ export const Products: CollectionConfig = {
           name: "key",
           type: "text",
           required: true,
+          admin: { description: "Identificador estable para alinear el comparador. No se muestra." },
           validate: (value: string | null | undefined) =>
             typeof value === "string" && KEBAB.test(value) ? true : "kebab-case",
+        },
+        {
+          name: "label",
+          type: "text",
+          required: true,
+          localized: true,
+          admin: { description: "Etiqueta visible de la fila (Capacidad, Velocidad…)." },
         },
         { name: "value", type: "text", required: true, localized: true },
         { name: "unit", type: "text" },
@@ -116,7 +137,10 @@ export const Variants: CollectionConfig = {
     defaultColumns: ["sku", "product", "sport", "active"],
     description: "Un SKU por deporte y configuración (Drill Pro → T / P / PB).",
   },
-  access: { read: anyone, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
+  // Server-only: a variant has no draft state of its own, so public REST
+  // would leak the SKUs/config of variants belonging to draft products. The
+  // storefront reads variants through the adapter (Local API, overrideAccess).
+  access: { read: isAuthenticated, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
   hooks: catalogHooks("product"),
   fields: [
     { name: "product", type: "relationship", relationTo: "products", required: true, index: true },
@@ -168,7 +192,16 @@ export const Prices: CollectionConfig = {
       validate: (value: number | null | undefined) =>
         typeof value === "number" && Number.isInteger(value) ? true : "Entero en unidades menores",
     },
-    { name: "compareAtAmount", type: "number", min: 0 },
+    {
+      name: "compareAtAmount",
+      type: "number",
+      min: 0,
+      admin: { description: "Precio anterior tachado, mismas unidades menores que amount." },
+      validate: (value: number | null | undefined) =>
+        value === null || value === undefined || Number.isInteger(value)
+          ? true
+          : "Entero en unidades menores",
+    },
     {
       name: "taxBehavior",
       type: "select",
@@ -211,9 +244,11 @@ export const Leads: CollectionConfig = {
     defaultColumns: ["email", "market", "sportInterest", "createdAt"],
     description: "Captación comercial. Se crean desde el formulario web (server action), nunca por REST público.",
   },
-  // Server-only: the public form goes through a validated server action
-  // (Local API), so anonymous REST cannot spam this collection.
-  access: { read: isAuthenticated, create: isAuthenticated, update: isAdmin, delete: isAdmin },
+  // Server-only writes (the public form uses a validated server action over
+  // the Local API, so anonymous REST cannot spam this collection) AND
+  // admin-only reads: leads hold personal data (RGPD), so a non-privileged
+  // editor role must not be able to list or export the customer table.
+  access: { read: isAdmin, create: isAuthenticated, update: isAdmin, delete: isAdmin },
   fields: [
     { name: "name", type: "text", required: true },
     { name: "email", type: "email", required: true, index: true },
