@@ -1,0 +1,75 @@
+/* App shell — semantic tokens only (--cv-*), logical properties from day one
+ * so RTL needs no refactor (CLAUDE.md §5/§9). */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--cv-color-bg);
+  color: var(--cv-color-text);
+  font-family: var(--cv-font-body);
+  font-size: var(--cv-font-size-md);
+  line-height: var(--cv-font-lineHeight-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: var(--cv-breakpoint-xl);
+  margin-inline: auto;
+  padding-block: var(--cv-space-16);
+  padding-inline: var(--cv-space-6);
+  display: grid;
+  gap: var(--cv-space-8);
+}
+
+.hero h1 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-display);
+  line-height: var(--cv-font-lineHeight-tight);
+  text-transform: uppercase;
+  margin-block: var(--cv-space-4);
+}
+
+.hero .ball {
+  display: inline-block;
+  inline-size: 0.15em;
+  block-size: 0.15em;
+  background: var(--cv-color-accent);
+  border-radius: var(--cv-radius-pill);
+  margin-inline-start: 0.06em;
+}
+
+.lead {
+  max-width: 62ch;
+  color: var(--cv-color-text-muted);
+}
+
+h2 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-lg);
+  margin-block-end: var(--cv-space-3);
+}
+
+code {
+  font-family: var(--cv-font-data, monospace);
+  font-size: 0.9em;
+}
+
+.theme-switcher,
+.samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cv-space-3);
+  margin-block-start: var(--cv-space-4);
+  align-items: center;
+}
+
+.foot {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  border-block-start: 1px solid var(--cv-color-border);
+  padding-block-start: var(--cv-space-4);
+}
