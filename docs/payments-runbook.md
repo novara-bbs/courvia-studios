@@ -25,16 +25,24 @@ webhook POST /next/webhooks/{provider}
                DESPUÉS del commit, nunca dentro
 ```
 
-Códigos de respuesta del webhook: `200` aplicado/duplicado/replay/ignorado ·
+Códigos de respuesta del webhook: `200` aplicado/duplicado/replay/ignorado —
+también los **conflictos** (paid sobre pedido cancelado, importe o moneda que
+no cuadran): se guarda el evento + una alerta `alert_payment_conflict` en el
+outbox y se responde 200 para que la pasarela no reintente lo irresoluble ·
 `400` firma inválida · `404` proveedor desconocido o no configurado ·
 `409` válido pero prematuro para el estado (la pasarela debe reintentar).
+
+Reembolsos: Stripe reporta importes ACUMULADOS (`amount_refunded`); el
+adaptador marca el evento `cumulative` y el applier calcula el delta — los
+replays absorben a cero y el resto de un reembolso parcial sí aterriza.
 
 ## Activar un proveedor (configuración, no código)
 
 1. **Registro por despliegue** — `apps/web/src/server/container.ts` lee env:
    - `STRIPE_WEBHOOK_SECRET` (whsec_…) → registra el adaptador Stripe.
-   - `PAYMENT_FAKE_SECRET` → proveedor fake (JAMÁS en producción; el
-     container lo bloquea con `VERCEL_ENV === "production"`).
+   - `PAYMENT_FAKE_SECRET` → proveedor fake. Fail-closed: bloqueado con
+     `VERCEL_ENV=production`, y con `NODE_ENV=production` exige además
+     `PAYMENT_FAKE_UNSAFE_ALLOW=1` (solo el servidor local en modo prod).
 2. **Oferta por mercado (ADR-14)** — Global `MarketSettings` en el admin:
    qué proveedores ve el cliente en cada mercado y en qué orden.
 3. **Webhook en la pasarela** — apuntar a
@@ -80,6 +88,10 @@ Las filas `pending` se despachan fuera de la transacción. Fase 1: despacho
 **manual-asistido** desde el admin (colección Outbox, grupo Comercio); el
 worker/cron llega con la integración real. `refund.approved` es el ÚNICO
 disparador que ordena `execute_provider_refund`, y siempre lleva importe.
+`restock_if_applicable` también vive en el outbox: reponer stock es una
+acción de almacén con inspección física, no un update silencioso.
+`alert_payment_conflict` es la fila que nadie quiere ver: dinero capturado
+que contradice el pedido — se atiende antes que nada.
 
 ## Qué vigilar
 

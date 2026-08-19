@@ -33,8 +33,17 @@ import { getPayload } from "payload";
 export function getPaymentProviders(): PaymentProviderRegistry {
   const providers: PaymentProviderRegistry = {};
 
+  // Fail-CLOSED gate: the fake needs the secret AND a non-production
+  // runtime. VERCEL_ENV is undefined on self-hosted boxes, so a production
+  // NODE_ENV additionally requires an explicit unsafe opt-in (used by the
+  // local prod-mode server) — a leaked fake secret alone can never mark
+  // orders paid on a real deployment.
   const fakeSecret = process.env.PAYMENT_FAKE_SECRET;
-  if (fakeSecret !== undefined && fakeSecret !== "" && process.env.VERCEL_ENV !== "production") {
+  const fakeAllowed =
+    process.env.VERCEL_ENV !== "production" &&
+    (process.env.NODE_ENV !== "production" ||
+      process.env.PAYMENT_FAKE_UNSAFE_ALLOW === "1");
+  if (fakeSecret !== undefined && fakeSecret !== "" && fakeAllowed) {
     providers.stripe = new FakePaymentProvider({ secret: fakeSecret });
   }
 

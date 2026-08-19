@@ -56,7 +56,11 @@ export type SideEffect =
   | "issue_credit_note"
   | "restock_if_applicable"
   | "create_rma_with_instructions"
-  | "alert_refund_failure";
+  | "alert_refund_failure"
+  /** Emitted by the APPLIER (not the machine) when a signed event contradicts
+   * the order: paid-on-cancelled, or an amount/currency mismatch. Money may
+   * have been captured — a human must look. */
+  | "alert_payment_conflict";
 
 /**
  * Where a side-effect may run.
@@ -71,7 +75,9 @@ export const SIDE_EFFECT_EXECUTION: Record<SideEffect, "transactional" | "outbox
   reserve_stock_temporarily: "transactional",
   release_reservation: "transactional",
   commit_stock: "transactional",
-  restock_if_applicable: "transactional",
+  // Physical restock is a warehouse action, not a row update: outbox, so it
+  // shows up as a pending task instead of silently mutating stock.
+  restock_if_applicable: "outbox",
   request_human_approval: "transactional",
   create_rma_with_instructions: "transactional",
   start_picking: "transactional",
@@ -85,6 +91,7 @@ export const SIDE_EFFECT_EXECUTION: Record<SideEffect, "transactional" | "outbox
   send_refund_email: "outbox",
   issue_credit_note: "outbox",
   alert_refund_failure: "outbox",
+  alert_payment_conflict: "outbox",
 };
 
 /**
@@ -180,15 +187,20 @@ const TRANSITIONS: Partial<Record<OrderStatus, Partial<Record<TriggerType, Rule>
   refund_failed: {
     "refund.retried": { next: "refunded", sideEffects: REFUND_SIDE_EFFECTS },
   },
-  /* cancelled, refunded and partially_refunded are terminal. */
+  // A partial refund is NOT the end of the story: the remainder can still be
+  // refunded (providers report cumulative amounts; the applier de-dupes
+  // zero-delta replays before ever calling transition()).
+  partially_refunded: {
+    "payment.refunded": {
+      next: "refunded",
+      sideEffects: ["send_refund_email", "issue_credit_note", "restock_if_applicable"],
+    },
+  },
+  /* cancelled and refunded are terminal. */
 };
 
 /** Statuses with no outgoing transitions. */
-export const TERMINAL_STATUSES: readonly OrderStatus[] = [
-  "cancelled",
-  "refunded",
-  "partially_refunded",
-];
+export const TERMINAL_STATUSES: readonly OrderStatus[] = ["cancelled", "refunded"];
 
 /** Triggers whose arrival on a terminal order means "already handled". */
 const REPLAYABLE_TRIGGERS: readonly TriggerType[] = [
@@ -209,12 +221,20 @@ const DOWNSTREAM_OF_PAID: readonly OrderStatus[] = [
   "refund_failed",
   "return_requested",
   "return_received",
+  "partially_refunded",
 ];
 
 export function transition(current: OrderStatus, trigger: OrderTrigger): TransitionResult {
-  // A failed provider refund parks the order wherever it was awaiting one.
+  // A failed provider refund parks the order wherever it was awaiting one —
+  // including AFTER it was optimistically marked refunded: gateways emit the
+  // refund first and its failure later.
   if (trigger.type === "payment.refund_failed") {
-    if (current === "return_received" || current === "refund_requested") {
+    if (
+      current === "return_received" ||
+      current === "refund_requested" ||
+      current === "refunded" ||
+      current === "partially_refunded"
+    ) {
       return { ok: true, next: "refund_failed", sideEffects: ["alert_refund_failure"] };
     }
     return {
@@ -226,13 +246,16 @@ export function transition(current: OrderStatus, trigger: OrderTrigger): Transit
 
   const rule = TRANSITIONS[current]?.[trigger.type];
   if (rule === undefined) {
-    // A repeated `paid` (same meaning, possibly a different event id) on an
+    // A repeated `paid` — or a STALE `failed` from an earlier attempt — on an
     // order that is already past payment is a replay, not a fault.
-    if (trigger.type === "payment.paid" && DOWNSTREAM_OF_PAID.includes(current)) {
+    if (
+      (trigger.type === "payment.paid" || trigger.type === "payment.failed") &&
+      DOWNSTREAM_OF_PAID.includes(current)
+    ) {
       return {
         ok: false,
         rejection: "already_applied",
-        reason: `Order is already "${current}"; "payment.paid" is a replay`,
+        reason: `Order is already "${current}"; "${trigger.type}" is a replay`,
       };
     }
     const terminal = TERMINAL_STATUSES.includes(current);

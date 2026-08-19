@@ -65,6 +65,16 @@ describe("StripePaymentProvider (prepared, not connected)", () => {
     );
   });
 
+  it("accepts any matching v1 during a signing-secret rotation", async () => {
+    // Stripe sends one v1 per active secret; ours is the SECOND one here.
+    const t = Math.floor(NOW / 1000);
+    const wrong = "0".repeat(64);
+    const right = sign(PAID_BODY).split("v1=")[1]!;
+    const rotated = `t=${t},v1=${wrong},v1=${right}`;
+    const event = await make().verifyWebhook(PAID_BODY, rotated);
+    expect(event.providerEventId).toBe("evt_1");
+  });
+
   it("normalizes checkout.session.completed into paid", async () => {
     const provider = make();
     const raw = await provider.verifyWebhook(PAID_BODY, sign(PAID_BODY));
@@ -98,7 +108,12 @@ describe("StripePaymentProvider (prepared, not connected)", () => {
         },
       },
     });
-    expect(normalized).toMatchObject({ type: "refunded", partial: true, amount: { amount: 50000 } });
+    expect(normalized).toMatchObject({
+      type: "refunded",
+      partial: true,
+      cumulative: true,
+      amount: { amount: 50000 },
+    });
   });
 
   it("returns null — never throws — for events without domain meaning", () => {

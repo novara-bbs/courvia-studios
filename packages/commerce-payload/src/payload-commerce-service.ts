@@ -320,7 +320,13 @@ export class PayloadCommerceService implements CommerceService {
     }
 
     const currency = MARKET_DEFINITIONS[input.market].currency;
-    const skus = input.lines.map((line) => line.sku);
+    // Aggregate per SKU first: two lines of the same SKU must be validated
+    // and reserved as their SUM, or each line sneaks under the stock check.
+    const qtyBySku = new Map<string, number>();
+    for (const line of input.lines) {
+      qtyBySku.set(line.sku, (qtyBySku.get(line.sku) ?? 0) + line.quantity);
+    }
+    const skus = [...qtyBySku.keys()];
     const variantResult = await this.payload.find({
       collection: "variants",
       where: { sku: { in: skus }, active: { equals: true } } as Where,
@@ -339,16 +345,18 @@ export class PayloadCommerceService implements CommerceService {
     ]);
     const priceByVariant = new Map(prices.map((p) => [relationId(p.variant), p.amount]));
 
-    const lines = input.lines.map((line) => {
-      const variantDoc = variantsBySku.get(line.sku);
-      if (variantDoc === undefined) throw new CheckoutError("unknown_sku", line.sku);
+    // Fast-fail validation against a snapshot; the AUTHORITATIVE stock check
+    // happens again inside the transaction, after taking the row lock.
+    const lines = [...qtyBySku.entries()].map(([sku, quantity]) => {
+      const variantDoc = variantsBySku.get(sku);
+      if (variantDoc === undefined) throw new CheckoutError("unknown_sku", sku);
       const unitMinor = priceByVariant.get(String(variantDoc.id));
-      if (unitMinor === undefined) throw new CheckoutError("not_sold_in_market", line.sku);
+      if (unitMinor === undefined) throw new CheckoutError("not_sold_in_market", sku);
       const available = availability.get(String(variantDoc.id));
-      if (available !== undefined && available < line.quantity) {
-        throw new CheckoutError("insufficient_stock", line.sku);
+      if (available !== undefined && available < quantity) {
+        throw new CheckoutError("insufficient_stock", sku);
       }
-      return { variantDoc, quantity: line.quantity, unitAmount: money(unitMinor, currency) };
+      return { variantDoc, quantity, unitAmount: money(unitMinor, currency) };
     });
 
     const total = sum(
@@ -390,8 +398,14 @@ export class PayloadCommerceService implements CommerceService {
       orderId = created.id as number;
 
       // reserve_stock_temporarily (transactional side effect of the draft
-      // transition): soft reservation, released on failure/expiry.
-      for (const line of lines) {
+      // transition). Lock each inventory row (an UPDATE takes a row lock),
+      // then RE-READ and re-check: two concurrent checkouts for the last
+      // unit serialize here, and the loser rolls back with a typed error
+      // instead of overselling. Deterministic variant order avoids deadlock.
+      const orderedLines = [...lines].sort(
+        (a, b) => Number(a.variantDoc.id) - Number(b.variantDoc.id),
+      );
+      for (const line of orderedLines) {
         const inv = await this.payload.find({
           collection: "inventory",
           where: { variant: { equals: Number(line.variantDoc.id) } } as Where,
@@ -400,16 +414,32 @@ export class PayloadCommerceService implements CommerceService {
           overrideAccess: true,
           req,
         });
-        const row = inv.docs[0] as { id: number; qtyCommitted: number } | undefined;
-        if (row !== undefined) {
-          await this.payload.update({
-            collection: "inventory",
-            id: row.id,
-            data: { qtyCommitted: row.qtyCommitted + line.quantity },
-            overrideAccess: true,
-            req,
-          });
+        const row = inv.docs[0] as { id: number } | undefined;
+        if (row === undefined) continue; // no inventory row = untracked stock
+        await this.payload.update({
+          collection: "inventory",
+          id: row.id,
+          data: {},
+          overrideAccess: true,
+          req,
+        });
+        const fresh = (await this.payload.findByID({
+          collection: "inventory",
+          id: row.id,
+          depth: 0,
+          overrideAccess: true,
+          req,
+        })) as unknown as { qtyOnHand: number; qtyCommitted: number };
+        if (fresh.qtyOnHand - fresh.qtyCommitted < line.quantity) {
+          throw new CheckoutError("insufficient_stock", line.variantDoc.sku);
         }
+        await this.payload.update({
+          collection: "inventory",
+          id: row.id,
+          data: { qtyCommitted: fresh.qtyCommitted + line.quantity },
+          overrideAccess: true,
+          req,
+        });
       }
       await commitTransaction(req as Parameters<typeof commitTransaction>[0]);
     } catch (error) {
@@ -477,30 +507,55 @@ export class PayloadCommerceService implements CommerceService {
    * is a support conversation, not a state change.
    */
   async requestReturn(input: ReturnInput): Promise<ReturnRequest> {
-    const order = await this.getOrder(input.orderId);
-    if (order === null) throw new CheckoutError("order_not_found", input.orderId);
+    const orderId = Number(input.orderId);
+    if (!Number.isInteger(orderId)) throw new CheckoutError("order_not_found", input.orderId);
 
-    const created = await this.payload.create({
-      collection: "returns",
-      overrideAccess: true,
-      data: {
-        order: Number(input.orderId),
-        status: "requested",
-        lines: input.lines.map((line) => ({ sku: line.sku, quantity: line.quantity })),
-        reason: input.reason,
-      },
-    });
-
-    const result = transition(order.status, { type: "return.requested" });
-    if (result.ok) {
-      await this.payload.update({
+    const req: Partial<PayloadRequest> = { payload: this.payload };
+    await initTransaction(req as Parameters<typeof initTransaction>[0]);
+    try {
+      // Lock the order (UPDATE takes the row lock), then read the status
+      // this transaction must decide on — §4: transitions run inside a
+      // transaction, never against a stale read.
+      const locked = await this.payload
+        .update({ collection: "orders", id: orderId, data: {}, overrideAccess: true, req })
+        .catch(() => null);
+      if (locked === null) throw new CheckoutError("order_not_found", input.orderId);
+      const order = (await this.payload.findByID({
         collection: "orders",
-        id: Number(input.orderId),
+        id: orderId,
+        depth: 0,
         overrideAccess: true,
-        data: { status: result.next },
-      });
-    }
+        req,
+      })) as unknown as { status: OrderStatus };
 
-    return { id: String(created.id), orderId: input.orderId, status: "requested" };
+      const created = await this.payload.create({
+        collection: "returns",
+        overrideAccess: true,
+        req,
+        data: {
+          order: orderId,
+          status: "requested",
+          lines: input.lines.map((line) => ({ sku: line.sku, quantity: line.quantity })),
+          reason: input.reason,
+        },
+      });
+
+      const result = transition(order.status, { type: "return.requested" });
+      if (result.ok) {
+        await this.payload.update({
+          collection: "orders",
+          id: orderId,
+          overrideAccess: true,
+          req,
+          data: { status: result.next },
+        });
+      }
+
+      await commitTransaction(req as Parameters<typeof commitTransaction>[0]);
+      return { id: String(created.id), orderId: input.orderId, status: "requested" };
+    } catch (error) {
+      await killTransaction(req as Parameters<typeof killTransaction>[0]);
+      throw error;
+    }
   }
 }

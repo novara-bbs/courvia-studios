@@ -39,6 +39,10 @@ export interface PaymentEvent {
   amount: Money;
   /** Only meaningful for `refunded`: true when it does not cover the order. */
   partial?: boolean;
+  /** True when the provider reports refunds as a RUNNING TOTAL (Stripe's
+   * amount_refunded) rather than a per-refund delta. The applier uses this
+   * to compute the delta and to absorb zero-delta replays. */
+  cumulative?: boolean;
   occurredAt: string; // ISO-8601
 }
 

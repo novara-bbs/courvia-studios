@@ -199,9 +199,17 @@ describe("invalid transitions", () => {
     expect(transition("shipped", { type: "payment.failed" }).ok).toBe(false);
   });
 
-  it("terminal statuses accept no trigger at all", () => {
+  it("terminal statuses accept nothing except a late refund failure", () => {
     for (const status of TERMINAL_STATUSES) {
       for (const trigger of EVERY_TRIGGER) {
+        // Deliberate exception: gateways emit the refund first and can mark
+        // it failed later, so `refunded` must park on refund_failed instead
+        // of leaving the money unreturned behind a terminal status.
+        if (status === "refunded" && trigger.type === "payment.refund_failed") {
+          const late = transition(status, trigger);
+          expect(late.ok && late.next).toBe("refund_failed");
+          continue;
+        }
         expect(transition(status, trigger).ok, `${status} ${trigger.type}`).toBe(false);
       }
     }

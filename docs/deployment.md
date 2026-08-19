@@ -25,7 +25,7 @@
 | `NEXT_PUBLIC_SITE_URL` | Production | `https://{dominio}` — canónicas/hreflang; `siteUrl()` revienta el build de producción si falta. |
 | `STRIPE_WEBHOOK_SECRET` | cuando se conecte | Activa el adaptador Stripe (solo webhooks). |
 | `STRIPE_SECRET_KEY` | cuando se conecte | Solo para la tarea de integración aprobada. |
-| `PAYMENT_FAKE_SECRET` | **solo Preview/dev** | El container lo ignora en producción. |
+| `PAYMENT_FAKE_SECRET` | **solo Preview/dev** | Fail-closed: bloqueado con `VERCEL_ENV=production`, y con `NODE_ENV=production` exige además `PAYMENT_FAKE_UNSAFE_ALLOW=1` (solo el servidor local en modo prod). |
 
 ### Migraciones: nunca en el build
 
@@ -70,7 +70,7 @@ y el ISR distribuido.
 
 1. Importar el repo en Vercel · Root Directory `apps/web`.
 2. Pegar `DATABASE_URL` (pooler 6543), `PAYLOAD_SECRET`, `NEXT_PUBLIC_SITE_URL`.
-3. Confirmar que las 4 migraciones están aplicadas en Supabase (lo están).
+3. Confirmar que TODAS las migraciones de `apps/web/src/migrations` figuran en `payload.payload_migrations` de Supabase (el ledger es la verdad, no un número recordado).
 4. Deploy → smoke: `/es`, `/es/robots`, `/es/robots/drill-pro`, `/admin`,
    403 en `/api/prices`, 404 en `/next/webhooks/stripe` (sin configurar: correcto).
 5. Sembrar contenido real desde `/admin` (o ejecutar los seeds una vez

@@ -14,6 +14,12 @@ import { describeCommerceServiceContract } from "@courvia/commerce-domain/testin
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const hasDb = typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL !== "";
+// This suite WIPES orders/payments/outbox/returns and rewrites inventory:
+// it only ever runs against a disposable database — localhost, or CI's
+// throwaway service. Point DATABASE_URL anywhere else and it skips.
+const dbIsDisposable =
+  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") ||
+  process.env.CI === "true";
 // The fake gateway drives checkout/webhooks end-to-end without credentials.
 process.env.PAYMENT_FAKE_SECRET ??= "test-secret";
 
@@ -90,7 +96,7 @@ async function resetCommerceRows() {
   }
 }
 
-if (hasDb) {
+if (hasDb && dbIsDisposable) {
   beforeAll(resetCommerceRows);
   afterAll(resetCommerceRows);
 
@@ -244,6 +250,143 @@ if (hasDb) {
       expect(retried).toMatchObject({ outcome: "applied", status: "paid" });
     });
 
+    it("an underpaid signed event is a CONFLICT: alert row, order untouched", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+
+      const result = await applyPaymentEvent({
+        type: "paid",
+        provider: "stripe",
+        providerEventId: `evt_underpaid_${checkout.orderId}`,
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount: 1, currency: "EUR" },
+        occurredAt: "2026-08-19T12:00:00.000Z",
+      });
+      expect(result.outcome).toBe("conflict");
+
+      const order = await service.getOrder(checkout.orderId);
+      expect(order?.status).toBe("pending_payment");
+      const alerts = await payload.find({
+        collection: "outbox",
+        where: {
+          and: [
+            { order: { equals: Number(checkout.orderId) } },
+            { effect: { equals: "alert_payment_conflict" } },
+          ],
+        },
+        overrideAccess: true,
+      });
+      expect(alerts.totalDocs).toBe(1);
+    });
+
+    it("paid arriving on a cancelled order raises a conflict, never silence", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+      await applyPaymentEvent({
+        type: "failed",
+        provider: "stripe",
+        providerEventId: `evt_fail_${checkout.orderId}`,
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount: 0, currency: "EUR" },
+        occurredAt: "2026-08-19T12:00:00.000Z",
+      });
+      expect((await service.getOrder(checkout.orderId))?.status).toBe("cancelled");
+
+      const late = await applyPaymentEvent(paidEvent(checkout.orderId, `evt_late_${checkout.orderId}`));
+      expect(late.outcome).toBe("conflict");
+      const alerts = await payload.find({
+        collection: "outbox",
+        where: {
+          and: [
+            { order: { equals: Number(checkout.orderId) } },
+            { effect: { equals: "alert_payment_conflict" } },
+          ],
+        },
+        overrideAccess: true,
+      });
+      expect(alerts.totalDocs).toBe(1);
+    });
+
+    it("a stale failed AFTER paid is a replay, not an error loop", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const service = await getCommerce("es");
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+      await applyPaymentEvent(paidEvent(checkout.orderId, `evt_pd_${checkout.orderId}`));
+
+      const stale = await applyPaymentEvent({
+        type: "failed",
+        provider: "stripe",
+        providerEventId: `evt_stale_${checkout.orderId}`,
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount: 0, currency: "EUR" },
+        occurredAt: "2026-08-19T11:59:00.000Z",
+      });
+      expect(stale.outcome).toBe("already_applied");
+      expect((await service.getOrder(checkout.orderId))?.status).toBe("paid");
+    });
+
+    it("cumulative refunds land as deltas: partial, then the remainder", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+      await applyPaymentEvent(paidEvent(checkout.orderId, `evt_p1_${checkout.orderId}`));
+      await payload.update({
+        collection: "orders",
+        id: Number(checkout.orderId),
+        data: { status: "refund_requested" },
+        overrideAccess: true,
+      });
+
+      const refund = (cum: number, id: string) =>
+        applyPaymentEvent({
+          type: "refunded",
+          provider: "stripe",
+          providerEventId: id,
+          providerPaymentId: `pi_${checkout.orderId}`,
+          orderId: checkout.orderId,
+          amount: { amount: cum, currency: "EUR" },
+          partial: cum < 129_000,
+          cumulative: true,
+          occurredAt: "2026-08-19T13:00:00.000Z",
+        });
+
+      const first = await refund(50_000, `evt_r1_${checkout.orderId}`);
+      expect(first).toMatchObject({ outcome: "applied", status: "partially_refunded" });
+
+      // Same cumulative total replayed under a new id: zero delta, absorbed.
+      const replay = await refund(50_000, `evt_r1b_${checkout.orderId}`);
+      expect(replay).toMatchObject({ outcome: "already_applied" });
+
+      // The remainder arrives as the new running total.
+      const second = await refund(129_000, `evt_r2_${checkout.orderId}`);
+      expect(second).toMatchObject({ outcome: "applied", status: "refunded" });
+      const order = await service.getOrder(checkout.orderId);
+      expect(order?.refundedTotal).toMatchObject({ amount: 129_000 });
+    });
+
+    it("duplicate SKU lines are aggregated before the stock check", async () => {
+      const { getCommerce } = await loadContainer();
+      const service = await getCommerce("es");
+      // 9 on hand: 5+5 must fail as a SUM even though each line alone fits.
+      await expect(
+        service.createCheckout({
+          ...CHECKOUT_INPUT,
+          lines: [
+            { sku: "DRL-PRO-P", quantity: 5 },
+            { sku: "DRL-PRO-P", quantity: 5 },
+          ],
+        }),
+      ).rejects.toMatchObject({ code: "insufficient_stock" });
+    });
+
     it("refund after approval reaches refunded and tracks the refunded total", async () => {
       const { getCommerce, applyPaymentEvent } = await loadContainer();
       const payload = await loadPayload();
@@ -275,7 +418,7 @@ if (hasDb) {
     });
   });
 } else {
-  describe.skip("PayloadCommerceService contract (requires DATABASE_URL)", () => {
+  describe.skip("PayloadCommerceService contract (requires a DISPOSABLE DATABASE_URL: localhost or CI)", () => {
     it("skipped", () => undefined);
   });
 }

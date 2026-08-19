@@ -1,21 +1,41 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalPassThroughEnv": ["DATABASE_URL", "PAYLOAD_SECRET", "NEXT_PHASE"],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "PAYLOAD_SECRET",
+    "NEXT_PHASE"
+  ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "env": ["NODE_ENV", "NEXT_PUBLIC_*", "VERCEL_ENV"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "env": [
+        "NODE_ENV",
+        "NEXT_PUBLIC_*",
+        "VERCEL_ENV"
+      ],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**"
+      ]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "lint": {},
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "@courvia/design-tokens#test": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/ui/src/**/*.css",
@@ -24,9 +44,17 @@
       ]
     },
     "dev": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "cache": false,
       "persistent": true
+    },
+    "@courvia/web#test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": false
     }
   }
 }

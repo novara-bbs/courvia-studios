@@ -6,7 +6,8 @@
  *   → ledger insert (idempotency) → state machine in a transaction → outbox.
  *
  * Response codes are chosen for gateway retry semantics:
- *   200 — applied, duplicate, replay, or an event we deliberately ignore.
+ *   200 — applied, duplicate, replay, deliberately ignored, or a CONFLICT
+ *         (recorded + alerted; retrying can never resolve it).
  *   400 — bad signature (retrying will never help).
  *   404 — unknown or unconfigured provider.
  *   409 — event valid but premature for the order's status: the gateway
@@ -62,6 +63,12 @@ export async function POST(
     case "duplicate":
     case "already_applied":
       // Expected replays: acknowledged so the gateway stops retrying.
+      return Response.json(result, { status: 200 });
+    case "conflict":
+      // The signed event contradicts the order (paid-on-cancelled, amount
+      // mismatch): recorded + alerted via outbox; 200 because a gateway
+      // retry can never resolve it — a human will.
+      console.error(`webhook conflict: ${result.reason}`);
       return Response.json(result, { status: 200 });
     case "invalid":
       // Premature for the current status — ask the gateway to retry.

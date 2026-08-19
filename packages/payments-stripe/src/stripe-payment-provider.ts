@@ -69,16 +69,19 @@ export class StripePaymentProvider implements PaymentProvider {
   }
 
   async verifyWebhook(rawBody: string, signature: string): Promise<ProviderEvent> {
-    // Header shape: "t=1687982400,v1=abc...,v0=..." — v1 is HMAC-SHA256.
-    const parts = new Map(
-      signature.split(",").map((pair) => {
-        const eq = pair.indexOf("=");
-        return [pair.slice(0, eq).trim(), pair.slice(eq + 1).trim()] as const;
-      }),
-    );
-    const timestamp = parts.get("t");
-    const expected = parts.get("v1");
-    if (timestamp === undefined || expected === undefined || !/^\d+$/.test(timestamp)) {
+    // Header shape: "t=1687982400,v1=abc...,v1=def...,v0=..." — during a
+    // signing-secret rotation Stripe sends MULTIPLE v1 signatures (one per
+    // active secret); the payload is genuine if ANY of them matches.
+    let timestamp: string | undefined;
+    const candidates: string[] = [];
+    for (const pair of signature.split(",")) {
+      const eq = pair.indexOf("=");
+      const key = pair.slice(0, eq).trim();
+      const value = pair.slice(eq + 1).trim();
+      if (key === "t") timestamp = value;
+      if (key === "v1") candidates.push(value);
+    }
+    if (timestamp === undefined || candidates.length === 0 || !/^\d+$/.test(timestamp)) {
       throw new WebhookSignatureError(this.id);
     }
 
@@ -92,8 +95,11 @@ export class StripePaymentProvider implements PaymentProvider {
       .update(`${timestamp}.${rawBody}`)
       .digest("hex");
     const a = Buffer.from(computed, "utf8");
-    const b = Buffer.from(expected, "utf8");
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    const matches = candidates.some((candidate) => {
+      const b = Buffer.from(candidate, "utf8");
+      return a.length === b.length && timingSafeEqual(a, b);
+    });
+    if (!matches) {
       throw new WebhookSignatureError(this.id);
     }
 
@@ -153,8 +159,10 @@ export class StripePaymentProvider implements PaymentProvider {
           providerEventId: event.providerEventId,
           providerPaymentId: paymentId,
           orderId,
+          // amount_refunded is a RUNNING TOTAL, not a per-refund delta.
           amount: money(refunded, currency),
           partial: refunded < total,
+          cumulative: true,
           occurredAt,
         };
       }

@@ -567,6 +567,7 @@ export interface Payment {
 export interface Outbox {
   id: number;
   effect:
+    | 'restock_if_applicable'
     | 'send_confirmation_email'
     | 'notify_crm'
     | 'issue_tax_invoice'
@@ -576,7 +577,8 @@ export interface Outbox {
     | 'execute_provider_refund'
     | 'send_refund_email'
     | 'issue_credit_note'
-    | 'alert_refund_failure';
+    | 'alert_refund_failure'
+    | 'alert_payment_conflict';
   order: number | Order;
   status: 'pending' | 'dispatched' | 'failed';
   /**
