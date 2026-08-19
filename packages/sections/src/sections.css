@@ -1,0 +1,77 @@
+/* @courvia/sections — section-level styles. Tokens only, logical props only. */
+
+.cv-hero {
+  display: grid;
+  gap: var(--cv-space-4);
+  justify-items: start;
+}
+
+[data-align='center'] .cv-hero {
+  justify-items: center;
+}
+
+.cv-hero-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-2xl);
+  line-height: var(--cv-font-lineHeight-tight);
+  text-transform: uppercase;
+}
+
+.cv-hero-ball {
+  display: inline-block;
+  inline-size: 0.15em;
+  block-size: 0.15em;
+  background: var(--cv-color-accent);
+  border-radius: var(--cv-radius-pill);
+  margin-inline-start: 0.06em;
+}
+
+.cv-hero-lead {
+  max-inline-size: 62ch;
+  color: var(--cv-color-text-muted);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+.cv-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cv-space-3);
+}
+
+.cv-hero-cta {
+  text-decoration: none;
+}
+
+.cv-prose {
+  max-inline-size: var(--cv-section-measure, 62ch);
+  line-height: var(--cv-font-lineHeight-body);
+  display: grid;
+  gap: var(--cv-space-3);
+}
+
+.cv-cta-band {
+  display: grid;
+  gap: var(--cv-space-3);
+  justify-items: start;
+  border-radius: var(--cv-radius-lg);
+  padding: var(--cv-space-8);
+}
+
+[data-align='center'] .cv-cta-band {
+  justify-items: center;
+  text-align: center;
+}
+
+.cv-cta-band h2 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+}
+
+/* Preview-only diagnostics: loud for editors, never shipped to customers. */
+.cv-section-problem {
+  border: 2px dashed var(--cv-color-accent);
+  color: var(--cv-color-text);
+  padding: var(--cv-space-4);
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-sm);
+}

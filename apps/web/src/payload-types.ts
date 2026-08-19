@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    pages: Page;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -78,6 +79,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -200,6 +202,105 @@ export interface Media {
   };
 }
 /**
+ * Páginas componibles. El orden de las secciones es el orden en pantalla.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  /**
+   * kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce.
+   */
+  slug: string;
+  blocks?:
+    | (
+        | {
+            eyebrow?: string | null;
+            heading: string;
+            lead?: string | null;
+            ctas?:
+              | {
+                  label: string;
+                  href: string;
+                  id?: string | null;
+                }[]
+              | null;
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              align?: ('start' | 'center') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hero';
+          }
+        | {
+            body: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              width?: ('prose' | 'content' | 'full') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'richText';
+          }
+        | {
+            heading: string;
+            body?: string | null;
+            cta?:
+              | {
+                  label: string;
+                  href: string;
+                  id?: string | null;
+                }[]
+              | null;
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              align?: ('start' | 'center') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'ctaBand';
+          }
+      )[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -230,6 +331,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -348,6 +453,85 @@ export interface MediaSelect<T extends boolean = true> {
               filename?: T;
             };
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  blocks?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              heading?: T;
+              lead?: T;
+              ctas?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        richText?:
+          | T
+          | {
+              body?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    width?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        ctaBand?:
+          | T
+          | {
+              heading?: T;
+              body?: T;
+              cta?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -1,0 +1,4 @@
+{
+  "extends": "@courvia/config/tsconfig.react.json",
+  "include": ["src"]
+}

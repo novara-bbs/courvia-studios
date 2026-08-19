@@ -7,6 +7,7 @@ import { buildConfig } from "payload";
 import sharp from "sharp";
 
 import { Media } from "./src/payload/media";
+import { Pages } from "./src/payload/pages";
 import { MarketSettings } from "./src/payload/market-settings";
 import { ThemeSettings } from "./src/payload/theme-settings";
 import { Users } from "./src/payload/users";
@@ -59,7 +60,7 @@ export default buildConfig({
     },
   },
 
-  collections: [Users, Media],
+  collections: [Users, Media, Pages],
   globals: [ThemeSettings, MarketSettings],
 
   typescript: {

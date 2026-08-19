@@ -1,0 +1,24 @@
+{
+  "name": "@courvia/appearance",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Token-bound design controls for editable sections: the closed vocabulary, its Zod schema, the data-attribute resolver and the generated stylesheet (ADR-016).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./appearance.css": "./dist/appearance.css"
+  },
+  "scripts": {
+    "build": "tsx src/build-css.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@courvia/design-tokens": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@courvia/config": "workspace:*"
+  }
+}

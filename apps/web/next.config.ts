@@ -16,7 +16,13 @@ const nextConfig: NextConfig = {
   // compatible with this flag.
   cacheComponents: true,
   // Workspace packages ship TypeScript source; Next transpiles them.
-  transpilePackages: ["@courvia/ui", "@courvia/design-tokens", "@courvia/platform"],
+  transpilePackages: [
+    "@courvia/ui",
+    "@courvia/design-tokens",
+    "@courvia/platform",
+    "@courvia/appearance",
+    "@courvia/sections",
+  ],
 };
 
 export default withPayload(withNextIntl(nextConfig));

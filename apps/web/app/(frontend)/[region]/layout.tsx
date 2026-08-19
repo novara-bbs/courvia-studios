@@ -1,5 +1,7 @@
 import "@courvia/design-tokens/tokens.css";
+import "@courvia/appearance/appearance.css";
 import "@courvia/ui/styles.css";
+import "@courvia/sections/sections.css";
 import "../app.css";
 
 import { REGIONS, REGION_DEFINITIONS, isRegionId } from "@courvia/platform";

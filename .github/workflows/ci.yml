@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # claude/** covers agent working branches: a push with no PR still runs
+    # the full pipeline, so "did the push break anything" has a real answer.
+    branches: [main, "claude/**"]
   pull_request:
 
 concurrency:

@@ -30,7 +30,9 @@
     "payload": "3.88.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "sharp": "0.35.3"
+    "sharp": "0.35.3",
+    "@courvia/sections": "workspace:*",
+    "@courvia/appearance": "workspace:*"
   },
   "devDependencies": {
     "@courvia/config": "workspace:*",

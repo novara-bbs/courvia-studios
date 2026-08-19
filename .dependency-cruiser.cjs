@@ -53,6 +53,27 @@ module.exports = {
       to: { path: "^@courvia/" },
     },
     {
+      name: "appearance-knows-only-tokens",
+      severity: "error",
+      comment:
+        "The design-control table must stay framework-free: it is generated into " +
+        "CSS and consumed by both the storefront and the CMS layer.",
+      from: { path: "^packages/appearance/src" },
+      to: { path: "^(@courvia/(?!design-tokens$)|react|next|payload)" },
+    },
+    {
+      name: "sections-are-pure",
+      severity: "error",
+      comment:
+        "A section is a pure function of (content, appearance): no CMS, no " +
+        "framework internals, no adapters, no I/O. That purity is what makes " +
+        "preview, Storybook and visual regression cheap (ADR-016).",
+      from: { path: "^packages/sections/src" },
+      to: {
+        path: "^(payload|@payloadcms|next|@courvia/(commerce-|payments-|platform))",
+      },
+    },
+    {
       name: "ui-knows-only-tokens",
       severity: "error",
       comment:

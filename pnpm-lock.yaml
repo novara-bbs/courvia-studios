@@ -47,12 +47,18 @@ importers:
 
   apps/web:
     dependencies:
+      '@courvia/appearance':
+        specifier: workspace:*
+        version: link:../../packages/appearance
       '@courvia/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
       '@courvia/platform':
         specifier: workspace:*
         version: link:../../packages/platform
+      '@courvia/sections':
+        specifier: workspace:*
+        version: link:../../packages/sections
       '@courvia/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -99,6 +105,19 @@ importers:
       '@types/react-dom':
         specifier: 19.2.4
         version: 19.2.4(@types/react@19.2.18)
+
+  packages/appearance:
+    dependencies:
+      '@courvia/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@courvia/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/commerce-domain:
     dependencies:
@@ -156,6 +175,31 @@ importers:
       '@courvia/config':
         specifier: workspace:*
         version: link:../config
+
+  packages/sections:
+    dependencies:
+      '@courvia/appearance':
+        specifier: workspace:*
+        version: link:../appearance
+      '@courvia/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
+      '@courvia/ui':
+        specifier: workspace:*
+        version: link:../ui
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@courvia/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
 
   packages/ui:
     dependencies:
