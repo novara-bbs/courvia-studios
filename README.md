@@ -1,16 +1,16 @@
 # courvia-studios
-Courvia Studios and Courvi Sports is a lifestyle brand focus on raquet sports and selling ball robots and other sports equipment
+Courvia Studios and Courvia Sports: a training brand for racquet sports — ball-throwing robots, equipment and content for tennis, padel and pickleball across Spain, the UK and the UAE.
 
 ## Desarrollo
 
-Documento maestro: [`CLAUDE.md`](./CLAUDE.md) (arquitectura, reglas duras, roadmap). Decisiones nuevas: [`docs/adr/`](./docs/adr/).
+Reglas permanentes: [`CLAUDE.md`](./CLAUDE.md) — se lee en cada sesión.
+Arquitectura: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) · Decisiones: [`docs/adr/`](./docs/adr/) · Recetas: [`docs/recipes/`](./docs/recipes/).
 
 ```bash
 corepack enable          # activa el pnpm pineado en package.json
 pnpm install
-pnpm build               # turbo: tokens CSS → Next build
-pnpm typecheck && pnpm lint && pnpm test
-pnpm --filter @courvia/web dev   # storefront en http://localhost:3000
+pnpm verify              # build · typecheck · lint · stylelint · arch · test
+pnpm dev                 # storefront en http://localhost:3000 (turbo compila los tokens antes)
 ```
 
 Requisitos: Node 22 o 24 (`.nvmrc`), pnpm 11 vía corepack.
@@ -23,7 +23,9 @@ Requisitos: Node 22 o 24 (`.nvmrc`), pnpm 11 vía corepack.
 | `packages/design-tokens` | Tokens DTCG canónicos + build a CSS variables (`--cv-*`, temas `volt`/`carbon`/`club`) |
 | `packages/ui` | Componentes sobre tokens semánticos (nunca hex crudos) |
 | `packages/commerce-domain` | Puertos `CommerceService`/`PaymentProvider`, `PaymentEvent` normalizados, máquina de estados de pedidos |
-| `packages/commerce-stripe-supabase` | Adaptador Stripe+Supabase (workspace preparado; implementación en S2) |
+| `packages/platform` | Vocabulario transversal: deportes, locales, mercados, monedas, regiones |
+| `packages/commerce-payload` | Adaptador de `CommerceService` (persistencia y catálogo) |
+| `packages/payments-stripe` | Adaptador de `PaymentProvider` (pasarela) |
 | `packages/config` | tsconfig/eslint compartidos |
 | `brand/` | Activos de marca originales (congelados; ver `brand/README.md`) |
 | `docs/` | ADRs, máquina de estados y documentación operativa |
