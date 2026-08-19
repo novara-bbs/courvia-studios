@@ -52,6 +52,11 @@ describe("resolveToken / lookupToken", () => {
     expect(() => resolveToken(doc, bad)).toThrow(/not found/);
   });
 
+  it("throws on over-long references that walk past a token", () => {
+    const overlong: Token = { $type: "color", $value: "{global.color.volt.400.oops}" };
+    expect(() => resolveToken(doc, overlong)).toThrow(/not found/);
+  });
+
   it("detects circular references", () => {
     const cyclic: TokensDocument = {
       global: {
@@ -88,6 +93,29 @@ describe("cssValue", () => {
         },
       }),
     ).toBe("0px 6px 20px 0px #0C132226");
+  });
+
+  it("rejects unknown $type instead of emitting 'undefined'", () => {
+    const alien = { $type: "gradient", $value: "x" } as unknown as Token;
+    expect(() => cssValue(alien)).toThrow(/Unsupported token \$type/);
+  });
+
+  it("rejects references embedded in composite values", () => {
+    expect(() =>
+      cssValue({ $type: "fontFamily", $value: ["{global.font.x}", "serif"] }),
+    ).toThrow(/composite/);
+    expect(() =>
+      cssValue({
+        $type: "shadow",
+        $value: {
+          color: "{global.color.ink.900}",
+          offsetX: "0px",
+          offsetY: "1px",
+          blur: "2px",
+          spread: "0px",
+        },
+      }),
+    ).toThrow(/composite/);
   });
 });
 
@@ -126,5 +154,18 @@ describe("buildCss", () => {
 
   it("never emits an unresolved reference", () => {
     expect(css).not.toContain("{global.");
+  });
+
+  it("neutralizes variables a theme does not define, so var() fallbacks win", () => {
+    // volt defines --cv-font-data; club does not → club must reset it to
+    // `initial` or club pages would inherit volt's mono font via :root.
+    const clubBlock = /\[data-theme='club'\] \{([^}]*)\}/s.exec(css)?.[1] ?? "";
+    expect(clubBlock).toContain("--cv-font-data: initial;");
+    expect(clubBlock).toContain("--cv-color-link: initial;");
+    expect(clubBlock).toContain("--cv-color-surface-raised: initial;");
+    // and the inverse: volt neutralizes club-only tokens
+    const voltBlock = /:root,\n\[data-theme='volt'\] \{([^}]*)\}/s.exec(css)?.[1] ?? "";
+    expect(voltBlock).toContain("--cv-color-highlight: initial;");
+    expect(voltBlock).toContain("--cv-font-voice: initial;");
   });
 });

@@ -72,7 +72,11 @@ export function lookupToken(doc: TokensDocument, absPath: string): Token {
     node = doc.theme[rest.shift() ?? ""];
   }
   for (const segment of rest) {
-    if (node === undefined || isToken(node)) break;
+    if (node === undefined || isToken(node)) {
+      // Path continues past a token (over-long/typo'd reference) — invalid.
+      node = undefined;
+      break;
+    }
     node = node[segment];
   }
   if (node === undefined || !isToken(node)) {
@@ -105,6 +109,15 @@ function shadowCss(shadow: ShadowValue): string {
   return `${shadow.offsetX} ${shadow.offsetY} ${shadow.blur} ${shadow.spread} ${shadow.color}`;
 }
 
+function assertNoEmbeddedReference(value: string, context: string): string {
+  if (value.includes("{")) {
+    throw new Error(
+      `References inside composite values are not supported (${context}: "${value}")`,
+    );
+  }
+  return value;
+}
+
 /** Literal (already resolved) token value -> CSS value text. */
 export function cssValue(token: Token): string {
   switch (token.$type) {
@@ -117,9 +130,18 @@ export function cssValue(token: Token): string {
     case "cubicBezier":
       return `cubic-bezier(${(token.$value as number[]).join(", ")})`;
     case "fontFamily":
-      return fontFamilyCss(token.$value as string[]);
-    case "shadow":
-      return shadowCss(token.$value as ShadowValue);
+      return fontFamilyCss(
+        (token.$value as string[]).map((f) => assertNoEmbeddedReference(f, "fontFamily")),
+      );
+    case "shadow": {
+      const shadow = token.$value as ShadowValue;
+      for (const [key, part] of Object.entries(shadow)) {
+        assertNoEmbeddedReference(part, `shadow.${key}`);
+      }
+      return shadowCss(shadow);
+    }
+    default:
+      throw new Error(`Unsupported token $type: "${String(token.$type)}"`);
   }
 }
 
@@ -152,14 +174,31 @@ export function buildCss(doc: TokensDocument): string {
   );
   blocks.push(`:root {\n${declarations(globalLines)}\n}`);
 
-  for (const [alias, themeKey] of Object.entries(THEME_ALIASES)) {
-    const group = doc.theme[themeKey];
-    if (group === undefined) {
-      throw new Error(`tokens.json is missing theme "${themeKey}"`);
-    }
-    const lines = flattenGroup(group).map(
+  // Union of variable paths across themes: a theme that does not define a
+  // path neutralizes it with `initial` (guaranteed-invalid), so var() usages
+  // fall back to their declared fallback instead of inheriting another
+  // theme's value (e.g. volt's --cv-font-data leaking into club via :root).
+  const flatThemes = new Map(
+    Object.entries(THEME_ALIASES).map(([alias, themeKey]) => {
+      const group = doc.theme[themeKey];
+      if (group === undefined) {
+        throw new Error(`tokens.json is missing theme "${themeKey}"`);
+      }
+      return [alias, flattenGroup(group)] as const;
+    }),
+  );
+  const unionPaths = new Set(
+    [...flatThemes.values()].flatMap((tokens) => tokens.map(({ path }) => path)),
+  );
+
+  for (const [alias, tokens] of flatThemes) {
+    const ownPaths = new Set(tokens.map(({ path }) => path));
+    const lines = tokens.map(
       ({ path, token }) => `${cssVarName(path)}: ${themeValueCss(doc, token)};`,
     );
+    for (const path of unionPaths) {
+      if (!ownPaths.has(path)) lines.push(`${cssVarName(path)}: initial;`);
+    }
     // volt is the dark-first default: bare :root gets it too (no FOUC on
     // pages that have not set data-theme yet). Later equal-specificity theme
     // blocks override when the attribute is present.
