@@ -8,6 +8,8 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
+import { fontVariableClasses } from "./fonts";
+
 export const metadata: Metadata = {
   title: "Courvia",
   description:
@@ -15,7 +17,9 @@ export const metadata: Metadata = {
 };
 
 function isThemeAlias(value: string | undefined): value is ThemeAlias {
-  return value !== undefined && value in THEME_ALIASES;
+  // Object.hasOwn, not `in`: `in` would accept Object.prototype keys
+  // ("toString", …) and stamp garbage into the DOM.
+  return value !== undefined && Object.hasOwn(THEME_ALIASES, value);
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -26,7 +30,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const theme: ThemeAlias = isThemeAlias(cookieTheme) ? cookieTheme : DEFAULT_THEME;
 
   return (
-    <html lang="es" dir="ltr" data-theme={theme}>
+    <html lang="es" dir="ltr" data-theme={theme} className={fontVariableClasses}>
       <body>{children}</body>
     </html>
   );

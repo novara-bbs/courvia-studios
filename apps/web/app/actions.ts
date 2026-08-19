@@ -8,7 +8,7 @@ const ONE_YEAR_S = 60 * 60 * 24 * 365;
 
 export async function setTheme(formData: FormData): Promise<void> {
   const value = formData.get("theme");
-  if (typeof value === "string" && value in THEME_ALIASES) {
+  if (typeof value === "string" && Object.hasOwn(THEME_ALIASES, value)) {
     (await cookies()).set("cv-theme", value, {
       path: "/",
       maxAge: ONE_YEAR_S,
