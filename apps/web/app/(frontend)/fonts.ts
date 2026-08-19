@@ -1,8 +1,12 @@
 /**
- * Brand webfonts (CLAUDE.md §5), self-hosted at build time via next/font.
- * Each font exposes a CSS variable; app.css maps them onto the --cv-font-*
- * tokens per theme so the token contract stays unchanged.
+ * Brand webfonts, self-hosted at build time via next/font.
+ *
+ * Each page loads ONLY its active theme's families (3) plus the Arabic
+ * family when the locale needs it — not all eight brands fonts on every
+ * request. app.css maps the variables onto the --cv-font-* tokens.
  */
+import type { ThemeAlias } from "@courvia/design-tokens";
+import type { LocaleId } from "@courvia/platform";
 import {
   Anybody,
   Archivo,
@@ -10,6 +14,7 @@ import {
   Chakra_Petch,
   IBM_Plex_Mono,
   IBM_Plex_Sans,
+  IBM_Plex_Sans_Arabic,
   Instrument_Sans,
   Instrument_Serif,
 } from "next/font/google";
@@ -45,16 +50,20 @@ const instrumentSerif = Instrument_Serif({
   style: ["normal", "italic"],
   variable: "--font-instrument-serif",
 });
+const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600"],
+  variable: "--font-ibm-plex-sans-arabic",
+});
 
-export const fontVariableClasses = [
-  anybody,
-  archivo,
-  ibmPlexMono,
-  chakraPetch,
-  ibmPlexSans,
-  bricolageGrotesque,
-  instrumentSans,
-  instrumentSerif,
-]
-  .map((font) => font.variable)
-  .join(" ");
+const FONTS_BY_THEME: Record<ThemeAlias, Array<{ variable: string }>> = {
+  volt: [anybody, archivo, ibmPlexMono],
+  carbon: [chakraPetch, ibmPlexSans, ibmPlexMono],
+  club: [bricolageGrotesque, instrumentSans, instrumentSerif, ibmPlexMono],
+};
+
+export function fontClassesFor(theme: ThemeAlias, locale: LocaleId): string {
+  const fonts = [...FONTS_BY_THEME[theme]];
+  if (locale === "ar") fonts.push(ibmPlexSansArabic);
+  return fonts.map((font) => font.variable).join(" ");
+}

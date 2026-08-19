@@ -22,7 +22,7 @@
 | @types/node | **22.20.1** | Última 22.x, alineada con el runtime Node 22 (el `latest` 26.x tipa APIs que no existen en 22) |
 | ESLint | **10.8.1** | `latest`; soportado por typescript-eslint (`^10.0.0`) |
 | typescript-eslint | **8.67.0** | `latest` |
-| next-intl | **4.13.7** *(objetivo; se instala en su tarea)* | `latest` |
+| next-intl | **4.13.6** (instalado) | `latest` era 4.13.7, publicado <3 días antes: la cuarentena de supply-chain (`minimumReleaseAge`) lo bloqueó y se pineó la última versión que la supera — el guardia funcionando como se diseñó |
 
 ## Justificación de las decisiones no obvias
 

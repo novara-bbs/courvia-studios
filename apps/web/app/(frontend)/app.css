@@ -27,6 +27,12 @@
   --cv-font-data: var(--font-ibm-plex-mono), monospace;
   --cv-font-voice: var(--font-instrument-serif), serif;
 }
+/* Arabic pages read every role through the Arabic family; the latin display
+ * faces have no Arabic glyphs and would fall back per-glyph otherwise. */
+[lang='ar'] {
+  --cv-font-display: var(--font-ibm-plex-sans-arabic), sans-serif;
+  --cv-font-body: var(--font-ibm-plex-sans-arabic), sans-serif;
+}
 
 body {
   background: var(--cv-color-bg);
@@ -93,4 +99,34 @@ code {
   font-size: var(--cv-font-size-sm);
   border-block-start: 1px solid var(--cv-color-border);
   padding-block-start: var(--cv-space-4);
+}
+
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--cv-space-4);
+  margin-block: var(--cv-space-4) var(--cv-space-6);
+}
+
+.pillars h3 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-md);
+  margin-block-end: var(--cv-space-2);
+}
+
+.region-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cv-space-4);
+}
+
+.region-selector a {
+  color: var(--cv-color-link);
+  text-decoration: none;
+  font-size: var(--cv-font-size-sm);
+}
+
+.region-selector a[aria-current='true'] {
+  color: var(--cv-color-text);
+  border-block-end: 2px solid var(--cv-color-accent);
 }

@@ -141,7 +141,7 @@ Un producto puede apuntar a otra plantilla o añadir secciones en puntos de inse
 
 ## 4. Resolución de tema bajo Next.js 16
 
-**El tema activo es contenido del CMS, no una preferencia del visitante.** La implementación actual (cookie leída en el layout raíz) contradice CLAUDE.md §5 y, peor, la documentación de Next 16 lo dice explícitamente: leer una cookie que gobierna un atributo de `<html>` en el layout raíz vuelve **toda** la app dependiente de la petición, sin subárbol que envolver en `<Suspense>`. Eso bloquea PPR para toda la tienda.
+**El tema activo es contenido del CMS, no una preferencia del visitante.** (Implementado 19-ago: `getSiteTheme()` con `use cache` + `cacheTag("theme")`, hook de publicación que revalida, cookie eliminada, `cacheComponents` activo, verificado end-to-end: publicar carbon re-viste el sitio servido.) La implementación anterior por cookie contradecía CLAUDE.md §5 y, peor, la documentación de Next 16 lo dice explícitamente: leer una cookie que gobierna un atributo de `<html>` en el layout raíz vuelve **toda** la app dependiente de la petición, sin subárbol que envolver en `<Suspense>`. Eso bloquea PPR para toda la tienda.
 
 Modelo objetivo (WP4/WP9), de menor a mayor precedencia:
 
@@ -219,8 +219,8 @@ Pendiente, en orden (cada paquete = una sesión):
 | WP | Trabajo | Requiere | Reversible |
 |---|---|---|---|
 | ~~6~~ | ~~Payload embebido + Supabase schema `payload`, admin logueable~~ **hecho 19-ago** | — | — |
-| 4/5 | Rutas `[region]`, `next-intl`, `dir`/`lang`, hreflang | — | **no** — §16 marca el refactor tardío de i18n como riesgo nº1 |
-| 9 | `ThemeSettings` + overrides Zod + preview en draft mode | 6, 4 | sí |
+| ~~4/5~~ | ~~Rutas `[region]`, `next-intl`, `dir`/`lang`, hreflang~~ **hecho 19-ago** (+ proxy de negociación, sitemap, robots, llms.txt, JSON-LD) | — | — |
+| 9 | ~~Tema desde CMS con `cacheTag`~~ **hecho 19-ago** · quedan overrides Zod de tokens + preview en draft mode | 6, 4 | sí |
 | 7 | Registro de secciones + controles de apariencia + 3 secciones | 9 | parcial |
 | 8 | `pages` + composición + versiones + live preview | 7 | sí |
 | 10/11 | Catálogo + precios/inventario solo-servidor + RLS | 6 | **no** + aprobación humana |

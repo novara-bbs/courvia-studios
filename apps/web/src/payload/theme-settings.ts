@@ -1,6 +1,8 @@
 import { DEFAULT_THEME, THEME_ALIAS_LIST } from "@courvia/design-tokens";
 import type { GlobalConfig } from "payload";
 
+import { revalidateTag } from "next/cache";
+
 import { anyone, isAdmin } from "./access";
 
 /**
@@ -14,6 +16,18 @@ export const ThemeSettings: GlobalConfig = {
   access: {
     read: anyone,
     update: isAdmin,
+  },
+  hooks: {
+    afterChange: [
+      () => {
+        try {
+          revalidateTag("theme", "max");
+        } catch {
+          // Outside the Next runtime (payload CLI, seed scripts) there is no
+          // cache to revalidate — that is fine.
+        }
+      },
+    ],
   },
   fields: [
     {

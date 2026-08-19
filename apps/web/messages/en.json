@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "title": "Courvia — Ball machines for tennis, padel and pickleball",
+    "description": "Training robots with programmable drills, gear and academy content. Designed in Spain for courts everywhere."
+  },
+  "home": {
+    "eyebrow": "Training robots",
+    "heading": "Your backhand improves this week",
+    "lead": "Programmable drills, 140 balls per hopper and up to 6 hours per charge. A sparring partner that never tires: you set the shot, the tempo and the spin.",
+    "ctaPrimary": "Reserve Drill Pro",
+    "ctaSecondary": "Browse drills",
+    "pillarsTitle": "One system, three sports",
+    "pillarTenis": "Tennis",
+    "pillarTenisBody": "Up to 110 km/h with topspin. Calibrated for fast-court bounce.",
+    "pillarPadel": "Padel",
+    "pillarPadelBody": "Low trajectories and wall play. The house specialty.",
+    "pillarPickleball": "Pickleball",
+    "pillarPickleballBody": "Perforated ball, low net, dinking tempo. A dedicated setup.",
+    "academyNote": "Every robot ships with 12 coach-designed drills. No subscription."
+  },
+  "nav": {
+    "regionSelector": "Country & language",
+    "skipToContent": "Skip to content"
+  },
+  "notFound": {
+    "title": "Out of bounds",
+    "body": "This page does not exist or has moved.",
+    "back": "Back to home"
+  }
+}
