@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Courvia — Brand Boards · 3 direcciones</title>
+<meta name="description" content="Exploración de identidad Courvia: Volt Precision, Carbon Drive y Club Real. Paletas, tipografía, tokens, componentes y reglas de uso.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,100..900&family=Archivo:wght@400;500;600;700&family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  /* ================= PRIMITIVOS GLOBALES ================= */
+  :root{
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px;
+    --sp-12:clamp(32px,5vw,48px); --sp-16:clamp(40px,7vw,64px); --sp-24:clamp(56px,10vw,96px);
+    --r-sm:6px; --r-md:12px; --r-lg:20px; --r-pill:999px;
+    --maxw:1180px; --pad-x:clamp(18px,4vw,28px);
+    --dur:.5s; --ease:cubic-bezier(.2,0,0,1);
+    --mono:'IBM Plex Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:'Archivo',sans-serif;background:#0C1322;color:#F4F7F2;-webkit-font-smoothing:antialiased}
+  img,svg{display:block;max-width:100%}
+  a{color:inherit}
+  .skip{position:absolute;left:-999px;top:0;background:#D8F343;color:#081426;padding:10px 16px;z-index:100;font-weight:600}
+  .skip:focus{left:12px;top:12px}
+
+  /* ================= NAV ================= */
+  .topnav{position:sticky;top:0;z-index:50;display:flex;gap:var(--sp-2);align-items:center;
+    padding:10px var(--pad-x);background:rgba(12,19,34,.9);backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(244,247,242,.12);overflow-x:auto;scrollbar-width:none}
+  .topnav::-webkit-scrollbar{display:none}
+  .topnav .mark{font-family:'Anybody',sans-serif;font-weight:900;font-stretch:125%;letter-spacing:.05em;font-size:14px;margin-right:auto;white-space:nowrap}
+  .topnav a{font-size:12.5px;font-weight:600;text-decoration:none;padding:7px 14px;border-radius:var(--r-pill);
+    border:1px solid rgba(244,247,242,.25);white-space:nowrap;transition:background .2s,border-color .2s;flex:0 0 auto}
+  .topnav a:hover{background:rgba(244,247,242,.12)}
+  .topnav a:focus-visible{outline:2px solid #D8F343;outline-offset:2px}
+  .topnav a .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+
+  /* ================= INTRO ================= */
+  .intro{max-width:var(--maxw);margin:0 auto;padding:var(--sp-24) var(--pad-x) var(--sp-16)}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:#8FA3C4;margin-bottom:var(--sp-4)}
+  .intro h1{font-family:'Anybody',sans-serif;font-weight:900;font-stretch:130%;font-size:clamp(40px,9vw,104px);line-height:.95;text-transform:uppercase;overflow-wrap:anywhere}
+  .intro h1 .thin{font-stretch:75%;font-weight:300}
+  .intro .lead{max-width:62ch;margin-top:var(--sp-6);font-size:clamp(15px,1.8vw,17px);line-height:1.7;color:#C7D2E4}
+  .arch{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-3);margin-top:var(--sp-12)}
+  .arch .node{border:1px solid rgba(244,247,242,.18);border-radius:var(--r-md);padding:var(--sp-4);transition:border-color .2s}
+  .arch .node:hover{border-color:rgba(216,243,67,.6)}
+  .arch .node b{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8FA3C4;margin-bottom:6px}
+  .arch .node span{font-weight:600;font-size:15px}
+  .arch .node small{display:block;margin-top:4px;font-size:12.5px;color:#9FB0CB;line-height:1.5}
+
+  /* ================= LAYOUT COMPARTIDO (consume tokens --t-*) ================= */
+  section.dir{padding:var(--sp-24) 0;background:var(--t-bg);color:var(--t-fg);font-family:var(--t-body)}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--pad-x)}
+  .dir-head{display:flex;align-items:center;gap:var(--sp-3) var(--sp-4);flex-wrap:wrap;margin-bottom:var(--sp-8)}
+  .dir-num{font-family:var(--mono);font-size:12.5px;letter-spacing:.2em;color:var(--t-acc)}
+  .dir-title{font-family:var(--t-display);font-size:clamp(22px,3vw,28px);text-transform:uppercase;font-weight:800}
+  .aa{font-family:var(--mono);font-size:10px;letter-spacing:.1em;border:1px solid var(--t-border);border-radius:var(--r-pill);padding:4px 10px;color:var(--t-muted)}
+  .block-label{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--t-muted);margin:var(--sp-16) 0 var(--sp-4)}
+  .concept{max-width:62ch;margin-top:var(--sp-6);line-height:1.7;font-size:clamp(14.5px,1.7vw,16px);color:var(--t-muted)}
+  .concept strong{color:var(--t-fg)}
+  .tagline{font-family:var(--mono);color:var(--t-acc);letter-spacing:.14em;text-transform:uppercase;font-size:12.5px;margin-top:var(--sp-4)}
+
+  .panel{background:var(--t-panel);border:1px solid var(--t-border);border-radius:var(--r-lg);padding:clamp(18px,3vw,32px)}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-6)}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4)}
+  @media(max-width:860px){.grid-2{grid-template-columns:1fr}}
+  @media(max-width:680px){.grid-3{grid-template-columns:1fr}}
+
+  /* paleta */
+  .swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--sp-3)}
+  @media(max-width:480px){.swatches{grid-template-columns:1fr 1fr}}
+  .swatch{border-radius:var(--r-md);padding:var(--sp-4);min-height:132px;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid rgba(0,0,0,.1)}
+  .swatch b{font-size:13.5px;font-weight:600}
+  .swatch code{font-family:var(--mono);font-size:11.5px;opacity:.85}
+  .swatch small{font-size:11px;opacity:.75;margin-top:2px;line-height:1.4}
+
+  /* variantes de logo */
+  .variants{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-3)}
+  @media(max-width:680px){.variants{grid-template-columns:1fr}}
+  .variant{border-radius:var(--r-md);border:1px solid var(--t-border);min-height:150px;display:grid;place-items:center;padding:var(--sp-4);position:relative}
+  .variant figcaption{position:absolute;left:12px;bottom:10px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.65}
+
+  /* escala tipográfica */
+  .scale div{display:flex;align-items:baseline;gap:var(--sp-4);border-bottom:1px dashed var(--t-border);padding:12px 0;flex-wrap:wrap}
+  .scale div:last-child{border-bottom:none}
+  .scale .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--t-muted);min-width:120px;text-transform:uppercase}
+
+  /* botones */
+  .btn{display:inline-block;font-weight:600;font-size:14px;padding:12px 24px;border-radius:var(--t-btn-r,var(--r-pill));border:none;cursor:pointer;text-decoration:none;font-family:var(--t-body);transition:transform .15s var(--ease),box-shadow .15s var(--ease)}
+  .btn:hover{transform:translateY(-2px)}
+  .btn:focus-visible{outline:2px solid var(--t-acc);outline-offset:3px}
+  .btn-primary{background:var(--t-acc);color:var(--t-acc-fg)}
+  .btn-ghost{background:transparent;color:inherit;border:1.5px solid currentColor}
+
+  .chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;background:var(--t-chip-bg);color:var(--t-chip-fg);padding:5px 12px;border-radius:var(--t-btn-r,var(--r-pill));display:inline-block}
+
+  /* aplicaciones */
+  .apps{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4)}
+  @media(max-width:780px){.apps{grid-template-columns:1fr}}
+  .app{border:1px solid var(--t-border);border-radius:var(--r-md);overflow:hidden;background:var(--t-panel)}
+  .app .cap{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:9px 14px;border-top:1px solid var(--t-border);color:var(--t-muted)}
+  .app .canvas{height:190px;padding:18px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px}
+
+  /* reglas de uso */
+  .rules{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
+  @media(max-width:680px){.rules{grid-template-columns:1fr}}
+  .rules h5{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px}
+  .rules ul{list-style:none}
+  .rules li{font-size:14px;line-height:1.55;padding:7px 0 7px 24px;position:relative;color:var(--t-muted)}
+  .rules .si li::before{content:"✓";position:absolute;left:0;color:var(--t-acc);font-weight:700}
+  .rules .no li::before{content:"✕";position:absolute;left:0;opacity:.5;font-weight:700}
+
+  .voice li{margin:0 0 var(--sp-3);line-height:1.65;font-size:14.5px;list-style:none;padding-left:22px;position:relative;color:var(--t-muted)}
+  .voice li strong{color:var(--t-fg)}
+  .voice li::before{content:"—";position:absolute;left:0;opacity:.5}
+
+  /* ================= TOKENS POR DIRECCIÓN ================= */
+  .d1{
+    --t-bg:#081426; --t-fg:#F4F7F2; --t-muted:#C7D2E4;
+    --t-acc:#D8F343; --t-acc-fg:#081426;
+    --t-panel:#0E2038; --t-border:#22406B;
+    --t-chip-bg:#123C7A; --t-chip-fg:#CFE0FA;
+    --t-display:'Anybody',sans-serif; --t-body:'Archivo',sans-serif;
+  }
+  .d2{
+    --t-bg:#E8E7E3; --t-fg:#141518; --t-muted:#4E535A;
+    --t-acc:#E24E12; --t-acc-fg:#141518;
+    --t-panel:#F4F3F0; --t-border:#C4C8CC;
+    --t-chip-bg:#141518; --t-chip-fg:#E8E7E3;
+    --t-display:'Chakra Petch',sans-serif; --t-body:'IBM Plex Sans',sans-serif;
+    --t-btn-r:var(--r-sm);
+  }
+  .d3{
+    --t-bg:#F7F5EC; --t-fg:#10201A; --t-muted:#44503F;
+    --t-acc:#B24A28; --t-acc-fg:#F7F5EC;
+    --t-panel:#FFFFFF; --t-border:#E0DCCA;
+    --t-chip-bg:#EAE6D6; --t-chip-fg:#4C4A3C;
+    --t-display:'Bricolage Grotesque',sans-serif; --t-body:'Instrument Sans',sans-serif;
+  }
+
+  /* ================= D1 específicos ================= */
+  .d1 .logo{font-family:var(--t-display);font-weight:900;font-stretch:130%;text-transform:uppercase;line-height:.95;font-size:clamp(48px,11vw,140px)}
+  .d1 .logo .ball{display:inline-block;width:.15em;height:.15em;background:var(--t-acc);border-radius:50%;margin-left:.06em}
+  @media (prefers-reduced-motion:no-preference){
+    .d1 .arc path{animation:feed 2.6s linear infinite}
+    @keyframes feed{to{stroke-dashoffset:-30}}
+  }
+  .d1 .stat{font-family:var(--mono);font-size:11.5px;color:var(--t-acc);letter-spacing:.08em}
+  .d1 .card-product{background:linear-gradient(160deg,#0E2038,#123C7A);border:1px solid #2C4E80;border-radius:var(--r-lg);padding:clamp(18px,3vw,28px)}
+  .d1 .card-product h4{font-family:var(--t-display);font-stretch:120%;font-weight:800;text-transform:uppercase;font-size:22px;margin:10px 0 8px}
+
+  /* ================= D2 específicos ================= */
+  .d2 .logo{font-family:var(--t-display);font-weight:700;text-transform:uppercase;line-height:1;font-size:clamp(38px,9vw,116px);letter-spacing:.01em;overflow-wrap:anywhere}
+  .d2 .logo .slash{color:var(--t-acc)}
+  .d2 .blueprint{border:1.5px solid var(--t-fg);border-radius:var(--r-md);background:
+      repeating-linear-gradient(0deg,transparent 0 23px,rgba(20,21,24,.06) 23px 24px),
+      repeating-linear-gradient(90deg,transparent 0 23px,rgba(20,21,24,.06) 23px 24px)}
+  .d2 .dim{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:#5A5F66;text-transform:uppercase}
+  .d2 .spec{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:12px;border-bottom:1px dashed #9DA2A7;padding:8px 0;flex-wrap:wrap}
+  .d2 .panel.dark{background:#1B1D20;color:#E8E7E3;border-color:#1B1D20;--t-border:#3A3E43;--t-muted:#B9BDC1}
+
+  /* ================= D3 específicos ================= */
+  .d3 .logo{font-family:var(--t-display);font-weight:800;line-height:.98;letter-spacing:-.015em;font-size:clamp(44px,9vw,120px)}
+  .d3 .tagline{font-family:'Instrument Serif',serif;font-style:italic;text-transform:none;letter-spacing:0;font-size:clamp(17px,2.2vw,21px);color:#1E6B4F}
+  .d3 .crest{width:clamp(88px,12vw,112px);aspect-ratio:110/150;border:2.5px solid #14503C;border-radius:10px 10px 56px 56px;position:relative;background:var(--t-bg);flex:0 0 auto}
+  .d3 .crest::before{content:"";position:absolute;inset:16% 16% auto 16%;height:29%;border:2px solid #B24A28;border-radius:4px}
+  .d3 .crest::after{content:"";position:absolute;left:16%;right:16%;top:27%;height:2px;background:#B24A28}
+  .d3 .crest span{position:absolute;bottom:9%;left:0;right:0;text-align:center;font-family:var(--t-display);font-weight:800;font-size:clamp(30px,4vw,40px);color:#14503C}
+  .d3 .panel.green{background:#14503C;color:#F7F5EC;border-color:#14503C;--t-border:#2C6B54;--t-muted:#CFE0D6}
+
+  .footer{max-width:var(--maxw);margin:0 auto;padding:var(--sp-12) var(--pad-x);font-size:12px;color:#8FA3C4;font-family:var(--mono);line-height:1.7}
+
+  @media (prefers-reduced-motion:no-preference){
+    .fade{opacity:0;transform:translateY(14px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+    .fade.in{opacity:1;transform:none}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#d1">Saltar a las direcciones</a>
+
+<nav class="topnav" aria-label="Direcciones">
+  <span class="mark">COURVIA · BRAND BOARDS</span>
+  <a href="#d1"><span class="dot" style="background:#D8F343"></span>01 Volt Precision</a>
+  <a href="#d2"><span class="dot" style="background:#E24E12"></span>02 Carbon Drive</a>
+  <a href="#d3"><span class="dot" style="background:#14503C"></span>03 Club Real</a>
+</nav>
+
+<!-- ============ INTRO ============ -->
+<header class="intro">
+  <p class="eyebrow">Estudio de identidad · Q3 2026</p>
+  <h1>Courvia<br><span class="thin">Tres vías, una pista</span></h1>
+  <p class="lead">Courvia nace del cruce de <em>court</em> (pista) y <em>vía</em> (camino): la marca que acompaña al jugador desde su primer robot lanzapelotas hasta su club. Las tres direcciones comparten estrategia —rendimiento, precisión, progresión— y los mismos tokens estructurales; solo cambian color y tipografía. Elegir dirección es elegir temperamento, no rehacer el sistema.</p>
+
+  <div class="arch" role="list">
+    <div class="node" role="listitem"><b>Matriz</b><span>Courvia Studios</span><small>Holding, I+D y propiedad intelectual. Firma corporativa e inversores.</small></div>
+    <div class="node" role="listitem"><b>Marca comercial</b><span>Courvia Sports</span><small>La marca de cara al jugador: e-commerce, contenido, comunidad.</small></div>
+    <div class="node" role="listitem"><b>Línea robots</b><span>Courvia Drill</span><small>Robots lanzapelotas: Drill One, Drill Pro, Drill Club. El buque insignia.</small></div>
+    <div class="node" role="listitem"><b>Línea equipamiento</b><span>Courvia Gear</span><small>Palas, pelotas, textil y accesorios. Extensión natural del catálogo.</small></div>
+    <div class="node" role="listitem"><b>Futuro</b><span>Courvia Club</span><small>Club físico y membresía digital. La dirección 03 lo anticipa.</small></div>
+  </div>
+</header>
+
+<!-- ============ DIRECCIÓN 01 ============ -->
+<section class="dir d1" id="d1">
+  <div class="wrap">
+    <div class="dir-head">
+      <span class="dir-num">DIRECCIÓN 01</span>
+      <h2 class="dir-title">Volt Precision</h2>
+      <span class="aa">Contraste AA verificado</span>
+    </div>
+
+    <p class="logo fade">Courv<span style="font-stretch:80%">i</span>a<span class="ball" aria-hidden="true"></span></p>
+    <p class="tagline">Precisión que entrena contigo</p>
+
+    <svg class="arc fade" viewBox="0 0 900 130" width="100%" height="100" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M10,120 Q450,-70 890,120" fill="none" stroke="#D8F343" stroke-width="2.5" stroke-dasharray="1 14" stroke-linecap="round"/>
+      <circle cx="890" cy="118" r="7" fill="#D8F343"/>
+    </svg>
+    <p class="concept">La dirección recomendada para el lanzamiento. El azul de pista nocturna transmite entrenamiento serio; el volt —el color exacto de la pelota de pickleball— se reserva como acento de acción: si es volt, se puede pulsar o está en juego. La firma visual es la <strong>trayectoria punteada</strong>: cada lanzamiento del robot dibujado como dato, con los puntos avanzando como bolas en la rueda de alimentación.</p>
+
+    <p class="block-label">Logotipo · variantes</p>
+    <div class="variants">
+      <figure class="variant" style="background:#081426">
+        <span class="logo" style="font-size:34px">Courvia<span class="ball"></span></span>
+        <figcaption>Principal · sobre Azul Noche</figcaption>
+      </figure>
+      <figure class="variant" style="background:#D8F343;color:#081426">
+        <span class="logo" style="font-size:34px">Courvia<span class="ball" style="background:#081426"></span></span>
+        <figcaption>Inversa · sobre Volt</figcaption>
+      </figure>
+      <figure class="variant" style="background:#0E2038">
+        <span class="logo" style="font-size:44px">C<span class="ball"></span></span>
+        <figcaption>Monograma · app y favicon</figcaption>
+      </figure>
+    </div>
+
+    <p class="block-label">Paleta · tokens primitivos</p>
+    <div class="swatches">
+      <div class="swatch" style="background:#081426;color:#F4F7F2;border-color:#22406B"><b>Azul Noche</b><code>#081426</code><small>color.court.950 · fondos</small></div>
+      <div class="swatch" style="background:#123C7A;color:#F4F7F2"><b>Azul Pista</b><code>#123C7A</code><small>color.court.700 · superficies</small></div>
+      <div class="swatch" style="background:#3E6ED8;color:#FFFFFF"><b>Azul Drive</b><code>#3E6ED8</code><small>color.court.500 · enlaces, foco</small></div>
+      <div class="swatch" style="background:#D8F343;color:#081426"><b>Volt Pickle</b><code>#D8F343</code><small>color.volt.400 · acción, CTA</small></div>
+      <div class="swatch" style="background:#F4F7F2;color:#081426"><b>Blanco Línea</b><code>#F4F7F2</code><small>color.line.50 · texto en oscuro</small></div>
+    </div>
+
+    <div class="grid-2" style="margin-top:var(--sp-16)">
+      <div>
+        <p class="block-label" style="margin-top:0">Escala tipográfica</p>
+        <div class="panel scale">
+          <div><span class="lab">Display · Anybody 900</span><span style="font-family:var(--t-display);font-weight:900;font-stretch:125%;font-size:clamp(26px,3.4vw,38px);text-transform:uppercase">Próxima bola</span></div>
+          <div><span class="lab">H2 · Anybody 800</span><span style="font-family:var(--t-display);font-weight:800;font-stretch:110%;font-size:22px">Rutina de revés</span></div>
+          <div><span class="lab">Body · Archivo 400</span><span style="font-size:16px;line-height:1.6">La sesión de hoy sube tu consistencia un nivel.</span></div>
+          <div><span class="lab">Data · Plex Mono</span><span class="stat">FEED 04 · TOPSPIN · 72 KM/H</span></div>
+        </div>
+      </div>
+      <div>
+        <p class="block-label" style="margin-top:0">Componente · ficha de producto</p>
+        <div class="card-product">
+          <span class="chip">Drill Series</span>
+          <p class="stat" style="margin-top:12px">FEED 1–9 · SPIN ±3 · 12 KG</p>
+          <h4>Drill Pro</h4>
+          <p style="font-size:14px;line-height:1.6;color:var(--t-muted)">Robot lanzapelotas con 12 rutinas programables y control desde la app Courvia.</p>
+          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+            <a class="btn btn-primary" href="#d1">Reservar Drill Pro</a>
+            <a class="btn btn-ghost" href="#d1">Ver rutinas</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="block-label">Aplicaciones</p>
+    <div class="apps">
+      <div class="app">
+        <div class="canvas" style="background:#0B1B33">
+          <span class="stat">SESIÓN 12 · MARTES</span>
+          <span style="font-family:var(--t-display);font-weight:900;font-stretch:120%;text-transform:uppercase;font-size:24px;line-height:1">Revés<br>cruzado</span>
+          <span class="btn btn-primary" style="align-self:flex-start;padding:8px 16px;font-size:12px">Empezar</span>
+        </div>
+        <div class="cap">App · pantalla de rutina</div>
+      </div>
+      <div class="app">
+        <div class="canvas" style="background:linear-gradient(160deg,#123C7A,#081426)">
+          <svg viewBox="0 0 300 40" height="30" aria-hidden="true"><path d="M4,36 Q150,-18 296,36" fill="none" stroke="#D8F343" stroke-width="2" stroke-dasharray="1 10" stroke-linecap="round"/></svg>
+          <span style="font-family:var(--t-display);font-weight:900;font-stretch:125%;text-transform:uppercase;font-size:20px">Courvia Drill Pro</span>
+          <span class="stat">140 PELOTAS · 6 H DE SESIÓN</span>
+        </div>
+        <div class="cap">Packaging · frontal de caja</div>
+      </div>
+      <div class="app">
+        <div class="canvas" style="background:#D8F343;color:#081426">
+          <span style="font-family:var(--mono);font-size:11px;letter-spacing:.1em">RETO DE LA SEMANA</span>
+          <span style="font-family:var(--t-display);font-weight:900;font-stretch:120%;text-transform:uppercase;font-size:26px;line-height:.95">200 voleas<br>sin fallo</span>
+        </div>
+        <div class="cap">Social · pieza de reto</div>
+      </div>
+    </div>
+
+    <p class="block-label">Reglas rápidas</p>
+    <div class="rules panel">
+      <div class="si"><h5 style="color:var(--t-acc)">Sí</h5><ul>
+        <li>Volt solo para acción y datos en juego: CTA, telemetría, la pelota.</li>
+        <li>Anybody expandida en titulares cortos, de 1 a 3 palabras.</li>
+        <li>La trayectoria siempre entra por la izquierda y cae a la derecha.</li>
+      </ul></div>
+      <div class="no"><h5>No</h5><ul>
+        <li>Volt como fondo de párrafos largos ni como color de texto corrido.</li>
+        <li>Más de una trayectoria por pantalla: es firma, no textura.</li>
+        <li>Degradados fuera del rango Azul Pista → Azul Noche.</li>
+      </ul></div>
+    </div>
+
+    <p class="block-label">Voz de marca</p>
+    <ul class="voice">
+      <li><strong>Habla de datos, no de humo.</strong> "72 km/h con topspin" antes que "potencia increíble".</li>
+      <li><strong>Entrenadora, no vendedora.</strong> Cada mensaje empuja a la siguiente sesión.</li>
+      <li><strong>Corta y en segunda persona.</strong> "Tu revés mejora esta semana."</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ DIRECCIÓN 02 ============ -->
+<section class="dir d2" id="d2">
+  <div class="wrap">
+    <div class="dir-head">
+      <span class="dir-num">DIRECCIÓN 02</span>
+      <h2 class="dir-title">Carbon Drive</h2>
+      <span class="aa">Contraste AA verificado</span>
+    </div>
+
+    <p class="logo fade">Courvia<span class="slash">/</span>Drill</p>
+    <p class="tagline">Ingeniería de entrenamiento</p>
+
+    <div class="blueprint fade" style="margin-top:var(--sp-8);padding:clamp(16px,3vw,32px)">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <span class="dim">FIG. 01 — UNIDAD DRILL PRO</span>
+        <span class="dim">ESC 1:8 · REV 2026.3</span>
+      </div>
+      <svg viewBox="0 0 320 180" width="min(360px,100%)" style="margin:14px auto" aria-label="Esquema técnico del robot lanzapelotas">
+        <rect x="70" y="40" width="180" height="90" rx="14" fill="none" stroke="#141518" stroke-width="2.5"/>
+        <circle cx="160" cy="85" r="26" fill="none" stroke="#E24E12" stroke-width="2.5"/>
+        <circle cx="160" cy="85" r="6" fill="#E24E12"/>
+        <line x1="70" y1="150" x2="250" y2="150" stroke="#5A5F66" stroke-width="1"/>
+        <line x1="70" y1="145" x2="70" y2="155" stroke="#5A5F66" stroke-width="1"/>
+        <line x1="250" y1="145" x2="250" y2="155" stroke="#5A5F66" stroke-width="1"/>
+        <text x="140" y="166" font-family="IBM Plex Mono" font-size="10" fill="#5A5F66">480 MM</text>
+        <rect x="95" y="130" width="26" height="14" fill="#141518"/>
+        <rect x="199" y="130" width="26" height="14" fill="#141518"/>
+      </svg>
+      <div class="spec"><span>VELOCIDAD DE BOLA</span><span>16–100 KM/H</span></div>
+      <div class="spec"><span>CAPACIDAD</span><span>140 PELOTAS</span></div>
+      <div class="spec" style="border:none"><span>OSCILACIÓN</span><span>H ±45° · V ±15°</span></div>
+    </div>
+
+    <p class="concept">Para posicionar Courvia como <strong>fabricante</strong>, no como tienda. Grafito y aluminio tomados del propio chasis; el naranja servo señala cada punto de acción, como las piezas móviles de una máquina bien diseñada. La firma visual es el <strong>plano técnico con cotas</strong>: la marca enseña cómo está hecha. Máxima credibilidad de ingeniería; exige fotografía de producto impecable.</p>
+
+    <p class="block-label">Logotipo · variantes</p>
+    <div class="variants">
+      <figure class="variant" style="background:#E8E7E3">
+        <span class="logo" style="font-size:26px">Courvia<span class="slash">/</span>Drill</span>
+        <figcaption>Principal · sobre Aluminio</figcaption>
+      </figure>
+      <figure class="variant" style="background:#1B1D20;color:#E8E7E3">
+        <span class="logo" style="font-size:26px">Courvia<span class="slash">/</span>Drill</span>
+        <figcaption>Inversa · sobre Carbono</figcaption>
+      </figure>
+      <figure class="variant" style="background:#F4F3F0">
+        <span class="logo" style="font-size:44px">C<span class="slash">/</span></span>
+        <figcaption>Monograma · grabado en chasis</figcaption>
+      </figure>
+    </div>
+
+    <p class="block-label">Paleta · tokens primitivos</p>
+    <div class="swatches">
+      <div class="swatch" style="background:#1B1D20;color:#E8E7E3"><b>Carbono</b><code>#1B1D20</code><small>color.carbon.900 · bloques héroe</small></div>
+      <div class="swatch" style="background:#33373C;color:#E8E7E3"><b>Grafito</b><code>#33373C</code><small>color.carbon.700 · superficies</small></div>
+      <div class="swatch" style="background:#C7CCD1;color:#141518"><b>Aleación</b><code>#C7CCD1</code><small>color.alloy.300 · bordes, ejes</small></div>
+      <div class="swatch" style="background:#E8E7E3;color:#141518;border-color:#C4C8CC"><b>Aluminio</b><code>#E8E7E3</code><small>color.alloy.100 · fondo base</small></div>
+      <div class="swatch" style="background:#E24E12;color:#141518"><b>Naranja Servo</b><code>#E24E12</code><small>color.drive.600 · acción, alertas</small></div>
+    </div>
+
+    <div class="grid-2" style="margin-top:var(--sp-16)">
+      <div>
+        <p class="block-label" style="margin-top:0">Escala tipográfica</p>
+        <div class="panel scale">
+          <div><span class="lab">Display · Chakra 700</span><span style="font-family:var(--t-display);font-weight:700;font-size:clamp(24px,3.2vw,34px);text-transform:uppercase">Doble rueda</span></div>
+          <div><span class="lab">H2 · Chakra 600</span><span style="font-family:var(--t-display);font-weight:600;font-size:21px">Chasis de aluminio 6061</span></div>
+          <div><span class="lab">Body · Plex Sans</span><span style="font-size:16px;line-height:1.6">Cada unidad se calibra y firma antes de salir del taller.</span></div>
+          <div><span class="lab">Data · Plex Mono</span><span style="font-family:var(--mono);font-size:12.5px">SKU DRL-PRO-26 · LOTE 0043</span></div>
+        </div>
+      </div>
+      <div>
+        <p class="block-label" style="margin-top:0">Componente · ficha de producto</p>
+        <div class="panel dark">
+          <span class="chip" style="background:transparent;border:1px solid #E8E7E3;color:#E8E7E3">SKU DRL-PRO-26</span>
+          <h4 style="font-family:var(--t-display);font-weight:700;text-transform:uppercase;font-size:24px;margin:14px 0 8px">Drill Pro</h4>
+          <p style="font-size:14px;line-height:1.6;color:var(--t-muted)">Chasis de aluminio, doble rueda de lanzamiento, batería de 6 h de sesión.</p>
+          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+            <a class="btn btn-primary" href="#d2">Configurar unidad</a>
+            <a class="btn btn-ghost" href="#d2" style="color:#E8E7E3">Ficha técnica</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="block-label">Aplicaciones</p>
+    <div class="apps">
+      <div class="app">
+        <div class="canvas" style="background:#1B1D20;color:#E8E7E3">
+          <span class="dim" style="color:#9DA2A7">DIAGNÓSTICO REMOTO</span>
+          <span style="font-family:var(--t-display);font-weight:700;text-transform:uppercase;font-size:22px;line-height:1.05">Rueda B<br>al 97%</span>
+          <span class="btn btn-primary" style="align-self:flex-start;padding:8px 16px;font-size:12px">Recalibrar</span>
+        </div>
+        <div class="cap">App · mantenimiento</div>
+      </div>
+      <div class="app">
+        <div class="canvas" style="background:#E8E7E3;border-bottom:1px solid #C4C8CC">
+          <span class="dim">CONTENIDO: 1 UNIDAD DRILL PRO</span>
+          <span style="font-family:var(--t-display);font-weight:700;text-transform:uppercase;font-size:22px">Courvia<span style="color:#E24E12">/</span>Drill</span>
+          <span class="dim">ESTE LADO ARRIBA · 12,4 KG</span>
+        </div>
+        <div class="cap">Packaging · caja industrial</div>
+      </div>
+      <div class="app">
+        <div class="canvas" style="background:#E24E12;color:#141518">
+          <span style="font-family:var(--mono);font-size:11px;letter-spacing:.1em">SERIE LIMITADA</span>
+          <span style="font-family:var(--t-display);font-weight:700;text-transform:uppercase;font-size:24px;line-height:1">Primera<br>remesa 2026</span>
+        </div>
+        <div class="cap">Social · lanzamiento</div>
+      </div>
+    </div>
+
+    <p class="block-label">Reglas rápidas</p>
+    <div class="rules panel">
+      <div class="si"><h5 style="color:var(--t-acc)">Sí</h5><ul>
+        <li>El naranja marca lo que se mueve o se pulsa: nunca es decorativo.</li>
+        <li>Cotas y etiquetas mono en mayúsculas, siempre con unidad.</li>
+        <li>Fotografía de producto sobre fondo aluminio o carbono, sin atrezzo.</li>
+      </ul></div>
+      <div class="no"><h5>No</h5><ul>
+        <li>Chakra Petch en texto corrido: solo titulares y denominaciones.</li>
+        <li>Retícula blueprint como fondo de páginas enteras: es un recurso puntual.</li>
+        <li>Afirmaciones sin cifra: si no se mide, no se publica.</li>
+      </ul></div>
+    </div>
+
+    <p class="block-label">Voz de marca</p>
+    <ul class="voice">
+      <li><strong>Precisión de manual técnico</strong> con orgullo de taller: materiales, tolerancias, revisiones.</li>
+      <li><strong>Sin adjetivos vacíos.</strong> Si no se puede medir, no se afirma.</li>
+      <li><strong>La garantía es mensaje:</strong> reparabilidad, piezas y firmware forman parte del relato.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ DIRECCIÓN 03 ============ -->
+<section class="dir d3" id="d3">
+  <div class="wrap">
+    <div class="dir-head">
+      <span class="dir-num">DIRECCIÓN 03</span>
+      <h2 class="dir-title" style="text-transform:none">Club Real</h2>
+      <span class="aa">Contraste AA verificado</span>
+    </div>
+
+    <div style="display:flex;gap:clamp(16px,4vw,32px);align-items:center;flex-wrap:wrap">
+      <div class="crest fade" role="img" aria-label="Escudo Courvia: pista de pickleball vista desde arriba con la letra C"><span>C</span></div>
+      <div style="min-width:min(100%,280px)">
+        <p class="logo">Courvia</p>
+        <p class="tagline">El club de la próxima bola</p>
+      </div>
+    </div>
+
+    <p class="concept">La dirección que anticipa el club físico. Verde pista profundo, tiza y arcilla: códigos de club deportivo clásico ejecutados con una grotesca contemporánea, sin nostalgia. La firma es el <strong>escudo-pista</strong>: el plano cenital de una pista de pickleball —con su kitchen line en arcilla— convertido en monograma. Rendimiento con pertenencia: entrenas con el robot, juegas en el club, subes de nivel de membresía.</p>
+
+    <p class="block-label">Logotipo · variantes</p>
+    <div class="variants">
+      <figure class="variant" style="background:#F7F5EC">
+        <span class="logo" style="font-size:32px">Courvia</span>
+        <figcaption>Principal · sobre Tiza</figcaption>
+      </figure>
+      <figure class="variant" style="background:#14503C;color:#F7F5EC">
+        <span class="logo" style="font-size:32px">Courvia</span>
+        <figcaption>Inversa · sobre Verde Pista</figcaption>
+      </figure>
+      <figure class="variant" style="background:#FFFFFF">
+        <div class="crest" style="transform:scale(.72)"><span>C</span></div>
+        <figcaption>Escudo · club y membresía</figcaption>
+      </figure>
+    </div>
+
+    <p class="block-label">Paleta · tokens primitivos</p>
+    <div class="swatches">
+      <div class="swatch" style="background:#14503C;color:#F7F5EC"><b>Verde Pista</b><code>#14503C</code><small>color.pine.800 · identidad, fondos</small></div>
+      <div class="swatch" style="background:#1E6B4F;color:#F7F5EC"><b>Verde Juego</b><code>#1E6B4F</code><small>color.pine.600 · hover, secundarios</small></div>
+      <div class="swatch" style="background:#F7F5EC;color:#10201A;border-color:#E0DCCA"><b>Tiza</b><code>#F7F5EC</code><small>color.chalk.50 · fondo base</small></div>
+      <div class="swatch" style="background:#B24A28;color:#F7F5EC"><b>Arcilla</b><code>#B24A28</code><small>color.clay.600 · acción, kitchen line</small></div>
+      <div class="swatch" style="background:#D9A441;color:#10201A"><b>Oro Trofeo</b><code>#D9A441</code><small>color.gold.400 · rangos, membresía</small></div>
+    </div>
+
+    <div class="grid-2" style="margin-top:var(--sp-16)">
+      <div>
+        <p class="block-label" style="margin-top:0">Escala tipográfica</p>
+        <div class="panel scale">
+          <div><span class="lab">Display · Bricolage 800</span><span style="font-family:var(--t-display);font-weight:800;font-size:clamp(24px,3.2vw,34px);letter-spacing:-.01em">Liga de los jueves</span></div>
+          <div><span class="lab">H2 · Bricolage 700</span><span style="font-family:var(--t-display);font-weight:700;font-size:21px">Reserva tu pista</span></div>
+          <div><span class="lab">Body · Instrument</span><span style="font-size:16px;line-height:1.6">Las sesiones con Drill están incluidas en tu membresía.</span></div>
+          <div><span class="lab">Voz · Instr. Serif</span><span style="font-family:'Instrument Serif',serif;font-style:italic;font-size:19px;color:#1E6B4F">La próxima bola siempre es tuya.</span></div>
+        </div>
+      </div>
+      <div>
+        <p class="block-label" style="margin-top:0">Componente · tarjeta de membresía</p>
+        <div class="panel green">
+          <span class="chip" style="background:rgba(247,245,236,.14);color:#F7F5EC">Membresía · Nivel Arcilla</span>
+          <h4 style="font-family:var(--t-display);font-weight:800;font-size:24px;margin:14px 0 8px">Courvia Club</h4>
+          <p style="font-size:14px;line-height:1.6;color:var(--t-muted)">Pistas, ligas internas y sesiones con Drill incluidas. <span style="font-family:'Instrument Serif',serif;font-style:italic">La próxima bola siempre es tuya.</span></p>
+          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+            <a class="btn" href="#d3" style="background:#B24A28;color:#F7F5EC">Unirme al club</a>
+            <a class="btn btn-ghost" href="#d3" style="color:#F7F5EC">Ver pistas</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="block-label">Aplicaciones</p>
+    <div class="apps">
+      <div class="app">
+        <div class="canvas" style="background:#14503C;color:#F7F5EC">
+          <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.12em">PISTA 3 · 19:00</span>
+          <span style="font-family:var(--t-display);font-weight:800;font-size:23px;line-height:1.05">Tu reserva<br>del jueves</span>
+          <span class="btn" style="align-self:flex-start;background:#B24A28;color:#F7F5EC;padding:8px 16px;font-size:12px">Confirmar</span>
+        </div>
+        <div class="cap">App · reserva de pista</div>
+      </div>
+      <div class="app">
+        <div class="canvas" style="background:#F7F5EC;border-bottom:1px solid #E0DCCA">
+          <div class="crest" style="transform:scale(.5);transform-origin:bottom left;margin-bottom:-30px"><span>C</span></div>
+          <span style="font-family:var(--t-display);font-weight:800;font-size:19px">Carné de socio</span>
+          <span style="font-family:'Instrument Serif',serif;font-style:italic;color:#B24A28;font-size:15px">Nivel Oro · nº 0042</span>
+        </div>
+        <div class="cap">Impreso · carné de membresía</div>
+      </div>
+      <div class="app">
+        <div class="canvas" style="background:#D9A441;color:#10201A">
+          <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.12em">FINAL · SÁBADO 12:00</span>
+          <span style="font-family:var(--t-display);font-weight:800;font-size:24px;line-height:1">Torneo de<br>primavera</span>
+        </div>
+        <div class="cap">Social · cartel de torneo</div>
+      </div>
+    </div>
+
+    <p class="block-label">Reglas rápidas</p>
+    <div class="rules panel">
+      <div class="si"><h5 style="color:var(--t-acc)">Sí</h5><ul>
+        <li>El escudo vive en membresías, trofeos y señalética; el wordmark, en digital.</li>
+        <li>Instrument Serif solo en cursiva y solo para lemas y rangos.</li>
+        <li>Oro Trofeo reservado a logros: nunca en botones ni enlaces.</li>
+      </ul></div>
+      <div class="no"><h5>No</h5><ul>
+        <li>Escudo y wordmark juntos en la misma composición pequeña.</li>
+        <li>Verde Pista como color de texto sobre Tiza en cuerpos pequeños.</li>
+        <li>Estética retro forzada: el club es clásico, no antiguo.</li>
+      </ul></div>
+    </div>
+
+    <p class="block-label">Voz de marca</p>
+    <ul class="voice">
+      <li><strong>De compañero de pista:</strong> celebra el progreso ajeno e invita a volver mañana.</li>
+      <li><strong>Rituales, no promociones:</strong> "la liga de los jueves", "la primera bola del sábado".</li>
+      <li><strong>El robot es el sparring del club,</strong> no un gadget: siempre al servicio del juego real.</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="footer">
+  COURVIA STUDIOS · BRAND EXPLORATION · TOKENS EN courvia-tokens.json / .css · CONTRASTES VERIFICADOS WCAG AA · Q3 2026
+</footer>
+
+<script>
+  const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target)}}),{threshold:.15});
+  document.querySelectorAll('.fade').forEach(el=>obs.observe(el));
+</script>
+</body>
+</html>
