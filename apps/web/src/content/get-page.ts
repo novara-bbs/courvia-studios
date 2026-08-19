@@ -55,3 +55,24 @@ export async function listPublishedSlugs(): Promise<string[]> {
     return [];
   }
 }
+
+/**
+ * Draft-aware read for preview: uncached and version-inclusive. Callers must
+ * gate on draftMode().isEnabled — the signed draft cookie can only be set by
+ * the authenticated /next/preview endpoint, which is the actual access gate.
+ */
+export async function getDraftPage(slug: string, locale: LocaleId): Promise<PageDocument | null> {
+  const payload = await getPayload({ config });
+  const result = await payload.find({
+    collection: "pages",
+    where: { slug: { equals: slug } },
+    locale,
+    limit: 1,
+    depth: 1,
+    draft: true,
+    overrideAccess: true,
+  });
+  const doc = result.docs[0];
+  if (doc === undefined) return null;
+  return { slug: doc.slug, title: doc.title, blocks: doc.blocks ?? [] };
+}

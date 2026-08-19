@@ -1,12 +1,16 @@
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import { SectionList } from "@courvia/sections/render";
 import type { Metadata } from "next";
+import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { setRequestRegion } from "../../../../src/i18n/request-region";
-import { getPage } from "../../../../src/content/get-page";
+import { getDraftPage, getPage } from "../../../../src/content/get-page";
 import { makeRenderContext } from "../../../../src/content/render-context";
+import { DraftModeBar } from "../../../../src/preview/draft-mode-bar";
+import { RefreshRouteOnSave } from "../../../../src/preview/refresh-route-on-save";
 import { regionAlternates } from "../../../../src/seo/region-alternates";
+import { siteUrl } from "../../../../src/seo/site-url";
 
 type PageArgs = { params: Promise<{ region: string; slug: string[] }> };
 
@@ -37,12 +41,20 @@ export default async function CmsPage({ params }: PageArgs) {
   // Nested paths are reserved for future scoped routes (robots/, academy/…).
   if (slug.length !== 1 || slug[0] === undefined) notFound();
 
-  const page = await getPage(slug[0], REGION_DEFINITIONS[region].locale);
+  const { isEnabled: draft } = await draftMode();
+  const locale = REGION_DEFINITIONS[region].locale;
+  const page = draft ? await getDraftPage(slug[0], locale) : await getPage(slug[0], locale);
   if (page === null) notFound();
 
   return (
     <main className="page">
-      <SectionList blocks={page.blocks} ctx={makeRenderContext(false)} />
+      {draft ? (
+        <>
+          <DraftModeBar exitPath={`/${region}/${page.slug}`} />
+          <RefreshRouteOnSave serverUrl={siteUrl()} />
+        </>
+      ) : null}
+      <SectionList blocks={page.blocks} ctx={makeRenderContext(draft)} />
     </main>
   );
 }

@@ -1,8 +1,15 @@
+import { REGION_DEFINITIONS, REGIONS } from "@courvia/platform";
 import { revalidateTag } from "next/cache";
 import type { CollectionConfig } from "payload";
 
+import { siteUrl } from "../seo/site-url";
 import { isAdmin, isAuthenticated } from "./access";
 import { buildBlocks } from "./blocks";
+
+/** The region whose locale matches the admin's editing locale. */
+function previewRegion(localeCode: string): string {
+  return REGIONS.find((r) => REGION_DEFINITIONS[r].locale === localeCode) ?? "es";
+}
 
 /**
  * Editable pages: a slug plus a stack of registered sections. The layout is
@@ -15,6 +22,18 @@ export const Pages: CollectionConfig = {
     useAsTitle: "title",
     defaultColumns: ["title", "slug", "_status", "updatedAt"],
     description: "Páginas componibles. El orden de las secciones es el orden en pantalla.",
+    livePreview: {
+      url: ({ data, locale }) => {
+        const slug = typeof data.slug === "string" && data.slug !== "" ? data.slug : "";
+        const path = `/${previewRegion(locale.code)}/${slug}`;
+        return `${siteUrl()}/next/preview?path=${encodeURIComponent(path)}`;
+      },
+    },
+    preview: (data, { locale }) => {
+      const slug = typeof data.slug === "string" && data.slug !== "" ? data.slug : "";
+      const path = `/${previewRegion(locale)}/${slug}`;
+      return `${siteUrl()}/next/preview?path=${encodeURIComponent(path)}`;
+    },
   },
   versions: {
     drafts: { autosave: { interval: 375 } },

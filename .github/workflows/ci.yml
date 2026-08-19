@@ -16,11 +16,32 @@ permissions:
 
 env:
   NEXT_TELEMETRY_DISABLED: "1"
+  # CI-only database: migrations and the demo seed run against a throwaway
+  # Postgres service, so the adapter contract test and the prerender build
+  # exercise the real Local API instead of skipping. Nothing here touches
+  # Supabase — production migrations remain a separate, approved step (§4).
+  DATABASE_URL: postgres://postgres:postgres@localhost:5432/courvia_ci
+  PAYLOAD_SECRET: ci-only-secret-never-production
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        # Matches production (Supabase Postgres 17)
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: courvia_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +55,12 @@ jobs:
 
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile
+
+      - name: Migrate CI database
+        run: pnpm --filter @courvia/web migrate
+
+      - name: Seed demo catalog
+        run: pnpm --filter @courvia/web seed:catalog
 
       # Runs the same entry point a contributor runs locally, so a broken
       # root script cannot ship green.

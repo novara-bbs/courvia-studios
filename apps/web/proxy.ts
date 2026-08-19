@@ -42,8 +42,8 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except the admin, the API, Next internals and static files.
-  // Exclusions are anchored to whole segments so /admin-foo or /apis still
-  // get a region prefix (and therefore the branded, localized 404).
-  matcher: ["/((?!admin(?:/|$)|api(?:/|$)|_next|_vercel|.*\\..*).*)"],
+  // Everything except the admin, the API, the preview endpoints, Next
+  // internals and static files. Exclusions are anchored to whole segments so
+  // /admin-foo or /apis still get a region prefix (and the localized 404).
+  matcher: ["/((?!admin(?:/|$)|api(?:/|$)|next(?:/|$)|_next|_vercel|.*\\..*).*)"],
 };

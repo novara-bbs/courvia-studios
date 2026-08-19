@@ -352,3 +352,24 @@ code {
   opacity: 0.6;
   cursor: progress;
 }
+
+/* ----------------------------------------------------- barra de borrador */
+
+.draft-bar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cv-space-4);
+  padding-block: var(--cv-space-2);
+  padding-inline: var(--cv-space-4);
+  background: var(--cv-color-accent);
+  color: var(--cv-color-accent-contrast);
+  font-size: var(--cv-font-size-sm);
+}
+
+.draft-bar a {
+  color: inherit;
+  font-weight: 600;
+}
