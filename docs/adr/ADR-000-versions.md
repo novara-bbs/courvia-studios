@@ -17,7 +17,7 @@
 | Payload | **3.88.0** *(objetivo; se instala en su tarea)* | `latest`; `@payloadcms/next@3.88.0` acepta `next >=16.2.6 <17` ✔ compatible con 16.3.1 |
 | Vitest | **4.1.11** | `latest` |
 | tsx | **4.23.12** | `latest` |
-| Zod | **4.4.3** | `latest` |
+| Zod | **4.4.3** *(objetivo; se instala en su tarea)* | `latest`; re-verificar al instalarlo |
 | @types/node | **22.20.1** | Última 22.x, alineada con el runtime Node 22 (el `latest` 26.x tipa APIs que no existen en 22) |
 | ESLint | **10.8.1** | `latest`; soportado por typescript-eslint (`^10.0.0`) |
 | typescript-eslint | **8.67.0** | `latest` |

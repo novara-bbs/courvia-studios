@@ -68,7 +68,7 @@ packages/
   commerce-stripe-supabase/   # adaptador actual (Stripe + tablas Supabase)
   payments-tabby/ payments-tamara/  # adaptadores BNPL EAU (S4)
   config/                     # eslint/tsconfig compartidos
-docs/  ARCHITECTURE.md · adr/ · orders-state-machine.md · payments-runbook.md
+docs/  ARCHITECTURE.md (crear al cierre de S0) · adr/ · orders-state-machine.md · payments-runbook.md (crear en S2)
 brand/ # activos ya creados (ver §20.3)
 ```
 
@@ -119,7 +119,7 @@ interface PaymentProvider {
 
 - **Defaults en Git** (`packages/design-tokens/tokens.json`, formato **DTCG 2025.10** — estable del Community Group, *no* Recomendación W3C).
 - **Tema activo + overrides → Global `ThemeSettings` de Payload** (una sola fuente de verdad). Override = **JSON parcial validado con Zod**; whitelist: `font.display`, `container.width`, `radius.*`, `color.accent`, `color.surface`. **Restaurar = borrar la clave** → vuelve al valor de Git.
-- Render: **CSS variables + `data-theme` en `<html>` desde el servidor** (patrón next-themes, **sin FOUC**).
+- Render: **CSS variables + `data-theme` en `<html>` desde el servidor** (patrón next-themes, **sin FOUC**). *Tradeoff conocido:* leer la cookie en el layout raíz fuerza render dinámico de toda la app; aceptado en S0, revisar en S1 (cacheComponents/PPR o theming vía middleware) antes de medir CWV.
 - **Nombres de tema:** `data-theme` usa los alias cortos `volt` · `carbon` · `club`, que mapean a las claves canónicas `volt-precision` · `carbon-drive` · `club-real` de `brand/courvia-tokens.json` (los **valores exactos** de tokens los manda siempre el JSON).
 - **Bloques Payload: 10-12 específicos, no 50 genéricos** (el admin degrada con exceso de bloques/campos).
 
@@ -386,8 +386,8 @@ Commitear `.mcp.json`. Autenticación por máquina/entorno. **El MCP no se confi
 ### 20.2 Glosario
 Presentment/settlement currency · **DDP/DDU** (quién paga aranceles/VAT en frontera) · **SIF** (sistema de facturación VeriFactu) · **RMA** · **RLS** · **PDPL** (EAU, DL 45/2021) · **TRLGDCU** (RDL 1/2007) · **PaymentEvent** (evento de pago normalizado, agnóstico de pasarela).
 
-### 20.3 Activos ya creados (subir a `brand/`)
-`courvia-tokens.json` (fuente de verdad DTCG) · `courvia-tokens.css` (referencia CSS vars) · `courvia-brand-boards.html` (3 direcciones: paletas, tipografía, componentes, aplicaciones, reglas Sí/No) · `courvia-guia-de-marca.docx/.pdf`.
+### 20.3 Activos ya creados (en `brand/`)
+`courvia-tokens.json` (fuente de verdad DTCG) · `courvia-brand-boards.html` (3 direcciones: paletas, tipografía, componentes, aplicaciones, reglas Sí/No) · `courvia-guia-de-marca.docx/.pdf`. El `courvia-tokens.css` original **no llegó a entregarse y no se recrea a mano**: es un artefacto derivado que genera `packages/design-tokens` desde el JSON (ver `brand/README.md`).
 
 ### 20.4 Vigencia de datos
 Cifras de mercado (FIP World Padel Report 2025, LTA, Pickleball England, Playtomic) → reverificar anualmente. Capacidades Stripe (Bizum, Tax ES/UK, multi-currency, ausencia Tabby/Tamara), reglas VAT (UK £135, EAU 5 %+5 % CIF) y privacidad (PDPL/RGPD/PECR) confirmadas a ago-2026. **VeriFactu y e-invoicing tienen calendarios en cambio: validar con asesor fiscal antes de cada release que toque facturación.**
