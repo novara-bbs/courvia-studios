@@ -5,10 +5,15 @@
  * lives in @courvia/platform: i18n and the CMS need it too and must not
  * import the commerce domain to get it.
  */
-import type { Currency, Incoterm, MarketId, Sport } from "@courvia/platform";
+import type {
+  Currency,
+  Incoterm,
+  MarketId,
+  PaymentProviderId,
+  Sport,
+} from "@courvia/platform";
 
 import type { Money } from "./money";
-import type { PaymentProviderId } from "./payment";
 
 export interface MarketPaymentProvider {
   provider: PaymentProviderId;

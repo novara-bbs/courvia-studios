@@ -105,6 +105,20 @@ export const REGION_DEFINITIONS: Record<RegionId, RegionDefinition> = {
 /** Region served when negotiation finds no better match. */
 export const DEFAULT_REGION: RegionId = "es";
 
+/* -------------------------------------------------------- payment providers */
+
+/**
+ * Known payment gateways. Lives here rather than in the payment port because
+ * MarketSettings (CMS) and the checkout UI both need the vocabulary, and a
+ * market config importing the payment module created a dependency cycle.
+ */
+export const PAYMENT_PROVIDERS = ["stripe", "tabby", "tamara", "adyen"] as const;
+export type PaymentProviderId = (typeof PAYMENT_PROVIDERS)[number];
+
+export function isPaymentProviderId(value: unknown): value is PaymentProviderId {
+  return typeof value === "string" && (PAYMENT_PROVIDERS as readonly string[]).includes(value);
+}
+
 /* ------------------------------------------------------------------ guards */
 
 export function isSport(value: unknown): value is Sport {

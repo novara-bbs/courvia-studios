@@ -39,7 +39,6 @@ export type {
   PaymentEvent,
   PaymentEventType,
   PaymentProvider,
-  PaymentProviderId,
   PaymentSession,
   ProviderEvent,
   RefundResult,

@@ -3,12 +3,10 @@
  * The order state machine consumes only normalized PaymentEvents; the
  * domain never knows which gateway sits behind them.
  */
-import type { MarketId } from "@courvia/platform";
+import type { MarketId, PaymentProviderId } from "@courvia/platform";
 
 import type { Money } from "./money";
 import type { Order } from "./types";
-
-export type PaymentProviderId = "stripe" | "tabby" | "tamara" | "adyen";
 
 /** Raw, signature-verified webhook event, still provider-shaped. */
 export interface ProviderEvent {

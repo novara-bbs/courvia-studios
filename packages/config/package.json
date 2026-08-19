@@ -7,6 +7,12 @@
   "exports": {
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./tsconfig.react.json": "./tsconfig.react.json",
-    "./eslint": "./eslint.config.mjs"
+    "./eslint": "./eslint.config.mjs",
+    "./stylelint": "./stylelint.config.mjs"
+  },
+  "dependencies": {
+    "@next/eslint-plugin-next": "16.3.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "typescript-eslint": "8.67.0"
   }
 }

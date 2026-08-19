@@ -33,8 +33,16 @@ jobs:
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Build, typecheck, lint, test
-        run: pnpm turbo build typecheck lint test
+      # Runs the same entry point a contributor runs locally, so a broken
+      # root script cannot ship green.
+      - name: Verify
+        run: pnpm verify
 
-      # CI is the source of truth (CLAUDE.md §4). Playwright E2E joins this
-      # workflow when the first checkout flow lands (roadmap S2).
+      # Architectural guardrails are checked inside `pnpm verify`; this step
+      # exists to surface the boundary graph separately when it fails.
+      - name: Architecture boundaries
+        if: failure()
+        run: pnpm arch
+
+      # Playwright E2E, axe and visual regression join this workflow when the
+      # first route and section land (roadmap WP16, CLAUDE.md §13).

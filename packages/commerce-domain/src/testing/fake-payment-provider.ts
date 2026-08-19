@@ -67,6 +67,9 @@ export class FakePaymentProvider implements PaymentProvider {
 
   // `async` matters: a synchronous throw would escape before the promise
   // exists, so callers using `.catch()` / `.rejects` would never see it.
+  // Real adapters await the gateway SDK here; this one has nothing to await,
+  // so the rule fires on a deliberate design choice.
+  // eslint-disable-next-line @typescript-eslint/require-await
   async verifyWebhook(rawBody: string, signature: string): Promise<ProviderEvent> {
     const expected = signFakePayload(this.options.secret, rawBody);
     const a = Buffer.from(expected, "utf8");

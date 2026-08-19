@@ -1,1 +1,3 @@
-export { default } from "@courvia/config/eslint";
+import base, { typeAware } from "@courvia/config/eslint";
+
+export default [...base, ...typeAware];
