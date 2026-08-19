@@ -1,7 +1,7 @@
 import { REGIONS, REGION_DEFINITIONS } from "@courvia/platform";
 import type { MetadataRoute } from "next";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+import { siteUrl } from "../src/seo/site-url";
 
 /**
  * One entry per region route, each carrying the full hreflang alternate set.
@@ -9,13 +9,13 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const languages = Object.fromEntries(
-    Object.values(REGION_DEFINITIONS).map((r) => [r.hreflang, `${SITE_URL}/${r.id}`]),
+    Object.values(REGION_DEFINITIONS).map((r) => [r.hreflang, `${siteUrl()}/${r.id}`]),
   );
 
   return REGIONS.map((region) => ({
-    url: `${SITE_URL}/${region}`,
+    url: `${siteUrl()}/${region}`,
     changeFrequency: "weekly",
     priority: region === "es" ? 1 : 0.8,
-    alternates: { languages: { ...languages, "x-default": `${SITE_URL}/es` } },
+    alternates: { languages: { ...languages, "x-default": `${siteUrl()}/es` } },
   }));
 }

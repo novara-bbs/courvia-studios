@@ -26,6 +26,15 @@ export default function proxy(request: NextRequest) {
   const firstSegment = pathname.split("/")[1] ?? "";
   if (isRegionId(firstSegment)) return NextResponse.next();
 
+  // /ES or /En-GB are the same region typed loudly: canonicalize with a
+  // permanent redirect instead of prefixing a second region.
+  const lowered = firstSegment.toLowerCase();
+  if (isRegionId(lowered)) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${lowered}${pathname.slice(firstSegment.length + 1)}`;
+    return NextResponse.redirect(url, 308);
+  }
+
   const region = negotiateRegion(request.headers.get("accept-language"));
   const url = request.nextUrl.clone();
   url.pathname = `/${region}${pathname === "/" ? "" : pathname}`;
@@ -34,5 +43,7 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   // Everything except the admin, the API, Next internals and static files.
-  matcher: ["/((?!admin|api|_next|_vercel|.*\\..*).*)"],
+  // Exclusions are anchored to whole segments so /admin-foo or /apis still
+  // get a region prefix (and therefore the branded, localized 404).
+  matcher: ["/((?!admin(?:/|$)|api(?:/|$)|_next|_vercel|.*\\..*).*)"],
 };

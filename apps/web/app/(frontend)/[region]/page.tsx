@@ -1,11 +1,19 @@
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import { Badge, Button, Card } from "@courvia/ui";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
+import { regionAlternates } from "../../../src/seo/region-alternates";
 import { RegionSelector } from "./region-selector";
 
 type PageArgs = { params: Promise<{ region: string }> };
+
+export async function generateMetadata({ params }: PageArgs): Promise<Metadata> {
+  const { region } = await params;
+  if (!isRegionId(region)) return {};
+  return { alternates: regionAlternates(region, "") };
+}
 
 export default async function HomePage({ params }: PageArgs) {
   const { region } = await params;

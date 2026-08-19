@@ -19,6 +19,9 @@ export const ThemeSettings: GlobalConfig = {
   },
   hooks: {
     afterChange: [
+      // Marks the theme cache stale (SWR): each route serves at most one
+      // more view in the old theme while its shell regenerates. Reload twice
+      // when verifying a publish.
       () => {
         try {
           revalidateTag("theme", "max");

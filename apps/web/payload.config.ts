@@ -16,6 +16,14 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 export default buildConfig({
   secret: process.env.PAYLOAD_SECRET ?? "",
 
+  // Payload parses multipart bodies BEFORE collection access control runs,
+  // and without a limit it buffers them fully in memory: an unauthenticated
+  // POST could stream gigabytes into the heap. 20 MB covers our largest
+  // product video; raise it deliberately, never remove it.
+  upload: {
+    limits: { fileSize: 20 * 1024 * 1024 },
+  },
+
   db: postgresAdapter({
     // Commerce and CMS tables live in a schema the Supabase Data API does
     // not expose (CLAUDE.md §4): a leaked publishable key sees nothing.

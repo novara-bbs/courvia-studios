@@ -1,9 +1,11 @@
 /**
  * Brand webfonts, self-hosted at build time via next/font.
  *
- * Each page loads ONLY its active theme's families (3) plus the Arabic
- * family when the locale needs it — not all eight brands fonts on every
- * request. app.css maps the variables onto the --cv-font-* tokens.
+ * Each page CLASSES only its active theme's families, and with preload off
+ * the browser fetches a font at CSS-discovery time only when a --cv-font-*
+ * variable actually applies it — so a carbon page downloads carbon's three
+ * families, not all nine faces. next/font's default display:swap covers the
+ * brief unstyled interval. app.css maps the variables onto the tokens.
  */
 import type { ThemeAlias } from "@courvia/design-tokens";
 import type { LocaleId } from "@courvia/platform";
@@ -19,20 +21,23 @@ import {
   Instrument_Serif,
 } from "next/font/google";
 
-const anybody = Anybody({ subsets: ["latin"], variable: "--font-anybody" });
-const archivo = Archivo({ subsets: ["latin"], variable: "--font-archivo" });
+const anybody = Anybody({ subsets: ["latin"], preload: false, variable: "--font-anybody" });
+const archivo = Archivo({ subsets: ["latin"], preload: false, variable: "--font-archivo" });
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
+  preload: false,
   weight: ["400", "500"],
   variable: "--font-ibm-plex-mono",
 });
 const chakraPetch = Chakra_Petch({
   subsets: ["latin"],
+  preload: false,
   weight: ["500", "600", "700"],
   variable: "--font-chakra-petch",
 });
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
+  preload: false,
   weight: ["400", "500", "600"],
   variable: "--font-ibm-plex-sans",
 });
@@ -46,12 +51,14 @@ const instrumentSans = Instrument_Sans({
 });
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
+  preload: false,
   weight: "400",
   style: ["normal", "italic"],
   variable: "--font-instrument-serif",
 });
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic"],
+  preload: false,
   weight: ["400", "500", "600"],
   variable: "--font-ibm-plex-sans-arabic",
 });

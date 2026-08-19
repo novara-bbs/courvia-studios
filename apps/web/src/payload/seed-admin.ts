@@ -4,9 +4,15 @@
  *
  *   ADMIN_EMAIL=... ADMIN_PASSWORD=... ADMIN_NAME=... pnpm --filter @courvia/web seed:admin
  */
-import { getPayload } from "payload";
+import { loadEnvConfig } from "@next/env";
 
-import config from "../../payload.config";
+// tsx loads no env files by itself; without this the documented command
+// dies on a missing PAYLOAD_SECRET/DATABASE_URL. Must run before the config
+// import below, hence the dynamic imports.
+loadEnvConfig(process.cwd());
+
+const { getPayload } = await import("payload");
+const { default: config } = await import("../../payload.config");
 
 const email = process.env.ADMIN_EMAIL;
 const password = process.env.ADMIN_PASSWORD;

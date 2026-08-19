@@ -8,7 +8,9 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { setRequestRegion } from "../../../src/i18n/request-region";
 import { OrganizationJsonLd } from "../../../src/seo/organization-json-ld";
+import { siteUrl } from "../../../src/seo/site-url";
 import { getSiteTheme } from "../../../src/theme/get-site-theme";
 import { fontClassesFor } from "../fonts";
 
@@ -21,8 +23,10 @@ export function generateStaticParams() {
   return REGIONS.map((region) => ({ region }));
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-
+// Only origin-level metadata lives here. Canonical and hreflang belong to
+// each PAGE (via regionAlternates): defined in a layout they are inherited
+// verbatim by every nested route, which would declare the region home as the
+// canonical of every deep URL.
 export async function generateMetadata({
   params,
 }: {
@@ -34,28 +38,21 @@ export async function generateMetadata({
   const t = await getTranslations({ locale: def.locale, namespace: "meta" });
 
   return {
-    metadataBase: new URL(SITE_URL),
+    metadataBase: new URL(siteUrl()),
     title: { default: t("title"), template: "%s · Courvia" },
     description: t("description"),
-    alternates: {
-      canonical: `/${region}`,
-      languages: {
-        ...Object.fromEntries(
-          Object.values(REGION_DEFINITIONS).map((r) => [r.hreflang, `/${r.id}`]),
-        ),
-        "x-default": "/es",
-      },
-    },
   };
 }
 
 export default async function RegionLayout({ children, params }: LayoutArgs) {
   const { region } = await params;
   if (!isRegionId(region)) notFound();
+  setRequestRegion(region);
 
   const def = REGION_DEFINITIONS[region];
-  // Theme comes from the CMS (ADR-015): cached under cacheTag("theme"),
-  // revalidated when ThemeSettings publishes. No cookie, no per-request work.
+  // Theme comes from the CMS (ADR-015), cached under cacheTag("theme").
+  // Publishing marks the tag stale: each route serves AT MOST ONE more view
+  // in the old theme while the shell regenerates in the background (SWR).
   const theme = await getSiteTheme();
 
   return (
