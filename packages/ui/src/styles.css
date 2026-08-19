@@ -36,11 +36,11 @@
 
 /* Accent as a fill goes through the indirection pair: on an accent-filled
  * band (data-bg='accent') the appearance layer flips fill and label so the
- * button never melts into the band. Defaults keep today's look everywhere
- * else. */
+ * button never melts into the band. The roles default to the accent pair in
+ * every theme (declared in tokens.json). */
 .cv-btn--primary {
-  background: var(--cv-fill-accent, var(--cv-color-accent));
-  color: var(--cv-on-fill-accent, var(--cv-color-accent-contrast));
+  background: var(--cv-color-fill-accent);
+  color: var(--cv-color-on-fill-accent);
 }
 .cv-btn--ghost {
   background: transparent;
@@ -72,9 +72,9 @@
  * surface, below the 4.5:1 AA floor, and CLAUDE.md §5 states carbon's accent
  * carries dark text. As a fill it clears AA in all three themes. */
 .cv-badge--accent {
-  background: var(--cv-fill-accent, var(--cv-color-accent));
-  border-color: var(--cv-fill-accent, var(--cv-color-accent));
-  color: var(--cv-on-fill-accent, var(--cv-color-accent-contrast));
+  background: var(--cv-color-fill-accent);
+  border-color: var(--cv-color-fill-accent);
+  color: var(--cv-color-on-fill-accent);
 }
 
 .cv-card--raised {

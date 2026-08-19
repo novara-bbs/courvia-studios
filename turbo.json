@@ -14,6 +14,15 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    "@courvia/design-tokens#test": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/ui/src/**/*.css",
+        "$TURBO_ROOT$/packages/sections/src/**/*.css",
+        "$TURBO_ROOT$/apps/web/app/**/*.css"
+      ]
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

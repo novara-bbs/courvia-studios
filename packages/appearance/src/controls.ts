@@ -65,7 +65,7 @@ export const CONTROLS = {
       // colour, its label becomes the accent. Contrast is symmetric, so the
       // pair keeps the exact AA ratio the theme already guarantees.
       accent:
-        "background: var(--cv-color-accent); --cv-color-text: var(--cv-color-accent-contrast); --cv-color-text-muted: var(--cv-color-accent-contrast); --cv-fill-accent: var(--cv-color-accent-contrast); --cv-on-fill-accent: var(--cv-color-accent);",
+        "background: var(--cv-color-accent); --cv-color-text: var(--cv-color-accent-contrast); --cv-color-text-muted: var(--cv-color-accent-contrast); --cv-color-fill-accent: var(--cv-color-accent-contrast); --cv-color-on-fill-accent: var(--cv-color-accent);",
     },
   },
   /** Content measure. */

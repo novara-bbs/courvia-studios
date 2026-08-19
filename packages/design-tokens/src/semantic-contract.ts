@@ -24,6 +24,11 @@ export const COLOR_ROLES = [
   "text-inverse",
   "accent",
   "accent-contrast",
+  // Accent used AS A FILL (button, badge, brand dot) plus its label. They
+  // default to the accent pair; on an accent-filled band the appearance
+  // layer flips them so a fill never melts into its own background.
+  "fill-accent",
+  "on-fill-accent",
   "link",
   "border",
 ] as const;
@@ -56,6 +61,7 @@ export const CONTRAST_PAIRS: ReadonlyArray<{ text: ColorRole; on: ColorRole; lab
   { text: "link", on: "bg", label: "link on page" },
   { text: "link", on: "surface", label: "link on surface" },
   { text: "accent-contrast", on: "accent", label: "text on accent fill" },
+  { text: "on-fill-accent", on: "fill-accent", label: "label on accent fill role" },
 ];
 
 /** WCAG 2.2 AA minimum for normal-size text. */
