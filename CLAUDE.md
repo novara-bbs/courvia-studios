@@ -2,6 +2,7 @@
 
 > **Contexto completo para Claude Code.** Colócalo en la **raíz del repo** (se lee en cada sesión). Para otras herramientas: `ln -s CLAUDE.md AGENTS.md`.
 > Fusiona todo el hilo de arquitectura: branding (3 temas) → arquitectura "commerce fino" → multideporte (tenis · pádel · pickleball) y 3 mercados (España · EAU/Dubái · Reino Unido) → **pasarela de pago intercambiable (puerto/adaptador)**. Redactado: 19 ago 2026.
+> **Revisión 19 ago 2026 (correcciones aprobadas por el propietario):** claves Supabase actualizadas a la nomenclatura vigente (*publishable*/*secret*; las legacy `anon`/`service_role` se retiran a finales de 2026) · migraciones: se crean y prueban en local/desarrollo y **solo su aplicación a producción** va por CI · ADR solo para decisiones **nuevas o que se desvíen** de este documento · MCP de Supabase acotado (project_ref + features mínimas + read-only sobre datos reales) · versiones exactas del stack en `docs/adr/ADR-000-versions.md`.
 
 ---
 
@@ -55,7 +56,7 @@ La IA abarata escribir código, **no** mantener pagos/impuestos/inventario/segur
 
 ## 3. Stack, monorepo y puertos
 
-**Stack:** Next.js **16.x** (App Router, RSC) en **Vercel** · **Payload 3.8x** embebido · **Supabase** (Postgres `xurdwzbefgxpfzgkbbkf`, Auth, Storage) · **Stripe** (adaptador de pago por defecto) · **Resend/Brevo** · Node **22/24** · pnpm + Turborepo · GA4 + Plausible. **Pinear versiones exactas en S0 tras verificar changelogs.**
+**Stack:** Next.js **16.x** (App Router, RSC) en **Vercel** · **Payload 3.x** embebido (estable y compatible con el Next.js 16.x elegido; la versión exacta se fija en ADR-000) · **Supabase** (Postgres `xurdwzbefgxpfzgkbbkf`, Auth, Storage) · **Stripe** (adaptador de pago por defecto) · **Resend/Brevo** · Node **22/24** · pnpm + Turborepo · GA4 + Plausible. **Versiones exactas pineadas y verificadas contra el registro npm en `docs/adr/ADR-000-versions.md`.**
 
 ```
 apps/
@@ -106,9 +107,9 @@ interface PaymentProvider {
 
 **Pagos/pedidos:** importe calculado y validado **solo en servidor** · webhooks con **firma verificada** e idempotencia por **`(provider, provider_event_id)` UNIQUE** · transiciones de pedido por **máquina de estados dentro de transacción** (§10.2) alimentada solo por `PaymentEvent` normalizados · pago fallido **no** reserva stock (commit solo tras `paid`) · reembolsos **manual-asistidos** al inicio.
 
-**Datos/seguridad:** tablas commerce en **schema Postgres no expuesto** al Data API; si algo se expone → grants explícitos + **RLS** · **`service_role` jamás** en cliente, repo ni agente · **migraciones solo por CI** · MCP de producción **en solo-lectura** · secrets por entorno en Vercel/GitHub, nunca en el repo · credenciales de pago **namespaced por proveedor** (§15).
+**Datos/seguridad:** tablas commerce en **schema Postgres no expuesto** al Data API; si algo se expone → grants explícitos + **RLS** · claves privilegiadas (**`SUPABASE_SECRET_KEY`**; nomenclatura legacy `service_role`) **jamás** en cliente ni en el repo; **el agente nunca las solicita, lee ni usa** (tampoco contraseñas Postgres ni secretos de pago); una futura app backend podrá usar una clave secreta específica **solo si una tarea aprobada lo justifica** y está almacenada en Vercel · **migraciones:** se crean, revisan y prueban en local/desarrollo; **su aplicación a producción va únicamente por CI** con aprobación explícita · MCP de producción **en solo-lectura**, limitado al proyecto y a las features necesarias · secrets: en local `.env.local` (ignorado por Git) o gestor de contraseñas; despliegue en Vercel; CI en GitHub Environments/Secrets; nunca en el repo · credenciales de pago **namespaced por proveedor** (§15).
 
-**Gobernanza IA:** tareas pequeñas con criterios de aceptación previos (issue/PRD antes de código) · revisión cruzada (otro modelo o pasada separada) de seguridad/arquitectura/casos límite · **CI con Playwright como fuente de verdad** ("parece correcto" no es verificación) · **humano aprueba** pagos, permisos, RLS y prod · decisiones estructurales → **ADR** (§20) · actualizar este MD al cerrar cada sprint.
+**Gobernanza IA:** tareas pequeñas con criterios de aceptación previos (issue/PRD antes de código) · revisión cruzada (otro modelo o pasada separada) de seguridad/arquitectura/casos límite · **CI con Playwright como fuente de verdad** ("parece correcto" no es verificación) · **humano aprueba** pagos, permisos, RLS y prod · decisiones estructurales **nuevas o que se desvíen de este documento** → **ADR** (§20); lo ya aprobado aquí no requiere ADR adicional · actualizar este MD al cerrar cada sprint.
 
 ---
 
@@ -119,6 +120,7 @@ interface PaymentProvider {
 - **Defaults en Git** (`packages/design-tokens/tokens.json`, formato **DTCG 2025.10** — estable del Community Group, *no* Recomendación W3C).
 - **Tema activo + overrides → Global `ThemeSettings` de Payload** (una sola fuente de verdad). Override = **JSON parcial validado con Zod**; whitelist: `font.display`, `container.width`, `radius.*`, `color.accent`, `color.surface`. **Restaurar = borrar la clave** → vuelve al valor de Git.
 - Render: **CSS variables + `data-theme` en `<html>` desde el servidor** (patrón next-themes, **sin FOUC**).
+- **Nombres de tema:** `data-theme` usa los alias cortos `volt` · `carbon` · `club`, que mapean a las claves canónicas `volt-precision` · `carbon-drive` · `club-real` de `brand/courvia-tokens.json` (los **valores exactos** de tokens los manda siempre el JSON).
 - **Bloques Payload: 10-12 específicos, no 50 genéricos** (el admin degrada con exceso de bloques/campos).
 
 | Tema | Uso | bg / surface | accent (AA) | Tipografías |
@@ -266,8 +268,8 @@ hreflang por locale + `x-default` · sitemaps por locale en robots.txt · schema
 
 Credenciales de pago **namespaced por proveedor** — añadir una pasarela nueva = añadir su bloque, sin tocar el resto:
 ```
-NEXT_PUBLIC_SUPABASE_URL · NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY        # SOLO servidor/CI
+NEXT_PUBLIC_SUPABASE_URL · NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SECRET_KEY              # SOLO backend/CI; el agente jamás la pide, lee o usa
 SUPABASE_PROJECT_REF=xurdwzbefgxpfzgkbbkf · DATABASE_URL (CI)
 PAYLOAD_SECRET
 
@@ -281,7 +283,7 @@ RESEND_API_KEY (o BREVO_API_KEY) · VERIFACTU_PROVIDER_API_KEY
 NEXT_PUBLIC_GA4_ID · NEXT_PUBLIC_PLAUSIBLE_DOMAIN
 NEXT_PUBLIC_SITE_URL · NEXT_PUBLIC_DEFAULT_LOCALE=es
 ```
-**Checklist:** RLS en todo commerce · `(provider, provider_event_id)` UNIQUE + firma en cada webhook · importes server-side · test de que `service_role` no está en bundles cliente · MCP prod read-only · migraciones solo CI · CSP compatible (glass/pasarelas/Plausible) · consentimiento cookies por mercado (LSSI/PECR/PDPL) · rotación de claves · **runbook de cambio de cuenta/pasarela** (`docs/payments-runbook.md`, S2): rotar envs → re-registrar webhooks → drenar pagos en vuelo → conciliar.
+**Checklist:** RLS en todo commerce · `(provider, provider_event_id)` UNIQUE + firma en cada webhook · importes server-side · test de que la clave secreta (`SUPABASE_SECRET_KEY` / legacy `service_role`) no está en bundles cliente · MCP prod read-only · migraciones a producción solo por CI · CSP compatible (glass/pasarelas/Plausible) · consentimiento cookies por mercado (LSSI/PECR/PDPL) · rotación de claves · **runbook de cambio de cuenta/pasarela** (`docs/payments-runbook.md`, S2): rotar envs → re-registrar webhooks → drenar pagos en vuelo → conciliar.
 
 ---
 
@@ -342,14 +344,15 @@ NEXT_PUBLIC_SITE_URL · NEXT_PUBLIC_DEFAULT_LOCALE=es
 git clone <repo-courvia> && cd <repo-courvia>
 
 # MCP Supabase (scope project → crea .mcp.json commiteable)
-claude mcp add --scope project --transport http supabase "https://mcp.supabase.com/mcp?project_ref=xurdwzbefgxpfzgkbbkf&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching"
+# Acotado: project_ref + read_only + solo las features necesarias (ampliar solo si una tarea lo exige)
+claude mcp add --scope project --transport http supabase "https://mcp.supabase.com/mcp?project_ref=xurdwzbefgxpfzgkbbkf&read_only=true&features=docs%2Cdatabase%2Cdevelopment%2Cdebugging"
 
 claude
 /mcp        # seleccionar "supabase" → Authenticate
 
 npx skills add supabase/agent-skills   # opcional, recomendado
 ```
-Commitear `.mcp.json`. Autenticación por máquina/entorno. **Producción: acceso del agente en solo-lectura; escrituras solo por CI.** Añadir después MCP/CLI de Vercel y GitHub.
+Commitear `.mcp.json`. Autenticación por máquina/entorno. **El MCP no se configura en la sesión de bootstrap**; cuando llegue su tarea: limitar a `project_ref`, activar solo los grupos de features necesarios y `read_only=true` si apunta a datos reales. **Producción: acceso del agente en solo-lectura; escrituras a producción solo por CI.** Añadir después MCP/CLI de Vercel y GitHub.
 
 ### 19.2 Móvil (app Claude → pestaña Code)
 - **Remote Control** (recomendado con un equipo encendido): `claude` o `claude remote-control` en el ordenador; el móvil es una ventana a esa sesión local — conserva `.mcp.json` autenticado, filesystem y tools. `/mcp` no funciona por el puente: autenticar antes en terminal.
