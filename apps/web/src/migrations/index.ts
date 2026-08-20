@@ -11,6 +11,7 @@ import * as migration_20260820_094933_nav_pro_hero_level from './20260820_094933
 import * as migration_20260820_104736_media_governance_spec_evidence from './20260820_104736_media_governance_spec_evidence';
 import * as migration_20260820_122752_visual_sections from './20260820_122752_visual_sections';
 import * as migration_20260820_165317_landing_vocabulary from './20260820_165317_landing_vocabulary';
+import * as migration_20260820_210000_rls_lockdown from './20260820_210000_rls_lockdown';
 
 export const migrations = [
   {
@@ -77,5 +78,10 @@ export const migrations = [
     up: migration_20260820_165317_landing_vocabulary.up,
     down: migration_20260820_165317_landing_vocabulary.down,
     name: '20260820_165317_landing_vocabulary'
+  },
+  {
+    up: migration_20260820_210000_rls_lockdown.up,
+    down: migration_20260820_210000_rls_lockdown.down,
+    name: '20260820_210000_rls_lockdown'
   },
 ];

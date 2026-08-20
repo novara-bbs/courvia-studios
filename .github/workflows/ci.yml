@@ -22,6 +22,19 @@ env:
   # Supabase — production migrations remain a separate, approved step (§4).
   DATABASE_URL: postgres://postgres:postgres@localhost:5432/courvia_ci
   PAYLOAD_SECRET: ci-only-secret-never-production
+  # The fourth layer of .claude/rules/database.md only counts if it RUNS.
+  # data-api-exposure.test.ts skipped itself on every run so far because
+  # these two were never set, and a suite that skips reports the same green
+  # as a suite that passed. Both values are public by design — the
+  # publishable key is the one Supabase ships to browsers, and it grants
+  # exactly what RLS allows, which for the `payload` schema is nothing. The
+  # secret that must never appear here is SUPABASE_SECRET_KEY.
+  # Repository VARIABLES (not secrets: masking a value that ships to every
+  # browser buys nothing) with the current values as fallback, so rotating
+  # the key is a settings change instead of a pull request, and a fork with
+  # no variables configured still runs the proof.
+  SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://xurdwzbefgxpfzgkbbkf.supabase.co' }}
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_S7WYO1rf0UK117XCrzYU0A_EZfmJ_71' }}
 
 jobs:
   verify:
@@ -58,6 +71,30 @@ jobs:
 
       - name: Migrate CI database
         run: pnpm --filter @courvia/web migrate
+
+      # The RLS invariant, asserted against CI's OWN Postgres — no network,
+      # no Supabase. The migration says it locks the schema down; this proves
+      # the schema CI just built is actually locked. Until 20 Aug 2026 RLS
+      # existed only as manual state in one project, so every rebuilt
+      # database came up unprotected and nothing said a word.
+      - name: Row Level Security invariant
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "
+            DO \$\$
+            DECLARE unprotected int; policies int;
+            BEGIN
+              SELECT count(*) INTO unprotected FROM pg_tables
+                WHERE schemaname = 'payload' AND NOT rowsecurity;
+              SELECT count(*) INTO policies FROM pg_policies
+                WHERE schemaname = 'payload';
+              IF unprotected <> 0 THEN
+                RAISE EXCEPTION '% table(s) in payload have RLS disabled', unprotected;
+              END IF;
+              IF policies <> 0 THEN
+                RAISE EXCEPTION 'payload has % polic(ies); deny-all expects none', policies;
+              END IF;
+              RAISE NOTICE 'RLS invariant holds across the payload schema';
+            END \$\$;"
 
       # Same entry point as local bootstrap (catalog → markets → content):
       # one place defines the seeding order.
