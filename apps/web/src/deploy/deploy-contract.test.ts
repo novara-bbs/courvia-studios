@@ -16,6 +16,7 @@
  * is enforced (a required status check) and CLAUDE.md §6 says a session is
  * not finished on green CI alone.
  */
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,6 +77,36 @@ describe("the app directory is a valid Root Directory", () => {
     // version detected. Make sure your package.json has next in either
     // dependencies or devDependencies."
     expect(appPackage.dependencies?.next).toBeTruthy();
+  });
+});
+
+describe("a Root Directory pointing at the repo root fails loudly", () => {
+  const rootVercelJson = JSON.parse(read("vercel.json")) as {
+    buildCommand?: string;
+    framework?: string;
+  };
+
+  it("is a tripwire, not a second configuration", () => {
+    // Vercel reads vercel.json FROM the Root Directory, so this file only
+    // runs when that setting is wrong. It must never declare a framework or
+    // a real build: two live configurations is how the drift started.
+    expect(rootVercelJson.framework).toBeUndefined();
+    expect(rootVercelJson.buildCommand).toBe("node scripts/vercel-root-guard.mjs");
+  });
+
+  it("the guard exits non-zero at the repo root and zero anywhere else", () => {
+    // The observed failure took 90 seconds to reach a message that named a
+    // missing `public/` directory rather than the setting that was wrong.
+    const guard = path.join(repoRoot, "scripts", "vercel-root-guard.mjs");
+
+    const misconfigured = spawnSync(process.execPath, [guard], { cwd: repoRoot });
+    expect(misconfigured.status).toBe(1);
+    expect(misconfigured.stderr.toString()).toContain("apps/web");
+
+    // Belt and braces: if Vercel ever read this file with the setting
+    // CORRECT, an unconditional tripwire would break every deploy.
+    const configured = spawnSync(process.execPath, [guard], { cwd: appDir });
+    expect(configured.status).toBe(0);
   });
 });
 
