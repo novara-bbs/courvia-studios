@@ -10,9 +10,11 @@
  * 2. **Colours come from `tokens.json`, never from a literal.** The Open
  *    Graph card set this precedent (`src/seo/og-card.tsx`): re-skinning the
  *    brand must not require somebody to remember that emails also have a
- *    palette. Typography is the deliberate exception — mail clients do not
- *    fetch self-hosted woff2, so the brand faces cannot travel and a system
- *    stack is the honest fallback rather than a broken @font-face.
+ *    palette. Two deliberate exceptions, both shared with that card:
+ *    typography, because mail clients do not fetch self-hosted woff2 so the
+ *    brand faces cannot travel and a system stack is the honest fallback
+ *    rather than a broken @font-face; and the pixel sizes, because there is
+ *    no `rem` scale and no custom property to inherit from in an inbox.
  *
  * The theme is the COMPILED default rather than the CMS's active theme. An
  * email renders once and then lives in somebody's inbox forever: reading a

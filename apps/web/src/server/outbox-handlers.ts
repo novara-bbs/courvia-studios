@@ -13,17 +13,24 @@
  *     `NotImplementedError` on purpose, and `.claude/rules/payments.md`
  *     requires explicit human approval for anything that touches real money.
  *     It stays a pending task, and the dispatcher logs it loudly every tick.
- *   - `restock_if_applicable` — a warehouse action with a physical
- *     inspection, not a row update (docs/orders-state-machine.md).
+ *   - `restock_if_applicable`, `start_picking`, `stop_picking` — warehouse
+ *     actions. Each ends in a person moving a robot, not in a row update
+ *     (docs/orders-state-machine.md, ADR-027), so the handler is whatever
+ *     channel the warehouse reads, and there is no warehouse yet. Leaving
+ *     `stop_picking` off this list would be the dangerous omission: it is
+ *     the counter-order that stops a refunded order from shipping.
  *   - `alert_payment_conflict`, `alert_refund_failure` — a human reads them.
  *     Routing alerts to an inbox needs an operations address, which is
  *     observability work (docs/gap-analysis.md, extras #5), not this task.
  *   - `send_confirmation_email`, `send_tracking_email`, `send_post_sale_email`,
  *     `send_refund_email`, `issue_tax_invoice`, `issue_credit_note`,
- *     `notify_crm`, `open_withdrawal_window` — order-side effects. There is
- *     no checkout yet, so no order can reach the status that queues them,
- *     and their copy has not been written. Registering a handler that mails
- *     an empty template would be worse than the queue that says "not yet".
+ *     `notify_crm`, `open_withdrawal_window` — order-side effects, several
+ *     of them queued by the fulfilment flow (ADR-027).
+ *     Their copy has not been written, and there is no checkout yet, so no
+ *     order reaches the status that queues most of them. Registering a
+ *     handler that mails an empty template would be worse than a queue that
+ *     says "not yet": the row stays visible in the admin until somebody
+ *     writes the message.
  *
  * Adding one is adding an entry here. Nothing else changes.
  */

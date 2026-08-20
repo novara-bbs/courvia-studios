@@ -8,6 +8,8 @@
  * not localhost or CI's throwaway service: this suite writes and deletes
  * rows in `outbox` and `leads`.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
@@ -20,6 +22,7 @@ import {
   eligibleWhere,
 } from "./outbox";
 import type { OutboxRow } from "./outbox";
+import { SIDE_EFFECT_EXECUTION } from "@courvia/commerce-domain";
 import { outboxHandlers } from "./outbox-handlers";
 
 const hasDb = typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL !== "";
@@ -240,6 +243,26 @@ describeDb("dispatching", () => {
     expect(result.deferredByEffect.restock_if_applicable).toBeGreaterThanOrEqual(1);
   });
 
+  it("never dispatches a refund, and never lets one go unnoticed", async () => {
+    // The one effect that moves money. Nothing in this repo calls a gateway
+    // refund: the four adapters throw NotImplementedError on purpose and
+    // .claude/rules/payments.md requires explicit human approval. So the
+    // dispatcher's whole job here is to leave it alone AND say so.
+    const refund = await queue("execute_provider_refund");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await dispatchOutbox(payload, {
+      handlers: { notify_sales_lead: () => Promise.resolve() },
+    });
+
+    expect(result.deferredByEffect.execute_provider_refund).toBeGreaterThanOrEqual(1);
+    const after = await read(refund.id);
+    expect(after.status).toBe("pending");
+    expect(Number(after.attempts)).toBe(0);
+    expect(logged.mock.calls.flat().join(" ")).toContain("execute_provider_refund");
+    logged.mockRestore();
+  });
+
   it("sends the real confirmation for a lead row", async () => {
     const row = await queue("notify_sales_lead");
     const sent = vi
@@ -261,5 +284,55 @@ describeDb("dispatching", () => {
     // The provider-side half of "never twice": keyed to the row.
     expect(message.headers["Idempotency-Key"]).toBe(`outbox-${row.id}`);
     sent.mockRestore();
+  });
+});
+
+/**
+ * The deferred census is a comment, and a comment drifts.
+ *
+ * `outbox-handlers.ts` opens with a list of every effect that has no handler
+ * and the reason it has none — which is genuinely useful and genuinely
+ * unenforced. A new effect added to the domain (three arrived with ADR-027)
+ * gets no handler and no mention, and then nothing anywhere says it is
+ * queueing up unread. `stop_picking` was exactly that for an afternoon, and
+ * it is the counter-order that stops a refunded order from shipping.
+ *
+ * So the list is checked against the domain's own catalogue: every effect is
+ * either handled or named as deferred, and an effect that no longer exists
+ * cannot linger in the prose either.
+ */
+describe("every effect is handled or named as deferred", () => {
+  const deferredNames = (): Set<string> => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./outbox-handlers.ts", import.meta.url)),
+      "utf8",
+    );
+    const header = source.slice(0, source.indexOf("*/"));
+    // The census lives in backticked names inside the header comment.
+    return new Set([...header.matchAll(/`([a-z_]+)`/g)].map((match) => match[1] as string));
+  };
+
+  it("names every unhandled effect in the header census", () => {
+    const handled = new Set(Object.keys(outboxHandlers()));
+    const documented = deferredNames();
+    const orphans = Object.keys(SIDE_EFFECT_EXECUTION).filter(
+      (effect) =>
+        SIDE_EFFECT_EXECUTION[effect as keyof typeof SIDE_EFFECT_EXECUTION] === "outbox" &&
+        !handled.has(effect) &&
+        !documented.has(effect),
+    );
+    expect(
+      orphans,
+      "these effects reach the outbox with no handler and no line in the census at the " +
+        "top of outbox-handlers.ts: they would queue up unread with nothing saying so",
+    ).toEqual([]);
+  });
+
+  it("finds the census at all, rather than passing on an empty set", () => {
+    // Without this, a reformatted comment would turn the assertion above
+    // into a test about the empty set, which passes forever.
+    const documented = deferredNames();
+    expect(documented.has("execute_provider_refund")).toBe(true);
+    expect(documented.has("stop_picking")).toBe(true);
   });
 });
