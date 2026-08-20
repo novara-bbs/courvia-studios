@@ -3,7 +3,9 @@
   "globalPassThroughEnv": [
     "DATABASE_URL",
     "PAYLOAD_SECRET",
-    "NEXT_PHASE"
+    "NEXT_PHASE",
+    "SUPABASE_URL",
+    "SUPABASE_PUBLISHABLE_KEY"
   ],
   "tasks": {
     "build": {

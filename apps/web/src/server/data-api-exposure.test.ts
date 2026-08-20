@@ -20,7 +20,12 @@ const configured = url !== "" && key !== "";
 
 if (!configured && process.env.CI === "true") {
   throw new Error(
-    "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are not set in CI: the Data API exposure proof would skip itself and report green. The publishable key is public by design — set both in the workflow env.",
+    "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY did not reach this test in CI: " +
+      "the Data API exposure proof would skip itself and report green. Two " +
+      "places have to agree — the workflow env in .github/workflows/ci.yml AND " +
+      "globalPassThroughEnv in turbo.json, because turbo strips every variable " +
+      "it was not told to forward. Setting only the first is the failure mode " +
+      "this message exists for. The publishable key is public by design.",
   );
 }
 
