@@ -1,12 +1,10 @@
-import { format } from "@courvia/commerce-domain";
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { listRobots } from "../../../../src/catalog/get-catalog";
+import { ProductCard } from "../../../../src/catalog/product-card";
 import { setRequestRegion } from "../../../../src/i18n/request-region";
 import { regionAlternates } from "../../../../src/seo/region-alternates";
 
@@ -62,29 +60,7 @@ export default async function RobotsPage({ params }: PageArgs) {
         <ul className="catalog-grid">
           {robots.map((robot) => (
             <li key={robot.id}>
-              <Link className="catalog-card" href={`/${region}/robots/${robot.slug}`}>
-                {robot.image === undefined ? null : (
-                  <span className="catalog-card-media">
-                    <Image
-                      src={robot.image.url}
-                      alt={robot.image.alt}
-                      width={robot.image.width ?? 860}
-                      height={robot.image.height ?? 645}
-                      sizes="(max-width: 680px) 100vw, 320px"
-                    />
-                  </span>
-                )}
-                <h2>{robot.title}</h2>
-                {robot.excerpt === undefined ? null : <p>{robot.excerpt}</p>}
-                <p className="catalog-card-meta">
-                  <span className="catalog-sports">
-                    {robot.sports.map((sport) => t(`sport.${sport}`)).join(" · ")}
-                  </span>
-                  {robot.fromPrice === null ? null : (
-                    <strong>{t("fromPrice", { price: format(robot.fromPrice, def.hreflang) })}</strong>
-                  )}
-                </p>
-              </Link>
+              <ProductCard robot={robot} region={region} />
             </li>
           ))}
         </ul>

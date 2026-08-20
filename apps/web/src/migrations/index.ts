@@ -6,6 +6,7 @@ import * as migration_20260819_210633_commerce_orders from './20260819_210633_co
 import * as migration_20260819_223413_outbox_effects from './20260819_223413_outbox_effects';
 import * as migration_20260820_073808_nav_and_product_media from './20260820_073808_nav_and_product_media';
 import * as migration_20260820_075636_leads_funnel_outbox from './20260820_075636_leads_funnel_outbox';
+import * as migration_20260820_092450_cms_commerce_and_methods from './20260820_092450_cms_commerce_and_methods';
 
 export const migrations = [
   {
@@ -46,6 +47,11 @@ export const migrations = [
   {
     up: migration_20260820_075636_leads_funnel_outbox.up,
     down: migration_20260820_075636_leads_funnel_outbox.down,
-    name: '20260820_075636_leads_funnel_outbox'
+    name: '20260820_075636_leads_funnel_outbox',
+  },
+  {
+    up: migration_20260820_092450_cms_commerce_and_methods.up,
+    down: migration_20260820_092450_cms_commerce_and_methods.down,
+    name: '20260820_092450_cms_commerce_and_methods'
   },
 ];

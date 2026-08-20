@@ -48,6 +48,10 @@
       "padel": "Padel",
       "pickleball": "Pickleball"
     },
+    "status": {
+      "preorder": "Preorder",
+      "waitlist": "Waiting list"
+    },
     "variantsTitle": "Configurations",
     "variantSku": "Reference",
     "variantSport": "Sport",
@@ -66,6 +70,10 @@
     "leadConsent": "I agree that Courvia may contact me about this request. No lists, no spam.",
     "leadPrivacy": "Privacy policy",
     "leadSubmit": "Send request",
+    "waitlistTitle": "Join the waiting list",
+    "waitlistSubmit": "Tell me when it lands",
+    "preorderTitle": "Reserve yours",
+    "preorderSubmit": "Request a reservation",
     "leadInvalid": "Check the name and email — something doesn't add up.",
     "notSoldHere": "Not sold here"
   },

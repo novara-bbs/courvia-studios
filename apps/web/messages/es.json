@@ -48,6 +48,10 @@
       "padel": "Pádel",
       "pickleball": "Pickleball"
     },
+    "status": {
+      "preorder": "Preventa",
+      "waitlist": "Lista de espera"
+    },
     "variantsTitle": "Configuraciones",
     "variantSku": "Referencia",
     "variantSport": "Deporte",
@@ -66,6 +70,10 @@
     "leadConsent": "Acepto que Courvia me contacte sobre esta solicitud. Sin listas, sin spam.",
     "leadPrivacy": "Política de privacidad",
     "leadSubmit": "Enviar solicitud",
+    "waitlistTitle": "Apúntate a la lista de espera",
+    "waitlistSubmit": "Avisadme cuando esté",
+    "preorderTitle": "Reserva la tuya",
+    "preorderSubmit": "Solicitar reserva",
     "leadInvalid": "Revisa el nombre y el email: algo no cuadra.",
     "notSoldHere": "No disponible aquí"
   },

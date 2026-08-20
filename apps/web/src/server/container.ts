@@ -14,7 +14,10 @@ import {
   applyPaymentEvent as applyPaymentEventToPayload,
 } from "@courvia/commerce-payload";
 import type { ApplyOutcome, PaymentProviderRegistry } from "@courvia/commerce-payload";
+import { AdyenPaymentProvider } from "@courvia/payments-adyen";
 import { StripePaymentProvider } from "@courvia/payments-stripe";
+import { TabbyPaymentProvider } from "@courvia/payments-tabby";
+import { TamaraPaymentProvider } from "@courvia/payments-tamara";
 import { getPayload } from "payload";
 
 /**
@@ -50,6 +53,24 @@ export function getPaymentProviders(): PaymentProviderRegistry {
   const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (stripeWebhookSecret !== undefined && stripeWebhookSecret !== "") {
     providers.stripe = new StripePaymentProvider({ webhookSecret: stripeWebhookSecret });
+  }
+
+  // Credentials are namespaced per provider (§15): each adapter activates
+  // with ITS webhook credential and nothing else — a deployment without the
+  // env var simply has no such gateway (404 at the webhook route).
+  const adyenHmacKey = process.env.ADYEN_HMAC_KEY;
+  if (adyenHmacKey !== undefined && adyenHmacKey !== "") {
+    providers.adyen = new AdyenPaymentProvider({ hmacKey: adyenHmacKey });
+  }
+
+  const tabbyWebhookSecret = process.env.TABBY_WEBHOOK_SECRET;
+  if (tabbyWebhookSecret !== undefined && tabbyWebhookSecret !== "") {
+    providers.tabby = new TabbyPaymentProvider({ webhookSecret: tabbyWebhookSecret });
+  }
+
+  const tamaraNotificationToken = process.env.TAMARA_NOTIFICATION_TOKEN;
+  if (tamaraNotificationToken !== undefined && tamaraNotificationToken !== "") {
+    providers.tamara = new TamaraPaymentProvider({ notificationToken: tamaraNotificationToken });
   }
 
   return providers;

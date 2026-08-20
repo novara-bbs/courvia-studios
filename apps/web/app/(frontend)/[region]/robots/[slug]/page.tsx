@@ -56,7 +56,9 @@ export default async function RobotDetailPage({ params }: PageArgs) {
   if (detail === null) notFound();
 
   const { product, variants } = detail;
-  const ctx = makeRenderContext(false);
+  const ctx = makeRenderContext(false, region);
+  // waitlist = capturing interest, not selling: no price, no stock table.
+  const status = product.launchStatus ?? "available";
   const fromPrice = variants.reduce<Money | null>(
     (lowest, offer) => pickLower(lowest, offer.price),
     null,
@@ -65,10 +67,20 @@ export default async function RobotDetailPage({ params }: PageArgs) {
   return (
     <main className="page">
       <header className="pdp-head">
-        <p className="eyebrow">{product.sports.map((sport) => t(`sport.${sport}`)).join(" · ")}</p>
+        <p className="eyebrow">
+          {[
+            product.brand?.name,
+            product.sports.map((sport) => t(`sport.${sport}`)).join(" · "),
+          ]
+            .filter(Boolean)
+            .join(" — ")}
+        </p>
         <h1>{product.title}</h1>
+        {status === "available" ? null : (
+          <p className="pdp-status">{t(`status.${status}`)}</p>
+        )}
         {product.excerpt === undefined ? null : <p className="lead">{product.excerpt}</p>}
-        {fromPrice === null ? null : (
+        {fromPrice === null || status === "waitlist" ? null : (
           <p className="pdp-price">{t("fromPrice", { price: format(fromPrice, def.hreflang) })}</p>
         )}
       </header>
@@ -86,6 +98,7 @@ export default async function RobotDetailPage({ params }: PageArgs) {
         </figure>
       )}
 
+      {status === "waitlist" ? null : (
       <section className="pdp-variants" aria-labelledby="pdp-variants-title">
         <h2 id="pdp-variants-title">{t("variantsTitle")}</h2>
         <div className="table-scroll">
@@ -122,6 +135,7 @@ export default async function RobotDetailPage({ params }: PageArgs) {
           </table>
         </div>
       </section>
+      )}
 
       {product.description === undefined || product.description === null ? null : (
         <section className="pdp-description cv-prose">
@@ -153,23 +167,38 @@ export default async function RobotDetailPage({ params }: PageArgs) {
       <section className="pdp-lead" aria-label={t("leadTitle")}>
         <LeadForm
           region={region}
+          intent={status === "available" ? "demo" : status}
           productId={product.id}
           sourcePath={`/${region}/robots/${product.slug}`}
           privacyHref={`/${region}/privacidad`}
-          variants={variants
-            .filter((offer) => offer.price !== null)
-            .map((offer) => ({
-              sku: offer.sku,
-              label: `${offer.sku} · ${t(`sport.${offer.sport}`)}`,
-            }))}
+          variants={
+            status === "waitlist"
+              ? undefined
+              : variants
+                  .filter((offer) => offer.price !== null)
+                  .map((offer) => ({
+                    sku: offer.sku,
+                    label: `${offer.sku} · ${t(`sport.${offer.sport}`)}`,
+                  }))
+          }
           labels={{
-            title: t("leadTitle"),
+            title:
+              status === "waitlist"
+                ? t("waitlistTitle")
+                : status === "preorder"
+                  ? t("preorderTitle")
+                  : t("leadTitle"),
             name: t("leadName"),
             email: t("leadEmail"),
             message: t("leadMessage"),
             consent: t("leadConsent"),
             privacy: t("leadPrivacy"),
-            submit: t("leadSubmit"),
+            submit:
+              status === "waitlist"
+                ? t("waitlistSubmit")
+                : status === "preorder"
+                  ? t("preorderSubmit")
+                  : t("leadSubmit"),
             invalid: t("leadInvalid"),
             variant: t("leadVariant"),
             variantAny: t("leadVariantAny"),

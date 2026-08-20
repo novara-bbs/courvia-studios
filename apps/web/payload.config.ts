@@ -6,7 +6,7 @@ import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { buildConfig } from "payload";
 import sharp from "sharp";
 
-import { Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
+import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
 import { Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
 import { Media } from "./src/payload/media";
 import { Pages } from "./src/payload/pages";
@@ -67,6 +67,7 @@ export default buildConfig({
     Users,
     Media,
     Pages,
+    Brands,
     Categories,
     Products,
     Variants,

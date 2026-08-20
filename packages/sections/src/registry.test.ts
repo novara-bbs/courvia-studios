@@ -11,7 +11,17 @@ describe("registry completeness", () => {
   const entries = Object.entries(SECTIONS);
 
   it("registers the launch sections under their stored type strings", () => {
-    expect(Object.keys(SECTIONS).sort()).toEqual(["ctaBand", "hero", "richText"]);
+    expect(Object.keys(SECTIONS).sort()).toEqual([
+      "ctaBand",
+      "faq",
+      "featureGrid",
+      "hero",
+      "mediaText",
+      "productShowcase",
+      "quote",
+      "richText",
+      "waitlist",
+    ]);
   });
 
   for (const [type, section] of entries) {

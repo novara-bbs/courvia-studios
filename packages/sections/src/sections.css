@@ -82,6 +82,176 @@
   font-size: var(--cv-font-size-xl);
 }
 
+/* --------------------------------------------------------- media & text */
+
+.cv-media-text {
+  display: grid;
+  gap: var(--cv-space-6);
+  align-items: center;
+}
+
+@media (min-width: 860px) {
+  .cv-media-text {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Logical media side: `end` swaps the columns, and RTL flips both for
+   * free because the grid itself is direction-aware. */
+  [data-media-pos='end'] .cv-media-text-media {
+    order: 2;
+  }
+}
+
+.cv-media-text-media {
+  border-radius: var(--cv-radius-md);
+  overflow: hidden;
+}
+
+.cv-media-text-media img {
+  inline-size: 100%;
+  block-size: auto;
+  display: block;
+}
+
+.cv-media-text-body h2 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-tight);
+}
+
+/* --------------------------------------------------------- feature grid */
+
+.cv-feature-grid-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  margin-block-end: var(--cv-space-6);
+}
+
+.cv-feature-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--cv-space-4);
+}
+
+@media (min-width: 680px) {
+  .cv-feature-grid {
+    grid-template-columns: repeat(var(--cv-section-columns, 3), minmax(0, 1fr));
+  }
+}
+
+.cv-feature-grid-item {
+  background: var(--cv-color-surface);
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-md);
+  padding: var(--cv-space-5);
+}
+
+.cv-feature-grid-item h3 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-md);
+  margin-block-end: var(--cv-space-2);
+}
+
+.cv-feature-grid-item p {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+/* ------------------------------------------------------------------ faq */
+
+.cv-faq {
+  display: grid;
+  gap: var(--cv-space-3);
+  max-inline-size: var(--cv-section-measure, 62ch);
+}
+
+.cv-faq h2 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  margin-block-end: var(--cv-space-3);
+}
+
+.cv-faq-item {
+  border-block-end: 1px solid var(--cv-color-border);
+  padding-block-end: var(--cv-space-3);
+}
+
+.cv-faq-item summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding-block: var(--cv-space-2);
+}
+
+.cv-faq-item summary:focus-visible {
+  outline: var(--cv-focus-width) solid var(--cv-color-accent);
+  outline-offset: var(--cv-focus-offset);
+}
+
+.cv-faq-item[open] > .cv-prose {
+  padding-block-start: var(--cv-space-2);
+}
+
+/* ---------------------------------------------------------------- quote */
+
+.cv-quote {
+  max-inline-size: var(--cv-section-measure, 62ch);
+  display: grid;
+  gap: var(--cv-space-3);
+}
+
+.cv-quote blockquote p {
+  font-family: var(--cv-font-voice, var(--cv-font-display));
+  font-size: var(--cv-font-size-lg);
+  line-height: var(--cv-font-lineHeight-tight);
+}
+
+.cv-quote figcaption {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+}
+
+/* ----------------------------------------------------- product showcase */
+
+.cv-product-showcase {
+  display: grid;
+  gap: var(--cv-space-6);
+}
+
+.cv-product-showcase h2 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+}
+
+/* ------------------------------------------------------------- waitlist */
+
+.cv-waitlist {
+  display: grid;
+  gap: var(--cv-space-6);
+  align-items: start;
+}
+
+@media (min-width: 860px) {
+  .cv-waitlist {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.cv-waitlist-copy h2 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-tight);
+  margin-block-end: var(--cv-space-3);
+}
+
+.cv-waitlist-lead {
+  color: var(--cv-color-text-muted);
+  line-height: var(--cv-font-lineHeight-body);
+  max-inline-size: 48ch;
+}
+
 /* Preview-only diagnostics: loud for editors, never shipped to customers. */
 .cv-section-problem {
   border: 2px dashed var(--cv-color-accent);

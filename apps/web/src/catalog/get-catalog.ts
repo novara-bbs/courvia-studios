@@ -43,6 +43,51 @@ export async function listRobots(region: RegionId): Promise<ProductSummary[]> {
   }
 }
 
+/** The listing of one category (dynamic category pages). */
+export async function listRobotsInCategory(
+  categoryId: string,
+  region: RegionId,
+): Promise<ProductSummary[]> {
+  "use cache";
+  cacheLife("max");
+  cacheTag("catalog");
+  const { locale, market } = REGION_DEFINITIONS[region];
+  try {
+    const commerce = await getCommerce(locale);
+    return await commerce.listProducts({ market, category: categoryId });
+  } catch (error) {
+    console.error(`category listing failed for "${categoryId}"`, error);
+    if (swallowAtBuild()) return [];
+    throw error;
+  }
+}
+
+/** Summaries for an explicit slug list (CMS product blocks), in the order
+ *  the editor picked. Same tag as the listing: prices stay live. */
+export async function listRobotsBySlugs(
+  slugs: string[],
+  region: RegionId,
+): Promise<ProductSummary[]> {
+  "use cache";
+  cacheLife("max");
+  cacheTag("catalog");
+  if (slugs.length === 0) return [];
+  const { locale, market } = REGION_DEFINITIONS[region];
+  try {
+    const commerce = await getCommerce(locale);
+    const summaries = await commerce.listProducts({ market, slugs });
+    const bySlug = new Map(summaries.map((summary) => [summary.slug, summary]));
+    return slugs.flatMap((slug) => {
+      const summary = bySlug.get(slug);
+      return summary === undefined ? [] : [summary];
+    });
+  } catch (error) {
+    console.error(`product-block listing failed`, error);
+    if (swallowAtBuild()) return [];
+    throw error;
+  }
+}
+
 export async function getRobot(slug: string, region: RegionId): Promise<ProductDetail | null> {
   "use cache";
   cacheLife("max");

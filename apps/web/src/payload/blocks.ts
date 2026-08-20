@@ -60,6 +60,26 @@ function fieldToPayload(name: string, spec: FieldSpec): Field {
           { name: "href", type: "text", required: true },
         ],
       };
+    case "upload":
+      return {
+        name,
+        type: "upload",
+        relationTo: "media",
+        required: spec.required ?? false,
+      };
+    case "products":
+      return {
+        name,
+        type: "relationship",
+        relationTo: "products",
+        hasMany: true,
+        required: spec.required ?? false,
+        ...(spec.max !== undefined ? { maxRows: spec.max } : {}),
+        admin: {
+          description:
+            "El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.",
+        },
+      };
   }
 }
 
@@ -87,6 +107,9 @@ function appearanceGroup(allowed: readonly ControlName[]): Field {
 export function buildBlocks(): Block[] {
   return Object.values(SECTIONS).map((section) => ({
     slug: section.type,
+    // Postgres caps identifiers at 63 chars and versioned block tables
+    // prefix heavily; long section types declare a compact db identity.
+    ...(section.dbName === undefined ? {} : { dbName: section.dbName }),
     labels: { singular: section.labels.es, plural: section.labels.es },
     fields: [
       ...Object.entries(section.fields).map(([name, spec]) => fieldToPayload(name, spec)),

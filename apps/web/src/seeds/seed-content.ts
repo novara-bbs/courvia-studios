@@ -236,6 +236,20 @@ function paragraph(text: string): LexicalChild {
   };
 }
 
+/** A complete one-paragraph lexical document (FAQ answers, short bodies). */
+function richTextP(text: string) {
+  return {
+    root: {
+      type: "root",
+      format: "" as const,
+      indent: 0,
+      version: 1,
+      direction: "ltr" as const,
+      children: [paragraph(text)],
+    },
+  };
+}
+
 function legalBody(page: LegalPage, locale: "es" | "en") {
   // The H1 lives in the body: composed pages get theirs from a hero block,
   // so the catch-all route deliberately renders no title of its own.
@@ -256,6 +270,196 @@ function legalBody(page: LegalPage, locale: "es" | "en") {
       children,
     },
   };
+}
+
+/* ---------------------------------------------------- brands & launches */
+// Multimarca (ADR-021): the demo catalog ships under the Drill brand, and
+// Drill Club runs as a PREORDER so the launch surfaces (chip, PreOrder
+// JSON-LD, intent) are exercised by real demo data.
+const existingBrand = await payload.find({
+  collection: "brands",
+  where: { slug: { equals: "drill" } },
+  limit: 1,
+  overrideAccess: true,
+});
+if (existingBrand.totalDocs > 0) {
+  console.log("brands/drill already exists — skipped.");
+} else {
+  const drill = await payload.create({
+    collection: "brands",
+    locale: "es",
+    overrideAccess: true,
+    data: {
+      name: "Courvia Drill",
+      slug: "drill",
+      description: "Los robots lanzapelotas de la casa: calibrados por deporte, reparables por diseño.",
+    },
+  });
+  await payload.update({
+    collection: "brands",
+    id: drill.id,
+    locale: "en",
+    overrideAccess: true,
+    data: { description: "The house ball machines: calibrated per sport, repairable by design." },
+  });
+
+  const products = await payload.find({
+    collection: "products",
+    limit: 50,
+    depth: 0,
+    overrideAccess: true,
+  });
+  for (const product of products.docs) {
+    await payload.update({
+      collection: "products",
+      id: product.id,
+      draft: false,
+      overrideAccess: true,
+      data: {
+        brand: drill.id,
+        ...(product.slug === "drill-club" ? { launchStatus: "preorder" as const } : {}),
+        _status: "published",
+      },
+    });
+  }
+  console.log("brands/drill seeded and assigned; drill-club set to preorder.");
+}
+
+/* ------------------------------------------------------- launch landing */
+// A composed launch page (hero + featureGrid + waitlist + faq): the
+// Kickstarter-style pattern from ADR-021, as living demo content.
+const landingExists = await payload.count({
+  collection: "pages",
+  where: { slug: { equals: "drill-club-preventa" } },
+  overrideAccess: true,
+});
+if (landingExists.totalDocs > 0) {
+  console.log("pages/drill-club-preventa already exists — skipped.");
+} else {
+  const clubProduct = await payload.find({
+    collection: "products",
+    where: { slug: { equals: "drill-club" } },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  });
+  const clubId = clubProduct.docs[0]?.id;
+  const landing = await payload.create({
+    collection: "pages",
+    locale: "es",
+    draft: false,
+    overrideAccess: true,
+    data: {
+      title: "Preventa Drill Club",
+      slug: "drill-club-preventa",
+      blocks: [
+        {
+          blockType: "hero",
+          eyebrow: "Preventa",
+          heading: "Drill Club llega a tu pista",
+          lead: "Chasis reforzado, tolva de 200 pelotas con alimentación continua y panel de reservas por franjas. Para pistas que no paran.",
+          appearance: { background: "inverse" },
+        },
+        {
+          blockType: "featureGrid",
+          heading: "Hecho para clubes",
+          items: [
+            { title: "200 pelotas", body: "Tolva con alimentación continua desde red o batería." },
+            { title: "36 meses", body: "Garantía con revisión anual y ruedas de recambio incluidas." },
+            { title: "Panel de reservas", body: "El robot se reserva por franjas, como una pista más." },
+          ],
+        },
+        {
+          blockType: "waitlist",
+          heading: "Reserva la primera serie",
+          body: "Unidades limitadas de la primera producción. Sin pago hoy: confirmamos contigo antes de fabricar.",
+          intent: "preorder",
+          ...(clubId === undefined ? {} : { product: [clubId] }),
+        },
+        {
+          blockType: "faq",
+          heading: "Preguntas frecuentes",
+          items: [
+            {
+              question: "¿Cuándo se entrega?",
+              answer: richTextP("La primera serie sale de taller este otoño; confirmamos fecha exacta antes de cobrar nada."),
+            },
+            {
+              question: "¿Puedo cancelar la reserva?",
+              answer: richTextP("Sí, sin coste, en cualquier momento antes de la confirmación de fabricación."),
+            },
+          ],
+        },
+      ],
+      _status: "published",
+    },
+  });
+  // EN locale: same layout. EVERY row needs its id — the blocks AND the
+  // rows of nested arrays — or Payload recreates them and the Spanish
+  // subfield values vanish (same rule as product specs).
+  const esBlocks = (landing.blocks ?? []) as Array<{
+    id?: string | null;
+    items?: Array<{ id?: string | null }> | null;
+  }>;
+  const itemId = (blockIndex: number, rowIndex: number) =>
+    esBlocks[blockIndex]?.items?.[rowIndex]?.id;
+  await payload.update({
+    collection: "pages",
+    id: landing.id,
+    locale: "en",
+    draft: false,
+    overrideAccess: true,
+    data: {
+      title: "Drill Club preorder",
+      blocks: [
+        {
+          id: esBlocks[0]?.id,
+          blockType: "hero",
+          eyebrow: "Preorder",
+          heading: "Drill Club reaches your court",
+          lead: "Reinforced chassis, a 200-ball continuous-feed hopper and a slot-based booking panel. For courts that never stop.",
+          appearance: { background: "inverse" },
+        },
+        {
+          id: esBlocks[1]?.id,
+          blockType: "featureGrid",
+          heading: "Built for clubs",
+          items: [
+            { id: itemId(1, 0), title: "200 balls", body: "Continuous-feed hopper, mains or battery." },
+            { id: itemId(1, 1), title: "36 months", body: "Warranty with annual service and spare wheels included." },
+            { id: itemId(1, 2), title: "Booking panel", body: "The robot books by time slot, like one more court." },
+          ],
+        },
+        {
+          id: esBlocks[2]?.id,
+          blockType: "waitlist",
+          heading: "Reserve the first run",
+          body: "Limited units from the first production run. No payment today: we confirm with you before manufacturing.",
+          intent: "preorder",
+          ...(clubId === undefined ? {} : { product: [clubId] }),
+        },
+        {
+          id: esBlocks[3]?.id,
+          blockType: "faq",
+          heading: "Frequently asked questions",
+          items: [
+            {
+              id: itemId(3, 0),
+              question: "When does it ship?",
+              answer: richTextP("The first run leaves the workshop this autumn; we confirm the exact date before charging anything."),
+            },
+            {
+              id: itemId(3, 1),
+              question: "Can I cancel the reservation?",
+              answer: richTextP("Yes, free of charge, any time before the manufacturing confirmation."),
+            },
+          ],
+        },
+      ],
+      _status: "published",
+    },
+  });
+  console.log("pages/drill-club-preventa seeded (es/en).");
 }
 
 for (const page of PAGES) {

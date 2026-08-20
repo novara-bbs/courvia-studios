@@ -187,6 +187,7 @@ for (const seed of PRODUCTS) {
         unit: s.unit,
       })),
       warrantyMonths: seed.warrantyMonths,
+      launchStatus: "available",
       _status: "published",
     },
   });

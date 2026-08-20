@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     media: Media;
     pages: Page;
+    brands: Brand;
     categories: Category;
     products: Product;
     variants: Variant;
@@ -90,6 +91,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    brands: BrandsSelect<false> | BrandsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     variants: VariantsSelect<false> | VariantsSelect<true>;
@@ -293,6 +295,159 @@ export interface Page {
             blockType: 'richText';
           }
         | {
+            image: number | Media;
+            heading?: string | null;
+            body: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              mediaPosition?: ('start' | 'end') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'mediaText';
+          }
+        | {
+            heading: string;
+            items?:
+              | {
+                  title: string;
+                  body?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              columns?: ('2' | '3' | '4') | null;
+              align?: ('start' | 'center') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'featureGrid';
+          }
+        | {
+            heading?: string | null;
+            /**
+             * El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.
+             */
+            products: (number | Product)[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              align?: ('start' | 'center') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'productShowcase';
+          }
+        | {
+            heading: string;
+            body?: string | null;
+            intent: 'waitlist' | 'preorder' | 'demo';
+            /**
+             * El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.
+             */
+            product?: (number | Product)[] | null;
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              align?: ('start' | 'center') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'waitlist';
+          }
+        | {
+            heading: string;
+            items?:
+              | {
+                  question: string;
+                  answer: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: any;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  };
+                  id?: string | null;
+                }[]
+              | null;
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              width?: ('prose' | 'content' | 'full') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faq';
+          }
+        | {
+            quote: string;
+            author?: string | null;
+            role?: string | null;
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              align?: ('start' | 'center') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'quote';
+          }
+        | {
             heading: string;
             body?: string | null;
             cta?:
@@ -323,20 +478,6 @@ export interface Page {
   _status?: ('draft' | 'published') | null;
 }
 /**
- * Facetas de catálogo: robots, palas, bolas…
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
- */
-export interface Category {
-  id: number;
-  title: string;
-  slug: string;
-  sport?: ('tenis' | 'padel' | 'pickleball') | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * La familia (Drill Pro, Drill One…). La configuración por deporte vive en sus variantes (ADR-04).
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -354,6 +495,14 @@ export interface Product {
    */
   sports: ('tenis' | 'padel' | 'pickleball')[];
   category?: (number | null) | Category;
+  /**
+   * Marca de la casa bajo la que se vende (Drill, Gear…).
+   */
+  brand?: (number | null) | Brand;
+  /**
+   * available = a la venta · preorder = preventa con precio · waitlist = sin precio, captura lista de espera (lanzamiento estilo Kickstarter = waitlist + una landing del CMS).
+   */
+  launchStatus: 'available' | 'preorder' | 'waitlist';
   /**
    * Producto sobre material (aluminio/carbono) o pista real — nunca stock genérico (guía de marca). La primera es la principal.
    */
@@ -396,6 +545,43 @@ export interface Product {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * Facetas de catálogo: robots, palas, bolas…
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  title: string;
+  slug: string;
+  sport?: ('tenis' | 'padel' | 'pickleball') | null;
+  /**
+   * Cabecera de la página de categoría. Material o pista, nunca stock.
+   */
+  image?: (number | null) | Media;
+  /**
+   * Se muestra bajo el título en /{región}/c/{slug}.
+   */
+  description?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Marcas de la casa (Drill, Gear…). Multimarca sin multi-sitio: una faceta, no un fork.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "brands".
+ */
+export interface Brand {
+  id: number;
+  name: string;
+  slug: string;
+  logo?: (number | null) | Media;
+  description?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Un SKU por deporte y configuración (Drill Pro → T / P / PB).
@@ -466,6 +652,10 @@ export interface Lead {
   email: string;
   market: 'es' | 'uk' | 'ae';
   sportInterest?: ('tenis' | 'padel' | 'pickleball') | null;
+  /**
+   * Qué pedía el visitante: demo, lista de espera o reserva (preventa).
+   */
+  intent: 'demo' | 'waitlist' | 'preorder';
   product?: (number | null) | Product;
   /**
    * Configuración que el comprador marcó en el formulario (si eligió una).
@@ -675,6 +865,10 @@ export interface PayloadLockedDocument {
         value: number | Page;
       } | null)
     | ({
+        relationTo: 'brands';
+        value: number | Brand;
+      } | null)
+    | ({
         relationTo: 'categories';
         value: number | Category;
       } | null)
@@ -882,6 +1076,125 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        mediaText?:
+          | T
+          | {
+              image?: T;
+              heading?: T;
+              body?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    mediaPosition?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        featureGrid?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    body?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    columns?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        productShowcase?:
+          | T
+          | {
+              heading?: T;
+              products?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              heading?: T;
+              body?: T;
+              intent?: T;
+              product?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        faq?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    width?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        quote?:
+          | T
+          | {
+              quote?: T;
+              author?: T;
+              role?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
         ctaBand?:
           | T
           | {
@@ -913,12 +1226,26 @@ export interface PagesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "brands_select".
+ */
+export interface BrandsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  logo?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "categories_select".
  */
 export interface CategoriesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   sport?: T;
+  image?: T;
+  description?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -931,6 +1258,8 @@ export interface ProductsSelect<T extends boolean = true> {
   slug?: T;
   sports?: T;
   category?: T;
+  brand?: T;
+  launchStatus?: T;
   images?: T;
   excerpt?: T;
   description?: T;
@@ -1002,6 +1331,7 @@ export interface LeadsSelect<T extends boolean = true> {
   email?: T;
   market?: T;
   sportInterest?: T;
+  intent?: T;
   product?: T;
   variantSku?: T;
   message?: T;
@@ -1182,6 +1512,10 @@ export interface MarketSetting {
           | {
               provider: 'stripe' | 'tabby' | 'tamara' | 'adyen';
               enabled?: boolean | null;
+              /**
+               * Métodos que este proveedor ofrece en este mercado (Bizum y Klarna van DENTRO de Stripe). Vacío = los que la pasarela active por defecto.
+               */
+              methods?: ('card' | 'bizum' | 'klarna' | 'sequra' | 'clearpay' | 'apple_pay' | 'google_pay')[] | null;
               id?: string | null;
             }[]
           | null;
@@ -1247,6 +1581,7 @@ export interface MarketSettingsSelect<T extends boolean = true> {
           | {
               provider?: T;
               enabled?: T;
+              methods?: T;
               id?: T;
             };
         id?: T;

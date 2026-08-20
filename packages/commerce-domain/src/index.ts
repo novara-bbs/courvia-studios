@@ -3,8 +3,10 @@ export type {
   Availability,
   Checkout,
   CheckoutInput,
+  LaunchStatus,
   MarketConfig,
   MarketPaymentProvider,
+  ProductBrand,
   Order,
   OrderLine,
   OrderStatus,
@@ -22,7 +24,7 @@ export type {
   Variant,
   VariantOffer,
 } from "./types";
-export { ORDER_STATUSES } from "./types";
+export { LAUNCH_STATUSES, ORDER_STATUSES } from "./types";
 export type { CommerceService } from "./commerce-service";
 export { CheckoutError, NotImplementedError } from "./errors";
 export type { CheckoutErrorCode } from "./errors";

@@ -9,6 +9,7 @@ import type {
   Currency,
   Incoterm,
   MarketId,
+  PaymentMethodId,
   PaymentProviderId,
   Sport,
 } from "@courvia/platform";
@@ -20,6 +21,9 @@ export interface MarketPaymentProvider {
   enabled: boolean;
   /** Presentation order at checkout; the customer picks (ADR-14). */
   order: number;
+  /** Methods this provider offers in this market (card, bizum, klarna…).
+   *  Empty/absent = whatever the gateway enables by default. */
+  methods?: PaymentMethodId[];
 }
 
 export type TaxBehavior = "inclusive" | "exclusive";
@@ -45,6 +49,21 @@ export interface Spec {
   unit?: string;
 }
 
+/**
+ * Where a product stands in its commercial life. `waitlist` products show no
+ * price and capture interest; `preorder` products sell with a reservation
+ * promise; `available` is the normal shop. Kickstarter-style launches are a
+ * waitlist product plus a CMS landing — state, never a special page type.
+ */
+export const LAUNCH_STATUSES = ["available", "preorder", "waitlist"] as const;
+export type LaunchStatus = (typeof LAUNCH_STATUSES)[number];
+
+/** The brand a product ships under (multimarca: Drill, Gear…). */
+export interface ProductBrand {
+  slug: string;
+  name: string;
+}
+
 /** A media-library image, resolved to what a renderer or og:image needs. */
 export interface ProductImage {
   /** URL as the CMS serves it (may be origin-relative). */
@@ -66,6 +85,9 @@ export interface Product {
   description?: unknown;
   /** In display order; the first one is the primary/OG image. */
   images?: ProductImage[];
+  /** Absent = "available" (pre-launchStatus content). */
+  launchStatus?: LaunchStatus;
+  brand?: ProductBrand;
   specs: Spec[];
   warrantyMonths?: number;
   variantIds: string[];
@@ -80,6 +102,9 @@ export interface ProductSummary {
   excerpt?: string;
   /** Primary image, when the product has one. */
   image?: ProductImage;
+  /** Absent = "available" (pre-launchStatus content). */
+  launchStatus?: LaunchStatus;
+  brand?: ProductBrand;
   /** Cheapest active variant price in the requested market, if any. */
   fromPrice: Money | null;
 }

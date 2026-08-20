@@ -54,7 +54,7 @@ export default async function CmsPage({ params }: PageArgs) {
           <RefreshRouteOnSave serverUrl={siteUrl()} />
         </>
       ) : null}
-      <SectionList blocks={page.blocks} ctx={makeRenderContext(draft)} />
+      <SectionList blocks={page.blocks} ctx={makeRenderContext(draft, region)} />
     </main>
   );
 }

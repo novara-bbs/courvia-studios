@@ -29,13 +29,25 @@ await payload.updateGlobal({
   slug: "market-settings",
   data: {
     markets: [
-      { market: "es", enabled: true, paymentProviders: [{ provider: "stripe", enabled: true }] },
-      { market: "uk", enabled: true, paymentProviders: [{ provider: "stripe", enabled: true }] },
+      {
+        market: "es",
+        enabled: true,
+        paymentProviders: [
+          { provider: "stripe", enabled: true, methods: ["card", "bizum", "klarna"] },
+        ],
+      },
+      {
+        market: "uk",
+        enabled: true,
+        paymentProviders: [
+          { provider: "stripe", enabled: true, methods: ["card", "klarna", "clearpay"] },
+        ],
+      },
       {
         market: "ae",
         enabled: true,
         paymentProviders: [
-          { provider: "stripe", enabled: true },
+          { provider: "stripe", enabled: true, methods: ["card", "apple_pay"] },
           { provider: "tabby", enabled: false },
           { provider: "tamara", enabled: false },
         ],
@@ -44,5 +56,5 @@ await payload.updateGlobal({
   },
 });
 
-console.log("MarketSettings seeded (es/uk/ae · stripe enabled; tabby/tamara staged).");
+console.log("MarketSettings seeded (es/uk/ae · stripe con métodos por mercado; tabby/tamara staged).");
 process.exit(0);

@@ -38,13 +38,26 @@ replays absorben a cero y el resto de un reembolso parcial sí aterriza.
 
 ## Activar un proveedor (configuración, no código)
 
-1. **Registro por despliegue** — `apps/web/src/server/container.ts` lee env:
-   - `STRIPE_WEBHOOK_SECRET` (whsec_…) → registra el adaptador Stripe.
+1. **Registro por despliegue** — `apps/web/src/server/container.ts` lee env
+   (credenciales namespaced por proveedor, §15):
+   - `STRIPE_WEBHOOK_SECRET` (whsec_…) → adaptador Stripe. Su firma llega en
+     el header `stripe-signature`.
+   - `ADYEN_HMAC_KEY` (hex del Customer Area) → adaptador Adyen. Su firma va
+     DENTRO del payload (`additionalData.hmacSignature`); configurar el
+     webhook con un item por entrega.
+   - `TABBY_WEBHOOK_SECRET` → adaptador Tabby (header `x-tabby-signature`,
+     el valor registrado junto al endpoint).
+   - `TAMARA_NOTIFICATION_TOKEN` → adaptador Tamara (JWT HS256 en
+     `Authorization: Bearer`).
    - `PAYMENT_FAKE_SECRET` → proveedor fake. Fail-closed: bloqueado con
      `VERCEL_ENV=production`, y con `NODE_ENV=production` exige además
      `PAYMENT_FAKE_UNSAFE_ALLOW=1` (solo el servidor local en modo prod).
 2. **Oferta por mercado (ADR-14)** — Global `MarketSettings` en el admin:
-   qué proveedores ve el cliente en cada mercado y en qué orden.
+   qué proveedores ve el cliente en cada mercado, en qué orden y con qué
+   MÉTODOS (`methods`: card, bizum, klarna, sequra, clearpay, apple_pay,
+   google_pay). Bizum y Klarna van DENTRO de Stripe en ES; Clearpay dentro
+   de Stripe en UK — el método se pasa a `createSession` como el
+   `payment_method_types` de la pasarela, no es un proveedor aparte.
 3. **Webhook en la pasarela** — apuntar a
    `https://{dominio}/next/webhooks/{provider}`.
 

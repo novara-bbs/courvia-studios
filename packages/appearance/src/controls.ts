@@ -89,6 +89,27 @@ export const CONTROLS = {
       center: "text-align: center;",
     },
   },
+  /** Column count for grid sections; collapses to one column on narrow
+   *  viewports in each section's own CSS. */
+  columns: {
+    values: ["2", "3", "4"],
+    default: "3",
+    attribute: "data-columns",
+    css: {
+      "2": "--cv-section-columns: 2;",
+      "3": "--cv-section-columns: 3;",
+      "4": "--cv-section-columns: 4;",
+    },
+  },
+  /** Which side the media sits on, in LOGICAL terms (start/end, never
+   *  left/right) so RTL flips for free. Layout lives in sections.css via the
+   *  attribute selector — like themeScope, no declarations here. */
+  mediaPosition: {
+    values: ["start", "end"],
+    default: "start",
+    attribute: "data-media-pos",
+    css: null,
+  },
   /** Nested brand theme for this section (CSS handled by tokens.css). */
   themeScope: {
     values: ["inherit", ...THEME_ALIAS_LIST],

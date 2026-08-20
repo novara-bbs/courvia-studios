@@ -13,6 +13,7 @@ Registro de decisiones estructurales **nuevas o que se desvíen de CLAUDE.md**. 
 | [ADR-018](./ADR-018-catalog-in-own-collections.md) | Catálogo en colecciones propias, no en el plugin oficial | aceptado |
 | [ADR-019](./ADR-019-platform-vocabulary.md) | `@courvia/platform` para el vocabulario transversal | aceptado |
 | [ADR-020](./ADR-020-region-routing.md) | Regiones compuestas en la URL: `/es`, `/en-gb`, `/en-ae`, `/ar-ae` | aceptado |
+| [ADR-021](./ADR-021-cms-commerce.md) | Commerce en el CMS: marcas, estados de lanzamiento y bloques de catálogo | aceptado |
 
 ## Convención
 

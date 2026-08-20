@@ -190,7 +190,7 @@ Las decisiones 01–14 están resumidas abajo y desarrolladas en `docs/`. Las de
 | 12 | Tokens: JSON DTCG tipado + script propio; Style Dictionary solo con más plataformas |
 | 13 | Puerto `PaymentProvider` con eventos normalizados; idempotencia `(provider, provider_event_id)` |
 | 14 | Multi-gateway por mercado en `MarketSettings.paymentProviders[]`; el cliente elige |
-| **15–20** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL |
+| **15–21** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL · commerce en el CMS |
 
 ---
 

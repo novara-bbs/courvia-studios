@@ -119,6 +119,24 @@ export function isPaymentProviderId(value: unknown): value is PaymentProviderId 
   return typeof value === "string" && (PAYMENT_PROVIDERS as readonly string[]).includes(value);
 }
 
+/**
+ * Payment METHODS a gateway can present (WooCommerce-style): Bizum and
+ * Klarna ride inside Stripe in ES, Clearpay inside Stripe in UK, Apple Pay
+ * everywhere Stripe is. The checkout paints them and createSession forwards
+ * them as the gateway's payment_method_types equivalent; which methods a
+ * market offers is configuration (MarketSettings), never code.
+ */
+export const PAYMENT_METHODS = [
+  "card",
+  "bizum",
+  "klarna",
+  "sequra",
+  "clearpay",
+  "apple_pay",
+  "google_pay",
+] as const;
+export type PaymentMethodId = (typeof PAYMENT_METHODS)[number];
+
 /* ------------------------------------------------------------------ guards */
 
 export function isSport(value: unknown): value is Sport {

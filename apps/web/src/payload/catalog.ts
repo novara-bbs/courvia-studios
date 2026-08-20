@@ -11,6 +11,7 @@
  * currency mapping lives once in @courvia/platform (prices store amount +
  * market only, so the two can never drift).
  */
+import { LAUNCH_STATUSES } from "@courvia/commerce-domain";
 import { MARKETS, SPORTS } from "@courvia/platform";
 import type { CollectionConfig } from "payload";
 
@@ -25,6 +26,34 @@ function affectsPublished(doc: { _status?: unknown }, previousDoc?: { _status?: 
 }
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export const Brands: CollectionConfig = {
+  slug: "brands",
+  admin: {
+    useAsTitle: "name",
+    group: "Catálogo",
+    description: "Marcas de la casa (Drill, Gear…). Multimarca sin multi-sitio: una faceta, no un fork.",
+  },
+  access: { read: anyone, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
+  hooks: {
+    afterChange: [() => revalidateCatalog()],
+    afterDelete: [() => revalidateCatalog()],
+  },
+  fields: [
+    { name: "name", type: "text", required: true },
+    {
+      name: "slug",
+      type: "text",
+      required: true,
+      unique: true,
+      index: true,
+      validate: (value: string | null | undefined) =>
+        typeof value === "string" && KEBAB.test(value) ? true : "kebab-case",
+    },
+    { name: "logo", type: "upload", relationTo: "media" },
+    { name: "description", type: "textarea", localized: true, maxLength: 300 },
+  ],
+};
 
 export const Categories: CollectionConfig = {
   slug: "categories",
@@ -50,6 +79,19 @@ export const Categories: CollectionConfig = {
         typeof value === "string" && KEBAB.test(value) ? true : "kebab-case",
     },
     { name: "sport", type: "select", options: [...SPORTS] },
+    {
+      name: "image",
+      type: "upload",
+      relationTo: "media",
+      admin: { description: "Cabecera de la página de categoría. Material o pista, nunca stock." },
+    },
+    {
+      name: "description",
+      type: "textarea",
+      localized: true,
+      maxLength: 300,
+      admin: { description: "Se muestra bajo el título en /{región}/c/{slug}." },
+    },
   ],
 };
 
@@ -58,7 +100,7 @@ export const Products: CollectionConfig = {
   admin: {
     useAsTitle: "title",
     group: "Catálogo",
-    defaultColumns: ["title", "slug", "sports", "_status", "updatedAt"],
+    defaultColumns: ["title", "slug", "sports", "launchStatus", "_status", "updatedAt"],
     description:
       "La familia (Drill Pro, Drill One…). La configuración por deporte vive en sus variantes (ADR-04).",
   },
@@ -102,6 +144,23 @@ export const Products: CollectionConfig = {
       admin: { description: "Faceta de listado. La variante concreta fija SU deporte." },
     },
     { name: "category", type: "relationship", relationTo: "categories" },
+    {
+      name: "brand",
+      type: "relationship",
+      relationTo: "brands",
+      admin: { description: "Marca de la casa bajo la que se vende (Drill, Gear…)." },
+    },
+    {
+      name: "launchStatus",
+      type: "select",
+      required: true,
+      defaultValue: "available",
+      options: [...LAUNCH_STATUSES],
+      admin: {
+        description:
+          "available = a la venta · preorder = preventa con precio · waitlist = sin precio, captura lista de espera (lanzamiento estilo Kickstarter = waitlist + una landing del CMS).",
+      },
+    },
     {
       name: "images",
       type: "upload",
@@ -273,6 +332,14 @@ export const Leads: CollectionConfig = {
     { name: "email", type: "email", required: true, index: true },
     { name: "market", type: "select", required: true, options: [...MARKETS] },
     { name: "sportInterest", type: "select", options: [...SPORTS] },
+    {
+      name: "intent",
+      type: "select",
+      required: true,
+      defaultValue: "demo",
+      options: ["demo", "waitlist", "preorder"],
+      admin: { description: "Qué pedía el visitante: demo, lista de espera o reserva (preventa)." },
+    },
     { name: "product", type: "relationship", relationTo: "products" },
     {
       name: "variantSku",

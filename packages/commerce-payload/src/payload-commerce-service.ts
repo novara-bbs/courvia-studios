@@ -33,6 +33,7 @@ import type {
   OrderStatus,
   PaymentProvider,
   Product,
+  ProductBrand,
   ProductDetail,
   ProductFilter,
   ProductImage,
@@ -59,8 +60,16 @@ interface ProductDoc {
   description?: unknown;
   /** Upload relation; ids at depth 0, resolved via findImages(). */
   images?: Array<number | string | { id: number | string }> | null;
+  brand?: number | string | { id: number | string } | null;
+  launchStatus?: string | null;
   specs?: Array<{ key: string; label?: string | null; value: string; unit?: string | null }> | null;
   warrantyMonths?: number | null;
+}
+
+interface BrandDoc {
+  id: number | string;
+  name: string;
+  slug: string;
 }
 
 interface MediaDoc {
@@ -107,7 +116,20 @@ function toSpecs(docSpecs: ProductDoc["specs"]): Spec[] {
   }));
 }
 
-function toProduct(doc: ProductDoc, variantIds: string[], images: ProductImage[]): Product {
+const LAUNCH_STATUS_VALUES = new Set(["available", "preorder", "waitlist"]);
+
+function toLaunchStatus(value: string | null | undefined): "available" | "preorder" | "waitlist" {
+  return LAUNCH_STATUS_VALUES.has(value ?? "")
+    ? (value as "available" | "preorder" | "waitlist")
+    : "available";
+}
+
+function toProduct(
+  doc: ProductDoc,
+  variantIds: string[],
+  images: ProductImage[],
+  brand: ProductBrand | undefined,
+): Product {
   return {
     id: String(doc.id),
     slug: doc.slug,
@@ -118,6 +140,8 @@ function toProduct(doc: ProductDoc, variantIds: string[], images: ProductImage[]
       ? {}
       : { description: doc.description }),
     ...(images.length > 0 ? { images } : {}),
+    launchStatus: toLaunchStatus(doc.launchStatus),
+    ...(brand === undefined ? {} : { brand }),
     specs: toSpecs(doc.specs),
     ...(doc.warrantyMonths === null || doc.warrantyMonths === undefined
       ? {}
@@ -226,6 +250,29 @@ export class PayloadCommerceService implements CommerceService {
     return (doc.images ?? []).map(relationId);
   }
 
+  /** Brand relation ids → {slug, name}, one query for any number of docs. */
+  private async findBrands(ids: readonly string[]): Promise<Map<string, ProductBrand>> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return new Map();
+    const result = await this.payload.find({
+      collection: "brands",
+      where: { id: { in: unique.map(Number) } } as Where,
+      limit: 100,
+      depth: 0,
+      overrideAccess: true,
+    });
+    return new Map(
+      (result.docs as unknown as BrandDoc[]).map((doc) => [
+        String(doc.id),
+        { slug: doc.slug, name: doc.name },
+      ]),
+    );
+  }
+
+  private static brandId(doc: ProductDoc): string | undefined {
+    return doc.brand === null || doc.brand === undefined ? undefined : relationId(doc.brand);
+  }
+
   async getProductDetail(slug: string, market: MarketId): Promise<ProductDetail | null> {
     const result = await this.payload.find({
       collection: "products",
@@ -241,10 +288,12 @@ export class PayloadCommerceService implements CommerceService {
     const variantDocs = await this.findVariants([String(doc.id)]);
     const variantIds = variantDocs.map((v) => String(v.id));
     const imageIds = PayloadCommerceService.imageIds(doc);
-    const [prices, availability, imagesById] = await Promise.all([
+    const brandId = PayloadCommerceService.brandId(doc);
+    const [prices, availability, imagesById, brandsById] = await Promise.all([
       this.findPrices(variantIds, market),
       this.findInventory(variantIds),
       this.findImages(imageIds),
+      this.findBrands(brandId === undefined ? [] : [brandId]),
     ]);
     const priceByVariant = new Map(prices.map((p) => [relationId(p.variant), this.priceToMoney(p)]));
     const images = imageIds
@@ -252,7 +301,12 @@ export class PayloadCommerceService implements CommerceService {
       .filter((image): image is ProductImage => image !== undefined);
 
     return {
-      product: toProduct(doc, variantIds, images),
+      product: toProduct(
+        doc,
+        variantIds,
+        images,
+        brandId === undefined ? undefined : brandsById.get(brandId),
+      ),
       variants: variantDocs.map((variantDoc) => ({
         ...toVariant(variantDoc),
         price: priceByVariant.get(String(variantDoc.id)) ?? null,
@@ -309,10 +363,17 @@ export class PayloadCommerceService implements CommerceService {
     const firstImageIds = docs
       .map((doc) => PayloadCommerceService.imageIds(doc)[0])
       .filter((id): id is string => id !== undefined);
-    const imagesById = await this.findImages(firstImageIds);
+    const brandIds = docs
+      .map((doc) => PayloadCommerceService.brandId(doc))
+      .filter((id): id is string => id !== undefined);
+    const [imagesById, brandsById] = await Promise.all([
+      this.findImages(firstImageIds),
+      this.findBrands(brandIds),
+    ]);
 
     return docs.map((doc) => {
       const image = imagesById.get(PayloadCommerceService.imageIds(doc)[0] ?? "");
+      const brand = brandsById.get(PayloadCommerceService.brandId(doc) ?? "");
       return {
         id: String(doc.id),
         slug: doc.slug,
@@ -320,6 +381,8 @@ export class PayloadCommerceService implements CommerceService {
         sports: doc.sports ?? [],
         ...(doc.excerpt ? { excerpt: doc.excerpt } : {}),
         ...(image === undefined ? {} : { image }),
+        launchStatus: toLaunchStatus(doc.launchStatus),
+        ...(brand === undefined ? {} : { brand }),
         fromPrice: fromPriceByProduct.get(String(doc.id)) ?? null,
       };
     });
@@ -396,17 +459,37 @@ export class PayloadCommerceService implements CommerceService {
     );
 
     const variantIds = [...variantsBySku.values()].map((doc) => String(doc.id));
-    const [prices, availability] = await Promise.all([
+    const productIds = [
+      ...new Set([...variantsBySku.values()].map((doc) => relationId(doc.product))),
+    ];
+    const [prices, availability, productDocs] = await Promise.all([
       this.findPrices(variantIds, input.market),
       this.findInventory(variantIds),
+      this.payload.find({
+        collection: "products",
+        where: { id: { in: productIds.map(Number) } } as Where,
+        limit: productIds.length,
+        depth: 0,
+        overrideAccess: true,
+      }),
     ]);
     const priceByVariant = new Map(prices.map((p) => [relationId(p.variant), p.amount]));
+    // A waitlist product is not for sale — its PDP captures interest and its
+    // prices (if any) are staging data, never an offer.
+    const waitlistProducts = new Set(
+      (productDocs.docs as unknown as ProductDoc[])
+        .filter((doc) => toLaunchStatus(doc.launchStatus) === "waitlist")
+        .map((doc) => String(doc.id)),
+    );
 
     // Fast-fail validation against a snapshot; the AUTHORITATIVE stock check
     // happens again inside the transaction, after taking the row lock.
     const lines = [...qtyBySku.entries()].map(([sku, quantity]) => {
       const variantDoc = variantsBySku.get(sku);
       if (variantDoc === undefined) throw new CheckoutError("unknown_sku", sku);
+      if (waitlistProducts.has(relationId(variantDoc.product))) {
+        throw new CheckoutError("not_purchasable", sku);
+      }
       const unitMinor = priceByVariant.get(String(variantDoc.id));
       if (unitMinor === undefined) throw new CheckoutError("not_sold_in_market", sku);
       const available = availability.get(String(variantDoc.id));

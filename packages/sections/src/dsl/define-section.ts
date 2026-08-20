@@ -15,11 +15,29 @@ export interface RenderContext {
   renderRichText: (value: unknown) => ReactNode;
   /** True inside the admin's live preview: render loud diagnostics. */
   preview: boolean;
+  /**
+   * Live catalog cards for the given product slugs, priced for the active
+   * market — the commerce data NEVER travels through CMS content, so a price
+   * change reaches every landing without touching a page. Optional: a
+   * context without it renders commerce sections empty (preview shows why).
+   */
+  renderProductGrid?: (slugs: string[]) => ReactNode;
+  /** The app's lead-capture form (demo/waitlist/preorder intents), wired to
+   *  the server action and localized by the app. Optional, like above. */
+  renderLeadForm?: (options: {
+    intent: "demo" | "waitlist" | "preorder";
+    productSlug?: string;
+  }) => ReactNode;
 }
 
 export interface SectionDefinition {
   /** Stored in every content document — renaming it later is a migration. */
   type: string;
+  /** Short table-name override for Postgres: versioned block tables prefix
+   *  heavily (enum__pages_v_blocks_<name>_appearance_…, 63-char limit), so a
+   *  long type needs a compact db identity. Renaming it later is a
+   *  migration, exactly like `type`. */
+  dbName?: string;
   /** Admin labels per locale. */
   labels: { es: string; en: string; ar: string };
   fields: Fields;
@@ -33,6 +51,7 @@ export interface SectionDefinition {
 
 export function defineSection(definition: {
   type: string;
+  dbName?: string;
   labels: { es: string; en: string; ar: string };
   fields: Fields;
   appearance: readonly ControlName[];

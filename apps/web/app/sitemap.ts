@@ -2,6 +2,7 @@ import { REGIONS, REGION_DEFINITIONS } from "@courvia/platform";
 import type { MetadataRoute } from "next";
 
 import { listRobots } from "../src/catalog/get-catalog";
+import { listCategorySlugs } from "../src/catalog/get-category";
 import { listPublishedSlugs } from "../src/content/get-page";
 import { siteUrl } from "../src/seo/site-url";
 
@@ -43,13 +44,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // whole published catalog (unsold-here products still render their PDP).
   // listRobots keeps its own policy: empty in a DB-less build, throw when a
   // configured DB fails (never bake an empty catalog into a max-life cache).
-  const [products, pageSlugs] = await Promise.all([listRobots("es"), listPublishedSlugs()]);
+  const [products, pageSlugs, categorySlugs] = await Promise.all([
+    listRobots("es"),
+    listPublishedSlugs(),
+    listCategorySlugs(),
+  ]);
 
   return REGIONS.flatMap((region) => [
     entry(region, "", "weekly", region === "es" ? 1 : 0.8),
     entry(region, "/robots", "weekly", 0.9),
     entry(region, "/comparar", "weekly", 0.7),
     ...products.map((product) => entry(region, `/robots/${product.slug}`, "weekly", 0.9)),
+    ...categorySlugs.map((slug) => entry(region, `/c/${slug}`, "weekly", 0.6)),
     ...pageSlugs.map((slug) => entry(region, `/${slug}`, "monthly", 0.4)),
   ]);
 }

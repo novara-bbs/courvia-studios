@@ -298,7 +298,9 @@ code {
   object-fit: cover;
 }
 
-.catalog-card h2 {
+.catalog-card h2,
+.catalog-card h3 {
+  font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-md);
   margin-block-end: var(--cv-space-2);
 }
@@ -325,6 +327,35 @@ code {
 .catalog-sports {
   font-size: var(--cv-font-size-sm);
   color: var(--cv-color-text-muted);
+}
+
+/* Estado de lanzamiento (preventa / lista de espera): chip telemetría. */
+.catalog-card-status,
+.pdp-status {
+  display: inline-block;
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cv-color-on-fill-accent);
+  background: var(--cv-color-fill-accent);
+  border-radius: var(--cv-radius-sm);
+  padding-block: var(--cv-space-1);
+  padding-inline: var(--cv-space-2);
+  margin-block-end: var(--cv-space-2);
+}
+
+.category-media {
+  border-radius: var(--cv-radius-md);
+  overflow: hidden;
+  max-inline-size: 860px;
+  margin-block-start: var(--cv-space-4);
+}
+
+.category-media img {
+  inline-size: 100%;
+  block-size: auto;
+  display: block;
 }
 
 /* ----------------------------------------------------------- comparador */

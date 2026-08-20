@@ -19,12 +19,14 @@ import type { NextRequest } from "next/server";
 
 import { applyPaymentEvent, getPaymentProvider } from "../../../../../src/server/container";
 
-/** Where each gateway puts its signature. */
+/** Where each gateway puts its signature. Adyen is deliberately absent:
+ *  payment webhooks carry the HMAC INSIDE the payload
+ *  (additionalData.hmacSignature), so its adapter receives "" and verifies
+ *  against the body. Tamara sends a JWT as the Authorization bearer. */
 const SIGNATURE_HEADERS: Record<string, string> = {
   stripe: "stripe-signature",
-  adyen: "hmacsignature",
-  tabby: "x-webhook-signature",
-  tamara: "x-webhook-signature",
+  tabby: "x-tabby-signature",
+  tamara: "authorization",
 };
 
 export async function POST(
@@ -39,7 +41,10 @@ export async function POST(
 
   // The exact bytes: any parsing before verification breaks the signature.
   const rawBody = await request.text();
-  const signature = request.headers.get(SIGNATURE_HEADERS[providerId] ?? "x-webhook-signature");
+  const headerName = SIGNATURE_HEADERS[providerId];
+  // No header configured (Adyen) → "" and the adapter verifies in-body; a
+  // configured-but-missing header is a hard 400 before any work.
+  const signature = headerName === undefined ? "" : request.headers.get(headerName);
   if (signature === null) return new Response("Missing signature", { status: 400 });
 
   let event;

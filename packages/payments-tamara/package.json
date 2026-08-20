@@ -1,0 +1,23 @@
+{
+  "name": "@courvia/payments-tamara",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Tamara (BNPL, AE) adapter for the PaymentProvider port — direct API, not through Stripe (ADR-06).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@courvia/commerce-domain": "workspace:*",
+    "@courvia/platform": "workspace:*"
+  },
+  "devDependencies": {
+    "@courvia/config": "workspace:*",
+    "vitest": "4.1.11"
+  }
+}

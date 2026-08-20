@@ -11,6 +11,8 @@ export type CheckoutErrorCode =
   | "market_disabled"
   | "unknown_sku"
   | "not_sold_in_market"
+  /** The product is in waitlist stage: capturing interest, not selling. */
+  | "not_purchasable"
   | "insufficient_stock"
   | "order_not_found";
 

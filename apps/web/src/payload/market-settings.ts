@@ -1,4 +1,4 @@
-import { MARKETS, PAYMENT_PROVIDERS } from "@courvia/platform";
+import { MARKETS, PAYMENT_METHODS, PAYMENT_PROVIDERS } from "@courvia/platform";
 import type { GlobalConfig } from "payload";
 
 import { anyone, isAdmin } from "./access";
@@ -46,6 +46,16 @@ export const MarketSettings: GlobalConfig = {
               options: PAYMENT_PROVIDERS.map((p) => ({ label: p, value: p })),
             },
             { name: "enabled", type: "checkbox", defaultValue: false },
+            {
+              name: "methods",
+              type: "select",
+              hasMany: true,
+              options: PAYMENT_METHODS.map((m) => ({ label: m, value: m })),
+              admin: {
+                description:
+                  "Métodos que este proveedor ofrece en este mercado (Bizum y Klarna van DENTRO de Stripe). Vacío = los que la pasarela active por defecto.",
+              },
+            },
           ],
         },
       ],

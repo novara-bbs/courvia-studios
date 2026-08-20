@@ -40,6 +40,7 @@ export function LeadForm({
   sportInterest,
   privacyHref,
   variants,
+  intent = "demo",
 }: {
   labels: LeadFormLabels;
   region: string;
@@ -50,6 +51,9 @@ export function LeadForm({
   /** Purchasable configurations of the product, so a "Drill Pro" lead keeps
    *  the T/P/PB intent the variants table just showed. */
   variants?: LeadFormVariant[];
+  /** What the visitor is asking for: a demo, a waitlist spot or a preorder.
+   *  Sales triages by this in the admin. */
+  intent?: "demo" | "waitlist" | "preorder";
 }) {
   const [state, formAction, pending] = useActionState(createLead, initialState);
 
@@ -58,6 +62,7 @@ export function LeadForm({
       <h2>{labels.title}</h2>
 
       <input type="hidden" name="region" value={region} />
+      <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="sourcePath" value={sourcePath} />
       {productId === undefined ? null : <input type="hidden" name="productId" value={productId} />}
       {sportInterest === undefined ? null : (

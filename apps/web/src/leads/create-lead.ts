@@ -23,6 +23,7 @@ const leadSchema = z.object({
     .transform((value) => (value === "" ? undefined : value))
     .optional(),
   sportInterest: z.enum(SPORTS).optional(),
+  intent: z.enum(["demo", "waitlist", "preorder"]).default("demo"),
   variantSku: z
     .string()
     .trim()
@@ -62,6 +63,7 @@ export async function createLead(
     email: formData.get("email"),
     message: formData.get("message") ?? undefined,
     sportInterest: formData.get("sportInterest") || undefined,
+    intent: formData.get("intent") || undefined,
     variantSku: formData.get("variantSku") || undefined,
     productId: formData.get("productId") || undefined,
     consent: formData.get("consent"),

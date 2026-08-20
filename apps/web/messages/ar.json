@@ -48,6 +48,10 @@
       "padel": "بادل",
       "pickleball": "بيكلبول"
     },
+    "status": {
+      "preorder": "حجز مسبق",
+      "waitlist": "قائمة الانتظار"
+    },
     "variantsTitle": "التهيئات",
     "variantSku": "المرجع",
     "variantSport": "الرياضة",
@@ -66,6 +70,10 @@
     "leadConsent": "أوافق على أن تتواصل معي كورفيا بخصوص هذا الطلب. بلا قوائم بريدية وبلا إزعاج.",
     "leadPrivacy": "سياسة الخصوصية",
     "leadSubmit": "إرسال الطلب",
+    "waitlistTitle": "انضم إلى قائمة الانتظار",
+    "waitlistSubmit": "أخبروني عند توفره",
+    "preorderTitle": "احجز جهازك",
+    "preorderSubmit": "طلب حجز",
     "leadInvalid": "راجع الاسم والبريد الإلكتروني — ثمة خطأ ما.",
     "notSoldHere": "غير متوفر هنا"
   },
