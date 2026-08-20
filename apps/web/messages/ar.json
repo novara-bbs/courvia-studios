@@ -23,6 +23,12 @@
     "skipToContent": "تخطَّ إلى المحتوى",
     "mainNav": "التنقل الرئيسي"
   },
+  "regions": {
+    "es": "España · Español",
+    "en-gb": "United Kingdom · English",
+    "en-ae": "UAE · English",
+    "ar-ae": "الإمارات · العربية"
+  },
   "footer": {
     "tagline": "روبوتات تدريب للبادل والتنس والبيكلبول. صُمِّمت في إسبانيا.",
     "copyright": "© كورفيا سبورتس. جميع الحقوق محفوظة."

@@ -5,7 +5,7 @@
  * region comes from the URL — the server request store is out of reach —
  * and the messages are static imports like in not-found.tsx.
  */
-import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
+import { DEFAULT_REGION, REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
@@ -24,7 +24,7 @@ export default function ErrorBoundary({
 }) {
   const pathname = usePathname();
   const segment = pathname.split("/")[1] ?? "";
-  const region = isRegionId(segment) ? segment : "es";
+  const region = isRegionId(segment) ? segment : DEFAULT_REGION;
   const t = MESSAGES[REGION_DEFINITIONS[region].locale].error;
 
   useEffect(() => {

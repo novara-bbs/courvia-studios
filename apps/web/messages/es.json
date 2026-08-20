@@ -23,6 +23,12 @@
     "skipToContent": "Saltar al contenido",
     "mainNav": "Navegación principal"
   },
+  "regions": {
+    "es": "España · Español",
+    "en-gb": "United Kingdom · English",
+    "en-ae": "UAE · English",
+    "ar-ae": "الإمارات · العربية"
+  },
   "footer": {
     "tagline": "Robots de entrenamiento para pádel, tenis y pickleball. Diseñados en España.",
     "copyright": "© Courvia Sports. Todos los derechos reservados."

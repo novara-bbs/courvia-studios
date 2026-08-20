@@ -1,4 +1,4 @@
-import { REGION_DEFINITIONS, REGIONS } from "@courvia/platform";
+import { DEFAULT_REGION, REGION_DEFINITIONS, REGIONS } from "@courvia/platform";
 import { revalidateTag } from "next/cache";
 import type { CollectionConfig } from "payload";
 
@@ -8,7 +8,7 @@ import { buildBlocks } from "./blocks";
 
 /** The region whose locale matches the admin's editing locale. */
 function previewRegion(localeCode: string): string {
-  return REGIONS.find((r) => REGION_DEFINITIONS[r].locale === localeCode) ?? "es";
+  return REGIONS.find((r) => REGION_DEFINITIONS[r].locale === localeCode) ?? DEFAULT_REGION;
 }
 
 /**
