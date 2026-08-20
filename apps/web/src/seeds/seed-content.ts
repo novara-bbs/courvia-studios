@@ -417,6 +417,10 @@ async function seedComposedPage(
   titles: { es: string; en: string },
   esBlocks: SeedBlock[],
   enBlocks: SeedBlock[],
+  /** `draft` for the duplicable templates: invisible to the storefront
+   *  (get-page.ts filters on `_status`, so they never reach a URL nor the
+   *  sitemap) and one click from a real page in the admin. */
+  status: "published" | "draft" = "published",
 ): Promise<void> {
   const exists = await payload.count({
     collection: "pages",
@@ -432,7 +436,7 @@ async function seedComposedPage(
     locale: "es",
     draft: false,
     overrideAccess: true,
-    data: { title: titles.es, slug, blocks: esBlocks as never, _status: "published" },
+    data: { title: titles.es, slug, blocks: esBlocks as never, _status: status },
   });
   await payload.update({
     collection: "pages",
@@ -443,10 +447,10 @@ async function seedComposedPage(
     data: {
       title: titles.en,
       blocks: withIds((doc.blocks ?? []) as SeedBlock[], enBlocks) as never,
-      _status: "published",
+      _status: status,
     },
   });
-  console.log(`pages/${slug} seeded (es/en).`);
+  console.log(`pages/${slug} seeded (es/en, ${status}).`);
 }
 
 /** Media ids by filename, so composed pages can reference the render pack. */
@@ -1398,6 +1402,429 @@ await seedComposedPage(
       ],
     },
   ],
+);
+
+/* --- plantillas duplicables --------------------------------------------- */
+// El escalón de productividad de marketing en su versión barata y real: tres
+// páginas EN BORRADOR con la composición ya montada, para que el editor use
+// el botón Duplicar de Payload en vez de partir de un lienzo vacío. No hay
+// schema nuevo: una plantilla es una página que nadie publicó.
+//
+// El `blockName` de cada bloque hace doble trabajo — nombra el hueco en el
+// admin y es el ancla que consume `anchorNav` (ARCHITECTURE.md §3).
+//
+// No confundir con WP13, las plantillas con slots vinculados que un producto
+// no puede reordenar: eso es otra tarea y necesita schema.
+
+const TEMPLATE_NOTE_ES =
+  "Plantilla. Duplícala, cambia el slug y publica la copia — esta se queda en borrador.";
+const TEMPLATE_NOTE_EN =
+  "Template. Duplicate it, change the slug and publish the copy — this one stays a draft.";
+
+await seedComposedPage(
+  "plantilla-landing-producto",
+  { es: "PLANTILLA · Landing de producto", en: "TEMPLATE · Product landing" },
+  [
+    {
+      blockType: "stage",
+      blockName: "Portada",
+      level: "h1",
+      eyebrow: "Gama",
+      heading: "Una frase sobre lo que mejora en tu juego",
+      lead: "Dos líneas como mucho. Qué hace el robot y para quién, sin adjetivos que no se puedan medir.",
+      ctas: [
+        { label: "Ver la ficha", href: "/robots" },
+        { label: "Pide una demo", href: "/contacto" },
+      ],
+      note: TEMPLATE_NOTE_ES,
+      appearance: { height: "tall", overlay: "gradient", spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "anchorNav",
+      blockName: "Índice",
+      label: "En esta página",
+      items: [
+        { text: "Lo que hace distinto", anchor: "lo-que-hace-distinto" },
+        { text: "Por dentro", anchor: "por-dentro" },
+        { text: "Datos", anchor: "datos" },
+        { text: "Preguntas", anchor: "preguntas" },
+      ],
+      appearance: { spaceBlockStart: "none", spaceBlockEnd: "lg" },
+    },
+    {
+      blockType: "bento",
+      blockName: "Lo que hace distinto",
+      heading: "Tres o cuatro decisiones, no una lista de características",
+      items: [
+        {
+          span: "lg",
+          eyebrow: "La grande",
+          title: "La decisión que explica el producto",
+          body: "Una pieza ancha para lo que de verdad diferencia. Si todo es importante, nada lo es.",
+        },
+        {
+          span: "md",
+          eyebrow: "Apoyo",
+          title: "Segunda decisión",
+          body: "Un dato con unidad vale más que tres adjetivos.",
+        },
+        {
+          span: "md",
+          eyebrow: "Apoyo",
+          title: "Tercera decisión",
+          body: "Si no se mide, no se afirma.",
+        },
+      ],
+      appearance: { background: "surface", divider: "hairline", reveal: "rise" },
+    },
+    {
+      blockType: "steps",
+      blockName: "Por dentro",
+      heading: "De la caja a la primera bola",
+      lead: "El montaje es parte del producto. Si cuesta, se entrena menos.",
+      items: [
+        { title: "Primer paso", body: "Una acción por paso, en presente." },
+        { title: "Segundo paso", body: "La numeración la pone el diseño; no la escribas." },
+        { title: "Tercer paso", body: "Cuatro pasos como mucho." },
+      ],
+      appearance: { columns: "3", divider: "hairline" },
+    },
+    {
+      blockType: "specTable",
+      blockName: "Datos",
+      heading: "Lo que se mide",
+      lead: "Elige los productos y la tabla se rellena sola. Cada cifra llega con su estado de verificación: no se escriben a mano aquí.",
+      products: allProducts,
+      appearance: { background: "surface", reveal: "rise" },
+    },
+    {
+      blockType: "faq",
+      blockName: "Preguntas",
+      heading: "Preguntas frecuentes",
+      items: [
+        {
+          question: "¿Qué pregunta te hacen siempre antes de comprar?",
+          answer: richTextP("Esa es la primera. Respóndela sin rodeos y con la cifra si la hay."),
+        },
+        {
+          question: "¿Y la que te hacen justo después?",
+          answer: richTextP("Garantía, repuestos y plazo suelen ser la segunda y la tercera."),
+        },
+      ],
+      appearance: { divider: "hairline" },
+    },
+    {
+      blockType: "ctaBand",
+      blockName: "Cierre",
+      heading: "Una llamada, una acción",
+      body: "Sin dos botones que compiten.",
+      cta: [{ label: "Pide una demo", href: "/contacto" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+  [
+    {
+      blockType: "stage",
+      blockName: "Portada",
+      level: "h1",
+      eyebrow: "Range",
+      heading: "One line about what improves in your game",
+      lead: "Two lines at most. What the robot does and who it is for, with no adjective you cannot measure.",
+      ctas: [
+        { label: "See the spec sheet", href: "/robots" },
+        { label: "Book a demo", href: "/contacto" },
+      ],
+      note: TEMPLATE_NOTE_EN,
+      appearance: { height: "tall", overlay: "gradient", spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "anchorNav",
+      blockName: "Índice",
+      label: "On this page",
+      items: [
+        { text: "What makes it different", anchor: "lo-que-hace-distinto" },
+        { text: "Inside", anchor: "por-dentro" },
+        { text: "Figures", anchor: "datos" },
+        { text: "Questions", anchor: "preguntas" },
+      ],
+      appearance: { spaceBlockStart: "none", spaceBlockEnd: "lg" },
+    },
+    {
+      blockType: "bento",
+      blockName: "Lo que hace distinto",
+      heading: "Three or four decisions, not a feature list",
+      items: [
+        {
+          span: "lg",
+          eyebrow: "The big one",
+          title: "The decision that explains the product",
+          body: "A wide tile for what actually sets it apart. If everything matters, nothing does.",
+        },
+        {
+          span: "md",
+          eyebrow: "Support",
+          title: "Second decision",
+          body: "One figure with a unit beats three adjectives.",
+        },
+        {
+          span: "md",
+          eyebrow: "Support",
+          title: "Third decision",
+          body: "If it is not measured, it is not claimed.",
+        },
+      ],
+      appearance: { background: "surface", divider: "hairline", reveal: "rise" },
+    },
+    {
+      blockType: "steps",
+      blockName: "Por dentro",
+      heading: "Box to first ball",
+      lead: "Setup is part of the product. If it costs effort, you drill less.",
+      items: [
+        { title: "First step", body: "One action per step, in the present tense." },
+        { title: "Second step", body: "The numbering is done by the design; do not type it." },
+        { title: "Third step", body: "Four steps at most." },
+      ],
+      appearance: { columns: "3", divider: "hairline" },
+    },
+    {
+      blockType: "specTable",
+      blockName: "Datos",
+      heading: "What we measure",
+      lead: "Pick the products and the table fills itself. Every figure arrives with its verification state: they are not typed here.",
+      products: allProducts,
+      appearance: { background: "surface", reveal: "rise" },
+    },
+    {
+      blockType: "faq",
+      blockName: "Preguntas",
+      heading: "Frequently asked questions",
+      items: [
+        {
+          question: "Which question do they always ask before buying?",
+          answer: richTextP("That is the first one. Answer it plainly, with the figure if there is one."),
+        },
+        {
+          question: "And the one right after?",
+          answer: richTextP("Warranty, spare parts and lead time are usually second and third."),
+        },
+      ],
+      appearance: { divider: "hairline" },
+    },
+    {
+      blockType: "ctaBand",
+      blockName: "Cierre",
+      heading: "One call, one action",
+      body: "No two buttons competing.",
+      cta: [{ label: "Book a demo", href: "/contacto" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+  "draft",
+);
+
+await seedComposedPage(
+  "plantilla-lanzamiento",
+  { es: "PLANTILLA · Lanzamiento", en: "TEMPLATE · Launch" },
+  [
+    {
+      blockType: "stage",
+      blockName: "Portada",
+      level: "h1",
+      eyebrow: "Lanzamiento",
+      heading: "Lo que estamos construyendo",
+      lead: "Sin fechas que no puedas cumplir y sin precio hasta que exista. Cuenta en qué punto está y qué falta.",
+      ctas: [{ label: "Entra en la lista", href: "#lista" }],
+      note: TEMPLATE_NOTE_ES,
+      appearance: { height: "tall", overlay: "gradient", spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "statBand",
+      blockName: "Cifras",
+      heading: "Dónde estamos",
+      items: [
+        { value: "—", label: "Cifra que ya puedes defender", note: "objetivo de diseño" },
+        { value: "—", label: "Segunda cifra", note: "objetivo de diseño" },
+        { value: "—", label: "Tercera cifra", note: "objetivo de diseño" },
+      ],
+      appearance: { background: "surface", divider: "hairline" },
+    },
+    {
+      blockType: "timeline",
+      blockName: "Validación",
+      heading: "El camino, con su estado",
+      items: [
+        { label: "FASE 1", title: "Hecho", body: "Lo que ya está cerrado.", state: "done" },
+        { label: "FASE 2", title: "En curso", body: "Lo que se está haciendo ahora.", state: "current" },
+        { label: "FASE 3", title: "Siguiente", body: "Lo que viene, sin fecha si no la hay.", state: "next" },
+      ],
+      appearance: { divider: "hairline" },
+    },
+    {
+      blockType: "waitlist",
+      blockName: "Lista",
+      heading: "Entra en la lista",
+      body: "Sin pago y sin compromiso. Escribimos cuando haya algo que contar, no antes.",
+      intent: "waitlist",
+      appearance: { background: "surface" },
+    },
+    {
+      blockType: "faq",
+      blockName: "Preguntas",
+      heading: "Lo que preguntan los primeros",
+      items: [
+        {
+          question: "¿Cuándo estará disponible?",
+          answer: richTextP("Di lo que sabes y no inventes un trimestre. La honestidad aquí se cobra en confianza más tarde."),
+        },
+        {
+          question: "¿Cuánto va a costar?",
+          answer: richTextP("Si no hay precio, dilo. Un precio que luego cambia cuesta más que no darlo."),
+        },
+      ],
+      appearance: { divider: "hairline" },
+    },
+  ],
+  [
+    {
+      blockType: "stage",
+      blockName: "Portada",
+      level: "h1",
+      eyebrow: "Launch",
+      heading: "What we are building",
+      lead: "No dates you cannot keep and no price until there is one. Say where it stands and what is left.",
+      ctas: [{ label: "Join the list", href: "#lista" }],
+      note: TEMPLATE_NOTE_EN,
+      appearance: { height: "tall", overlay: "gradient", spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "statBand",
+      blockName: "Cifras",
+      heading: "Where we are",
+      items: [
+        { value: "—", label: "A figure you can already defend", note: "design target" },
+        { value: "—", label: "Second figure", note: "design target" },
+        { value: "—", label: "Third figure", note: "design target" },
+      ],
+      appearance: { background: "surface", divider: "hairline" },
+    },
+    {
+      blockType: "timeline",
+      blockName: "Validación",
+      heading: "The road, with its state",
+      items: [
+        { label: "PHASE 1", title: "Done", body: "What is already closed.", state: "done" },
+        { label: "PHASE 2", title: "In progress", body: "What is being done now.", state: "current" },
+        { label: "PHASE 3", title: "Next", body: "What comes next, with no date if there is none.", state: "next" },
+      ],
+      appearance: { divider: "hairline" },
+    },
+    {
+      blockType: "waitlist",
+      blockName: "Lista",
+      heading: "Join the list",
+      body: "No payment and no commitment. We write when there is something to say, not before.",
+      intent: "waitlist",
+      appearance: { background: "surface" },
+    },
+    {
+      blockType: "faq",
+      blockName: "Preguntas",
+      heading: "What the early ones ask",
+      items: [
+        {
+          question: "When will it be available?",
+          answer: richTextP("Say what you know and do not invent a quarter. Honesty here is paid back in trust later."),
+        },
+        {
+          question: "What will it cost?",
+          answer: richTextP("If there is no price, say so. A price that later changes costs more than no price."),
+        },
+      ],
+      appearance: { divider: "hairline" },
+    },
+  ],
+  "draft",
+);
+
+await seedComposedPage(
+  "plantilla-empresa",
+  { es: "PLANTILLA · Página de empresa", en: "TEMPLATE · Company page" },
+  [
+    {
+      blockType: "hero",
+      blockName: "Portada",
+      level: "h1",
+      eyebrow: "Courvia",
+      heading: "Un título que diga quién eres, no qué vendes",
+      lead: "Una frase. Si necesitas tres, todavía no sabes cuál es.",
+      appearance: { spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "featureGrid",
+      blockName: "Cómo trabajamos",
+      heading: "Cómo trabajamos",
+      items: [
+        { title: "Un principio", body: "Con su consecuencia práctica, no con su eslogan." },
+        { title: "Otro principio", body: "Tres bastan. Cinco ya nadie los lee." },
+        { title: "El tercero", body: "Si vale para cualquier empresa, sobra." },
+      ],
+      appearance: { background: "surface", divider: "hairline" },
+    },
+    {
+      blockType: "quote",
+      blockName: "Voz",
+      quote: "Una frase que puedas repetir en una feria sin que suene a folleto.",
+      author: "Equipo Courvia",
+      appearance: { align: "center" },
+    },
+    {
+      blockType: "ctaBand",
+      blockName: "Cierre",
+      heading: "A dónde quieres que vayan",
+      body: "Una sola salida.",
+      cta: [{ label: "Ver el catálogo", href: "/robots" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+  [
+    {
+      blockType: "hero",
+      blockName: "Portada",
+      level: "h1",
+      eyebrow: "Courvia",
+      heading: "A headline that says who you are, not what you sell",
+      lead: "One sentence. If you need three, you have not found it yet.",
+      appearance: { spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "featureGrid",
+      blockName: "Cómo trabajamos",
+      heading: "How we work",
+      items: [
+        { title: "A principle", body: "With its practical consequence, not its slogan." },
+        { title: "Another principle", body: "Three is enough. Nobody reads five." },
+        { title: "The third", body: "If it would fit any company, drop it." },
+      ],
+      appearance: { background: "surface", divider: "hairline" },
+    },
+    {
+      blockType: "quote",
+      blockName: "Voz",
+      quote: "A line you could repeat at a trade show without it sounding like a brochure.",
+      author: "Team Courvia",
+      appearance: { align: "center" },
+    },
+    {
+      blockType: "ctaBand",
+      blockName: "Cierre",
+      heading: "Where you want them to go",
+      body: "One exit only.",
+      cta: [{ label: "Browse the catalogue", href: "/robots" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+  "draft",
 );
 
 console.log("Content seed complete.");

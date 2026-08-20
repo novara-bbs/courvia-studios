@@ -57,11 +57,19 @@ export function SectionRenderer({ raw, ctx }: { raw: unknown; ctx: RenderContext
     ) : null;
   }
 
+  const body = definition.render(parsed.data as Record<string, unknown>, ctx);
+  // A section that decides it has nothing to show (hotspots whose image the
+  // media governance withheld, a linked section with no injected renderer)
+  // must not leave its WRAPPER behind: the wrapper carries the background
+  // and the block spacing, so an empty one is a visible blank band on the
+  // page — the failure mode looks like a design bug, not missing content.
+  if (body === null || body === undefined || body === false) return null;
+
   const attrs = resolveAppearance(block.appearance, definition.appearance);
   const id = typeof block.blockName === "string" ? anchorId(block.blockName) : undefined;
   return (
     <section data-cv-section={definition.type} {...(id === undefined ? {} : { id })} {...attrs}>
-      {definition.render(parsed.data as Record<string, unknown>, ctx)}
+      {body}
     </section>
   );
 }

@@ -14,6 +14,9 @@ Registro de decisiones estructurales **nuevas o que se desvíen de CLAUDE.md**. 
 | [ADR-019](./ADR-019-platform-vocabulary.md) | `@courvia/platform` para el vocabulario transversal | aceptado |
 | [ADR-020](./ADR-020-region-routing.md) | Regiones compuestas en la URL: `/es`, `/en-gb`, `/en-ae`, `/ar-ae` | aceptado |
 | [ADR-021](./ADR-021-cms-commerce.md) | Commerce en el CMS: marcas, estados de lanzamiento y bloques de catálogo | aceptado |
+| [ADR-022](./ADR-022-real-portfolio-evidence.md) | Catálogo real Tempo/Go/Rally con régimen de evidencia por cifra | aceptado |
+| [ADR-023](./ADR-023-composition-vocabulary.md) | Vocabulario de composición: por qué no hay bloque de HTML libre | aceptado |
+| [ADR-024](./ADR-024-commerce-portability.md) | Portabilidad del puerto de commerce: catálogo sí, checkout no | aceptado |
 
 ## Convención
 

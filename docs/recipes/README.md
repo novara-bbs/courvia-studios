@@ -11,3 +11,4 @@ Cada receta lista los ficheros a tocar, en qué orden, y cómo verificar. Si una
 | [`add-market.md`](add-market.md) | Abrir un mercado o una región |
 | [`add-payment-provider.md`](add-payment-provider.md) | Integrar una pasarela |
 | [`add-design-token.md`](add-design-token.md) | Añadir o cambiar un token o un rol semántico |
+| [`use-templates.md`](use-templates.md) | Crear una página partiendo de una plantilla duplicable |

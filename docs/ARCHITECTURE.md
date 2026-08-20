@@ -10,6 +10,8 @@
 
 Cada capa solo conoce las de abajo. La dirección de dependencias **la verifica CI** (`pnpm arch`), no la confianza.
 
+> **Cómo se comprueba que la comprobación funciona.** Durante meses estas reglas no verificaban nada: escritas como `to: { path: "^@courvia/ui" }`, casaban con el especificador desnudo, pero dependency-cruiser compara contra la ruta **resuelta** en cuanto el import resuelve — y resuelve en cuanto la dependencia está declarada en `package.json`, que es justo lo que hace quien añade el import. Cazaban, por tanto, solo las violaciones que ni habrían instalado. Once reglas medidas rompiendo cada frontera a propósito: funcionaba una. Están reescritas contra ambas formas y `packages/config/arch-rules.test.ts` impide la recaída. La lección general: **una regla que nadie ha visto fallar es un comentario.**
+
 | Capa | Paquete | Posee | No puede |
 |---|---|---|---|
 | **L0 Tokens** | `@courvia/design-tokens` | Valores de diseño (DTCG) → variables `--cv-*`. Temas como ámbitos `[data-theme]` anidables. | Depender de ningún paquete del repo (debe seguir siendo portable a Figma o a una app nativa). |
@@ -106,9 +108,20 @@ El vocabulario vive en `packages/appearance/src/controls.ts` y cada sección dec
 | `background` | `none · surface · raised · inverse · accent` | roles semánticos; `inverse` y `accent` reasignan también texto y borde |
 | `width` | `prose · content · full` | `--cv-section-measure` |
 | `align` | `start · center` (lógico, nunca `left`/`right`) | `text-align`, RTL-seguro |
+| `columns` | `2 · 3 · 4` | `--cv-section-columns` |
+| `mediaPosition` | `start · end` (lógico) | orden de la rejilla en `mediaText` |
+| `height` | `auto · tall · full` | `min-block-size` de la escena |
+| `overlay` | `none · soft · strong · gradient` | velo sobre la media, para que el texto encima pase AA |
+| `divider` | `none · hairline · soft` | `border-block-start` entre bandas |
+| `reveal` | `none · rise · settle` | animación de entrada, **solo transform** |
+| `hiddenOn` | `never · mobile · desktop` | visibilidad por breakpoint |
 | `themeScope` | `inherit · volt · carbon · club` | `data-theme` anidado |
 
-Previstos, **no implementados** (cada uno entrará como una entrada más en esa tabla con su CSS, nunca como valor libre): `gap` · `columns` · `mediaPosition` · `accentUse` · `radius` · `elevation` · `reveal` · `hiddenOn`.
+Trece controles. La fuente de verdad es `controls.ts`, no esta tabla: un test comprueba que todo valor con CSS tiene su regla **y** que ninguna regla sobrevive a un valor retirado.
+
+`reveal` es **solo transform** por una razón aprendida rompiéndola: la primera versión animaba opacidad y una banda entera se quedó invisible en producción. Si la animación no llega a ejecutarse, el peor resultado admisible son 24 px de desplazamiento, nunca contenido que no se ve.
+
+Previstos, **no implementados** (cada uno entrará como una entrada más en esa tabla con su CSS, nunca como valor libre): `gap` · `accentUse` · `radius` · `elevation`.
 
 **Deliberadamente ausentes** — y esta lista *es* el diseño: selectores de color, hex, familias tipográficas, tamaños en px, padding libre, `className`, `style`, CSS a medida, z-index, opacidad.
 
@@ -188,13 +201,15 @@ Las **etiquetas** de specs viven en un diccionario global, no como texto libre p
 
 Esa separación es una corrección al contrato original, que pedía todos los efectos dentro de la transacción: un rollback no puede *des-enviar* un email, y una llamada a la pasarela dentro de la transacción retiene un lock durante un viaje de red. `SIDE_EFFECT_EXECUTION` clasifica cada efecto y un test verifica que ninguno queda sin clasificar.
 
+**¿Y si algún día entra una plataforma externa?** Contestado con código, no con opinión: `packages/commerce-shopify` implementa `CommerceService` sobre la Storefront API y pasa `describeCatalogContract`, la misma suite que corre contra el adaptador propio. La mitad de catálogo es portable; la de checkout no existe para serlo, porque Shopify aloja su checkout y emite sus pedidos — ahí el adaptador lanza `NotImplementedError`, que es lo que el contrato del dominio autoriza. Qué muere (máquina de estados, outbox, puerto de pagos) y qué sobrevive (todo el CMS, temas, secciones, i18n, SEO, leads) está en [`docs/adr/ADR-024-commerce-portability.md`](adr/ADR-024-commerce-portability.md). Ninguna ruta puede importar ese paquete: es un estudio verificado, no una integración.
+
 ---
 
 ## 7. Verificación
 
 | Nivel | Cubre |
 |---|---|
-| `pnpm arch` | Las fronteras de §1, cada una probada contra su violación |
+| `pnpm arch` | Las fronteras de §1, cada una probada contra su violación **con la dependencia declarada** (ver el aviso de §1) |
 | `pnpm stylelint` | Nada de hex crudo, nada de propiedades físicas |
 | Lint con tipos | `no-floating-promises`, `no-misused-promises`, Rules of Hooks |
 | Vitest | Dominio, `Money`, contrato semántico, **contraste AA en 3 temas**, compilador de tokens |

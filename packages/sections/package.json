@@ -26,6 +26,8 @@
   "devDependencies": {
     "@courvia/config": "workspace:*",
     "@types/react": "19.2.18",
-    "react": "19.2.8"
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "@types/react-dom": "19.2.4"
   }
 }

@@ -44,6 +44,37 @@ describe("resolveAppearance", () => {
     const attrs = resolveAppearance({ themeScope: "club" }, ["themeScope"]);
     expect(attrs).toEqual({ "data-theme": "club" });
   });
+
+  // The controls added for the landing vocabulary. Each is asserted on its
+  // own attribute name because the attribute — not the control name — is
+  // what the stylesheet and the rendered page agree on: rename one without
+  // the other and the control silently does nothing.
+  it("carries the composition controls onto their own attributes", () => {
+    expect(
+      resolveAppearance({ height: "tall", overlay: "gradient" }, ["height", "overlay"]),
+    ).toEqual({ "data-height": "tall", "data-overlay": "gradient" });
+    expect(resolveAppearance({ reveal: "rise" }, ["reveal"])).toEqual({ "data-reveal": "rise" });
+    expect(resolveAppearance({ divider: "hairline" }, ["divider"])).toEqual({
+      "data-divider": "hairline",
+    });
+    expect(resolveAppearance({ hiddenOn: "mobile" }, ["hiddenOn"])).toEqual({
+      "data-hidden-on": "mobile",
+    });
+  });
+
+  it("stays silent on the default of every control", () => {
+    // Emitting `data-x="<default>"` would work but doubles the attribute
+    // noise on every section and makes a diff of rendered HTML unreadable.
+    for (const name of CONTROL_NAMES) {
+      const control: ControlDefinition = CONTROLS[name];
+      expect(resolveAppearance({ [name]: control.default }, [name]), `${name}`).toEqual({});
+    }
+  });
+
+  it("every control has a distinct attribute", () => {
+    const attributes = CONTROL_NAMES.map((name) => CONTROLS[name].attribute);
+    expect(new Set(attributes).size).toBe(attributes.length);
+  });
 });
 
 describe("CSS coverage — table and stylesheet cannot drift", () => {
@@ -74,5 +105,19 @@ describe("CSS coverage — table and stylesheet cannot drift", () => {
 
   it("never emits a raw colour", () => {
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(/);
+  });
+
+  it("has no rule for a value the table no longer offers", () => {
+    // The reverse of the coverage test above: a control value that gets
+    // renamed leaves its old rule behind, and the stale rule keeps working
+    // for content nobody can produce any more — a slow, silent divergence.
+    for (const name of CONTROL_NAMES) {
+      const control: ControlDefinition = CONTROLS[name];
+      if (control.css === null) continue;
+      const selectors = [...css.matchAll(new RegExp(`\\[${control.attribute}='([^']+)'\\]`, "g"))];
+      for (const [, value] of selectors) {
+        expect(control.values, `${name}: stale rule for '${value}'`).toContain(value);
+      }
+    }
   });
 });
