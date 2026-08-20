@@ -4,13 +4,24 @@ import { fileURLToPath } from "node:url";
 import type { CollectionConfig } from "payload";
 
 import { anyone, isAuthenticated } from "./access";
+import { uploadsWouldBeLost } from "./storage";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Media library. Files land on local disk for now; the Supabase Storage
- * adapter replaces `staticDir` in its own task without touching consumers —
- * everything reads media through Payload, never through paths.
+ * Media library.
+ *
+ * The destination is chosen at boot from the environment (`storage.ts`): an
+ * S3-compatible bucket when one is configured, local disk otherwise. Nothing
+ * downstream cares, because everything reads media THROUGH Payload and never
+ * through a path.
+ *
+ * The one case that must not be quiet is a deployment with an ephemeral
+ * filesystem and no bucket: writing there succeeds and the file disappears
+ * at the next deploy. So in that case uploads are REFUSED rather than
+ * accepted and lost — the same fail-closed shape the fake payment provider
+ * uses. A librarian who cannot upload files an issue; a librarian whose
+ * uploads evaporate a week later does not.
  */
 export const Media: CollectionConfig = {
   slug: "media",
@@ -20,8 +31,10 @@ export const Media: CollectionConfig = {
   },
   access: {
     read: anyone,
-    create: isAuthenticated,
-    update: isAuthenticated,
+    // Evaluated per request, not at module load: the same build is deployed
+    // to preview and production, and only one of them may have a bucket.
+    create: (args) => (uploadsWouldBeLost() ? false : isAuthenticated(args)),
+    update: (args) => (uploadsWouldBeLost() ? false : isAuthenticated(args)),
     delete: isAuthenticated,
   },
   upload: {

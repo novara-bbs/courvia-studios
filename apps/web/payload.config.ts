@@ -10,6 +10,7 @@ import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from
 import { Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
 import { Media } from "./src/payload/media";
 import { Pages } from "./src/payload/pages";
+import { storagePlugins } from "./src/payload/storage";
 import { MarketSettings } from "./src/payload/market-settings";
 import { Navigation } from "./src/payload/navigation";
 import { ThemeSettings } from "./src/payload/theme-settings";
@@ -80,6 +81,12 @@ export default buildConfig({
     Returns,
   ],
   globals: [ThemeSettings, MarketSettings, Navigation],
+
+  // Where uploads land is configuration, not code: with an S3-compatible
+  // bucket configured the media collection writes there, and without one it
+  // stays on local disk (which is correct in development and refused in a
+  // deployment whose filesystem is ephemeral — see src/payload/storage.ts).
+  plugins: [...storagePlugins()],
 
   typescript: {
     outputFile: path.resolve(dirname, "src/payload-types.ts"),

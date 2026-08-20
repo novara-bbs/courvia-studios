@@ -54,6 +54,9 @@ realidad era otra, y nada estaba mirando. De ahí las tres medidas:
 | `STRIPE_WEBHOOK_SECRET` | cuando se conecte | Activa el adaptador Stripe (solo webhooks). |
 | `STRIPE_SECRET_KEY` | cuando se conecte | Solo para la tarea de integración aprobada. |
 | `PAYMENT_FAKE_SECRET` | **solo Preview/dev** | Fail-closed: bloqueado con `VERCEL_ENV=production`, y con `NODE_ENV=production` exige además `PAYMENT_FAKE_UNSAFE_ALLOW=1` (solo el servidor local en modo prod). |
+| `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Production/Preview | Bucket de medios. **Sin ellas, en Vercel las subidas quedan DESACTIVADAS** (ver abajo). Las tres van juntas. |
+| `S3_ENDPOINT` | si no es AWS | Supabase: `https://<project-ref>.storage.supabase.co/storage/v1/s3`. |
+| `S3_REGION` | opcional | Por defecto `auto`; los proveedores compatibles la ignoran. |
 
 ### Migraciones: nunca en el build
 
@@ -70,10 +73,18 @@ Vercel NO ejecuta `payload migrate`. Flujo:
 
 ### Lo que hay que decidir ANTES de subir tráfico real
 
-- **Uploads (Media)**: el filesystem de Vercel es efímero — `apps/web/media/`
-  no sirve en producción. Falta elegir adaptador de almacenamiento
-  (`@payloadcms/storage-s3` contra Supabase Storage es lo natural aquí) e
-  instalarlo. Hasta entonces: no subir media en producción.
+- **Uploads (Media)**: resuelto, pero hay que configurarlo. El filesystem de
+  Vercel es efímero, así que `apps/web/media/` no sirve en producción:
+  escribir ahí funciona y la imagen desaparece en el siguiente deploy, sin
+  error. `@payloadcms/storage-s3` está instalado y `src/payload/storage.ts`
+  elige destino **desde el entorno** — bucket compatible con S3 si está
+  configurado, disco local si no. Cambiar de Supabase Storage a R2 o a S3 son
+  cinco variables, nunca un cambio de código.
+
+  Y si el despliegue es efímero y NO hay bucket, las subidas se **rechazan**
+  en vez de aceptarse y perderse: `access.create`/`update` de `media` devuelven
+  false y el arranque deja un error en el log. Un bibliotecario que no puede
+  subir abre un ticket; uno cuyas subidas se evaporan a la semana, no.
 - **Dominio**: courvia.com/es sin verificar (pendiente legal, CLAUDE.md §1).
   Mientras, el subdominio `*.vercel.app` sirve para previews.
 - **Outbox**: el despacho es manual-asistido; el cron/worker (Vercel Cron)
