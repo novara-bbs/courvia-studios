@@ -8,13 +8,41 @@
 
 ## Vercel — configuración del proyecto
 
-| Ajuste | Valor |
-|---|---|
-| Framework | Next.js (autodetectado) |
-| **Root Directory** | `apps/web` |
-| Install Command | `pnpm install --frozen-lockfile` (desde la raíz; Vercel detecta el workspace) |
-| Build Command | el por defecto (`next build`); Turbo no hace falta en Vercel |
-| Node | 22.x (lo fija `package.json#engines` / `.nvmrc`) |
+| Ajuste | Valor | Dónde vive |
+|---|---|---|
+| Framework | `nextjs` — **declarado, no autodetectado** | `apps/web/vercel.json` |
+| **Root Directory** | `apps/web` | **Panel de Vercel** (no hay forma de ponerlo desde el repo) |
+| **Include source files outside of the Root Directory** | **activado** | Panel de Vercel |
+| Install Command | `cd ../.. && pnpm install --frozen-lockfile` | `apps/web/vercel.json` |
+| Build Command | `cd ../.. && pnpm turbo run build --filter=@courvia/web` | `apps/web/vercel.json` |
+| Node | 22.x (lo fija `package.json#engines` / `.nvmrc`) | repo |
+
+Todo lo que puede vivir en el repo vive en `apps/web/vercel.json`, y
+`apps/web/src/deploy/deploy-contract.test.ts` lo verifica. Los dos ajustes de
+panel son los únicos que no: la API de Vercel solo acepta `rootDirectory` **al
+crear** el proyecto, no al actualizarlo.
+
+### La avería del 20 de agosto, y por qué se cuenta aquí
+
+Tres pushes seguidos salieron con **CI en verde y todos los despliegues de
+Vercel en rojo**, y nadie se enteró hasta que un humano miró el correo. El
+fallo no estaba en el código: este documento ya decía Root Directory =
+`apps/web`, pero el proyecto se había importado apuntando a la raíz del repo,
+así que Vercel no veía una app de Next sino una carpeta, y buscaba un
+`public/` que no existe. El build iba bien; lo que fallaba era recoger la
+salida.
+
+La lección no es «configurar mejor Vercel». Es que **un documento no es un
+guardarraíl**: describía la realidad correcta durante días mientras la
+realidad era otra, y nada estaba mirando. De ahí las tres medidas:
+
+1. La configuración que puede estar en el repo está en el repo, y un test la
+   fija (`deploy-contract.test.ts`), incluida la coherencia con esta tabla.
+2. El check de despliegue de Vercel debe ser **required status check** en la
+   protección de rama: un despliegue rojo bloquea el merge igual que un test
+   rojo. Es un ajuste de GitHub, no de código.
+3. CLAUDE.md §6: una sesión no se cierra con CI verde, se cierra con el
+   **despliegue** verde.
 
 ### Variables de entorno (las pone el propietario, no el agente)
 
@@ -68,7 +96,10 @@ y el ISR distribuido.
 
 ## Checklist del primer deploy (Vercel)
 
-1. Importar el repo en Vercel · Root Directory `apps/web`.
+1. Importar el repo en Vercel · Root Directory `apps/web` · «Include source
+   files outside of the Root Directory» activado. Si el proyecto ya existe mal
+   configurado, esos dos ajustes se cambian a mano: la API no los admite en un
+   proyecto ya creado.
 2. Pegar `DATABASE_URL` (pooler 6543), `PAYLOAD_SECRET`, `NEXT_PUBLIC_SITE_URL`.
 3. Confirmar que TODAS las migraciones de `apps/web/src/migrations` figuran en `payload.payload_migrations` de Supabase (el ledger es la verdad, no un número recordado).
 4. Deploy → smoke: `/es`, `/es/robots`, `/es/robots/drill-pro`, `/admin`,

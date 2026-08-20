@@ -170,6 +170,11 @@ pnpm verify     # build · typecheck · lint · stylelint · arch · test
 
 `pnpm arch` comprueba las fronteras entre paquetes. **CI es la verdad**: "parece correcto" no es verificación.
 
+**Y CI en verde no es despliegue en verde.** El 20 ago 2026 tres pushes
+salieron con CI verde y Vercel rojo los tres, sin que nadie se enterara: CI
+compila la app, no la despliega. Una sesión que ha hecho push **no está
+cerrada hasta comprobar el estado del despliegue** (`docs/deployment.md`).
+
 ---
 
 ## 7. Registro de decisiones
