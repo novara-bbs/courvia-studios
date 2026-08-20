@@ -1,9 +1,10 @@
 /**
  * Money — amounts in MINOR units (cents, pence, fils). Never floats.
  *
- * Arithmetic lives here and nowhere else: a lint rule forbids `*` and `/` on
- * `Money.amount` outside this file, so rounding decisions are made once and
- * are testable. Every operation refuses to mix currencies.
+ * Arithmetic lives here and nowhere else: the `moneyArithmetic` restriction in
+ * `@courvia/config/eslint` forbids `*` and `/` on `.amount` outside this file,
+ * so rounding decisions are made once and are testable. Every operation
+ * refuses to mix currencies.
  */
 import { CURRENCY_MINOR_UNITS } from "@courvia/platform";
 import type { Currency } from "@courvia/platform";
@@ -119,4 +120,30 @@ export function format(value: Money, locale: string): string {
     style: "currency",
     currency: value.currency,
   }).format(value.amount / 10 ** minorUnits);
+}
+
+/**
+ * The machine-readable twin of `format`: a bare decimal string, `.` as the
+ * separator, no symbol and no grouping — the shape schema.org offers, product
+ * feeds and provider payloads expect.
+ *
+ * It lives here rather than in the one file that first needed it because the
+ * scale it applies belongs to the currency, not to the caller. The SEO markup
+ * shipped `(amount / 100).toFixed(2)`, which is correct for the three
+ * currencies we sell in and off by a factor of 100 the day a zero-decimal one
+ * (JPY) is added — and being a string of digits, wrong silently. Every caller
+ * that needs an amount as text now asks for it here, so that decision is made
+ * once.
+ *
+ * Built by slicing the integer's digits instead of dividing: division routes
+ * an exact minor-unit amount through a binary float and `toFixed` then rounds
+ * whatever came back, which is how a cent goes missing from a price feed.
+ */
+export function toDecimalString(value: Money): string {
+  const minorUnits = CURRENCY_MINOR_UNITS[value.currency];
+  const sign = value.amount < 0 ? "-" : "";
+  // padStart guarantees a leading major digit, so 5 fils reads "0.05", not ".5".
+  const digits = String(Math.abs(value.amount)).padStart(minorUnits + 1, "0");
+  if (minorUnits === 0) return `${sign}${digits}`;
+  return `${sign}${digits.slice(0, -minorUnits)}.${digits.slice(-minorUnits)}`;
 }

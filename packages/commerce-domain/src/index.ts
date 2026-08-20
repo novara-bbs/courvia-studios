@@ -42,6 +42,7 @@ export {
   multiply,
   subtract,
   sum,
+  toDecimalString,
   zero,
 } from "./money";
 export type { Money } from "./money";

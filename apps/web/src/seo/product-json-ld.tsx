@@ -1,3 +1,4 @@
+import { toDecimalString } from "@courvia/commerce-domain";
 import type { ProductDetail } from "@courvia/commerce-domain";
 import type { RegionId } from "@courvia/platform";
 
@@ -28,7 +29,10 @@ export function ProductJsonLd({ detail, region }: { detail: ProductDetail; regio
           .map((offer) => ({
             "@type": "Offer",
             sku: offer.sku,
-            price: (offer.price!.amount / 100).toFixed(2),
+            // Scale comes from the currency, never from a literal 100: a
+            // zero-decimal currency would publish a 100x price to every
+            // crawler and shopping feed that reads this block.
+            price: toDecimalString(offer.price!),
             priceCurrency: offer.price!.currency,
             availability:
               status === "preorder"
