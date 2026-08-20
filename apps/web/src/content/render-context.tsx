@@ -14,9 +14,16 @@ import type { RegionId } from "@courvia/platform";
 import { SectionLeadForm } from "./section-lead-form";
 import { SectionProductGrid } from "./section-product-grid";
 
-export function makeRenderContext(preview: boolean, region: RegionId): RenderContext {
+export function makeRenderContext(
+  preview: boolean,
+  region: RegionId,
+  conceptLabel?: string,
+): RenderContext {
   return {
     preview,
+    // Sections hold no user-visible strings: the concept-render label they
+    // must show over non-final assets (E-028) arrives translated from here.
+    ...(conceptLabel === undefined ? {} : { conceptLabel }),
     renderRichText: (value) =>
       value === null || value === undefined ? null : (
         <RichText data={value as SerializedEditorState} />

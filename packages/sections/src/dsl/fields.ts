@@ -17,6 +17,10 @@ export type FieldSpec =
   | {
       kind: "array";
       of: Record<string, FieldSpec>;
+      /** A section whose whole point is its rows (stats, milestones) is
+       *  invalid without them: required arrays fail the contract when
+       *  absent, so half-filled content never reaches a customer. */
+      required?: boolean;
       min?: number;
       max?: number;
       localized?: boolean;
@@ -57,18 +61,42 @@ export interface MediaValue {
   alt: string;
   width?: number;
   height?: number;
+  /** Localized caption from the media library, when the librarian wrote one. */
+  caption?: string;
+  /** True while the asset is not final product photography: the renderer
+   *  MUST show the concept-render label (evidence register, E-028). */
+  concept?: boolean;
 }
 
-/** Normalizes an upload field's value; null when unpopulated or fileless. */
+/**
+ * Normalizes an upload field's value; null when unpopulated or fileless.
+ *
+ * Media governance travels WITH the asset, so it cannot be forgotten per
+ * section: an asset the evidence register marks `blocked` (not for PDP,
+ * campaign or RFQ) resolves to null and therefore renders NOWHERE, and
+ * anything short of `published` comes back flagged `concept` so every
+ * surface labels it. The alternative — asking each section to remember the
+ * rule — is the version that eventually ships a blocked render.
+ */
 export function mediaValue(value: unknown): MediaValue | null {
   if (typeof value !== "object" || value === null) return null;
-  const doc = value as { url?: unknown; alt?: unknown; width?: unknown; height?: unknown };
+  const doc = value as {
+    url?: unknown;
+    alt?: unknown;
+    width?: unknown;
+    height?: unknown;
+    caption?: unknown;
+    evidenceStatus?: unknown;
+  };
   if (typeof doc.url !== "string" || doc.url === "") return null;
+  if (doc.evidenceStatus === "blocked") return null;
   return {
     url: doc.url,
     alt: typeof doc.alt === "string" ? doc.alt : "",
     ...(typeof doc.width === "number" ? { width: doc.width } : {}),
     ...(typeof doc.height === "number" ? { height: doc.height } : {}),
+    ...(typeof doc.caption === "string" && doc.caption !== "" ? { caption: doc.caption } : {}),
+    ...(doc.evidenceStatus === "published" ? {} : { concept: true }),
   };
 }
 

@@ -3,6 +3,7 @@ import { SectionList } from "@courvia/sections/render";
 import type { Metadata } from "next";
 import { draftMode } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { setRequestRegion } from "../../../../src/i18n/request-region";
 import { getDraftPage, getPage } from "../../../../src/content/get-page";
@@ -48,6 +49,7 @@ export default async function CmsPage({ params }: PageArgs) {
   const locale = REGION_DEFINITIONS[region].locale;
   const page = draft ? await getDraftPage(slug[0], locale) : await getPage(slug[0], locale);
   if (page === null) notFound();
+  const tCatalog = await getTranslations({ locale, namespace: "catalog" });
 
   return (
     <main className="page page--composed">
@@ -57,7 +59,10 @@ export default async function CmsPage({ params }: PageArgs) {
           <RefreshRouteOnSave serverUrl={siteUrl()} />
         </>
       ) : null}
-      <SectionList blocks={page.blocks} ctx={makeRenderContext(draft, region)} />
+      <SectionList
+        blocks={page.blocks}
+        ctx={makeRenderContext(draft, region, tCatalog("conceptRender"))}
+      />
     </main>
   );
 }

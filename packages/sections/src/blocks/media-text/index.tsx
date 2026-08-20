@@ -49,6 +49,9 @@ export const mediaText = defineSection({
         {image === null ? null : (
           <figure className="cv-media-text-media">
             <img src={image.url} alt={image.alt} loading="lazy" />
+            {image.concept === true && ctx.conceptLabel !== undefined ? (
+              <span className="cv-asset-note">{ctx.conceptLabel}</span>
+            ) : null}
           </figure>
         )}
         <div className="cv-media-text-body cv-prose">

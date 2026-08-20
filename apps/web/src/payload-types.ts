@@ -271,6 +271,38 @@ export interface Page {
   blocks?:
     | (
         | {
+            media?: (number | null) | Media;
+            eyebrow?: string | null;
+            heading: string;
+            level?: ('h2' | 'h1') | null;
+            lead?: string | null;
+            ctas?:
+              | {
+                  label: string;
+                  href: string;
+                  id?: string | null;
+                }[]
+              | null;
+            note?: string | null;
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              height?: ('auto' | 'tall' | 'full') | null;
+              overlay?: ('none' | 'soft' | 'strong' | 'gradient') | null;
+              align?: ('start' | 'center') | null;
+              width?: ('prose' | 'content' | 'full') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'stage';
+          }
+        | {
             eyebrow?: string | null;
             heading: string;
             level?: ('h2' | 'h1') | null;
@@ -358,6 +390,29 @@ export interface Page {
             blockType: 'mediaText';
           }
         | {
+            heading?: string | null;
+            items: {
+              value: string;
+              label: string;
+              note?: string | null;
+              id?: string | null;
+            }[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              align?: ('start' | 'center') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'statBand';
+          }
+        | {
             heading: string;
             items?:
               | {
@@ -383,6 +438,52 @@ export interface Page {
           }
         | {
             heading?: string | null;
+            lead?: string | null;
+            items: {
+              label: string;
+              title: string;
+              body?: string | null;
+              state?: ('done' | 'current' | 'next') | null;
+              id?: string | null;
+            }[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'timeline';
+          }
+        | {
+            heading?: string | null;
+            items: {
+              image: number | Media;
+              caption?: string | null;
+              id?: string | null;
+            }[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              columns?: ('2' | '3' | '4') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'gallery';
+          }
+        | {
+            heading?: string | null;
             /**
              * El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.
              */
@@ -400,6 +501,25 @@ export interface Page {
             id?: string | null;
             blockName?: string | null;
             blockType: 'productShowcase';
+          }
+        | {
+            provider: 'youtube' | 'vimeo';
+            videoId: string;
+            title: string;
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              width?: ('prose' | 'content' | 'full') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'embed';
           }
         | {
             heading: string;
@@ -1075,6 +1195,38 @@ export interface PagesSelect<T extends boolean = true> {
   blocks?:
     | T
     | {
+        stage?:
+          | T
+          | {
+              media?: T;
+              eyebrow?: T;
+              heading?: T;
+              level?: T;
+              lead?: T;
+              ctas?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                    id?: T;
+                  };
+              note?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    height?: T;
+                    overlay?: T;
+                    align?: T;
+                    width?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
         hero?:
           | T
           | {
@@ -1134,6 +1286,31 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        statBand?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    value?: T;
+                    label?: T;
+                    note?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
         featureGrid?:
           | T
           | {
@@ -1158,6 +1335,56 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        timeline?:
+          | T
+          | {
+              heading?: T;
+              lead?: T;
+              items?:
+                | T
+                | {
+                    label?: T;
+                    title?: T;
+                    body?: T;
+                    state?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        gallery?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    image?: T;
+                    caption?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    columns?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
         productShowcase?:
           | T
           | {
@@ -1170,6 +1397,25 @@ export interface PagesSelect<T extends boolean = true> {
                     spaceBlockEnd?: T;
                     background?: T;
                     align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        embed?:
+          | T
+          | {
+              provider?: T;
+              videoId?: T;
+              title?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    width?: T;
+                    reveal?: T;
                     themeScope?: T;
                   };
               id?: T;

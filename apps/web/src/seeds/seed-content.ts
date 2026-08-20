@@ -449,6 +449,26 @@ async function seedComposedPage(
   console.log(`pages/${slug} seeded (es/en).`);
 }
 
+/** Media ids by filename, so composed pages can reference the render pack. */
+const mediaIds = new Map<string, number>();
+for (const filename of [
+  "tempo-quickdock-system.webp",
+  "tempo-r1-hero-a002.webp",
+  "go-pickleball-hero.webp",
+  "tempo-r1-schematic.webp",
+]) {
+  const doc = (
+    await payload.find({
+      collection: "media",
+      where: { filename: { equals: filename } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+  ).docs[0];
+  if (doc !== undefined) mediaIds.set(filename, doc.id);
+}
+
 const productIds = new Map<string, number>();
 for (const slug of ["tempo-r1", "go-pickleball", "rally-station"]) {
   const doc = (
@@ -470,37 +490,111 @@ await seedComposedPage(
   { es: "Courvia — Robots de entrenamiento", en: "Courvia — Training robots" },
   [
     {
-      blockType: "hero",
+      blockType: "stage",
       level: "h1",
-      eyebrow: "Robots de entrenamiento",
+      eyebrow: "Pádel primero",
       heading: "Tu bandeja mejora esta semana",
-      lead: "Tempo R1 abre la gama: el robot de pádel accuracy-first, con globo, bandeja, víbora y pared calibrados por bola y pista. Sin cuenta, sin nube: el mando manda.",
+      lead: "Tempo R1 abre la gama: globo, bandeja, víbora y pared calibrados por bola y por pista. Sin cuenta, sin nube y sin teléfono — el mando manda.",
       ctas: [
         { label: "Conoce Tempo R1", href: "/robots/tempo-r1" },
         { label: "Ver la gama", href: "/robots" },
       ],
-      appearance: { spaceBlockStart: "xl", spaceBlockEnd: "xl" },
+      note: "Lista de lanzamiento abierta · sin pago ni compromiso",
+      ...(mediaIds.has("tempo-quickdock-system.webp")
+        ? { media: mediaIds.get("tempo-quickdock-system.webp") }
+        : {}),
+      appearance: {
+        width: "full",
+        height: "tall",
+        overlay: "strong",
+        spaceBlockStart: "none",
+        spaceBlockEnd: "none",
+      },
+    },
+    {
+      blockType: "statBand",
+      heading: "Los números que perseguimos",
+      items: [
+        { value: "≤16 kg", label: "Listo para pista, con batería", note: "objetivo" },
+        { value: "90–100", label: "Pelotas por carga en la tolva Daily", note: "objetivo" },
+        { value: "≤90 s", label: "Del maletero a la primera bola", note: "objetivo" },
+        { value: "≤65 dBA", label: "A un metro de la máquina", note: "objetivo" },
+      ],
+      appearance: { background: "surface", reveal: "rise" },
     },
     {
       blockType: "productShowcase",
       heading: "Tres ritmos. Una dirección.",
       products: allProducts,
-      appearance: { background: "surface" },
+      appearance: { reveal: "rise" },
+    },
+    {
+      blockType: "mediaText",
+      heading: "Se abre por módulos. No se desecha por averías.",
+      body: richTextP(
+        "Tolva, collar, tapa y batería los cambia el propio cliente; el hub sustituye alimentador, lanzador y electrónica. Tornillería cautiva, conectores ciegos y enclavamientos: cada pieza que se desgasta tiene número y recambio.",
+      ),
+      ...(mediaIds.has("tempo-r1-hero-a002.webp")
+        ? { image: mediaIds.get("tempo-r1-hero-a002.webp") }
+        : {}),
+      appearance: { mediaPosition: "end", reveal: "rise" },
+    },
+    {
+      blockType: "timeline",
+      heading: "Cómo se gana el derecho a venderlo",
+      lead: "Ningún robot se vende antes de cruzar sus puertas. Publicamos el estado real, no una fecha de marketing.",
+      items: [
+        {
+          label: "Concepto",
+          title: "Arquitectura congelada",
+          body: "Tres líneas y un solo lanzamiento: Tempo primero, en pádel.",
+          state: "done",
+        },
+        {
+          label: "EVT",
+          title: "Muestras de ingeniería",
+          body: "Se compra el core, se desmonta, se mide con radar y se prueba con guiones de pádel.",
+          state: "current",
+        },
+        {
+          label: "DVT",
+          title: "Validación de diseño",
+          body: "Atascos, deriva tras 500 bolas, entrada de polvo, térmica y caídas de transporte.",
+          state: "next",
+        },
+        {
+          label: "PVT",
+          title: "Validación de producción",
+          body: "El proceso que fabrica mil unidades iguales, no una unidad buena.",
+          state: "next",
+        },
+        {
+          label: "Piloto",
+          title: "100 unidades · 10.000 bolas",
+          body: "Solo entonces se congela un dato y se abre la reserva.",
+          state: "next",
+        },
+      ],
+      appearance: { background: "surface", reveal: "rise" },
     },
     {
       blockType: "featureGrid",
       heading: "Compromisos, no promesas",
       items: [
-        { title: "Físico primero", body: "Arrancar, pausar, velocidad, efecto y frecuencia funcionan sin cuenta ni teléfono. La app mejora la sesión; nunca la autoriza." },
-        { title: "Reparable por diseño", body: "Tolva, collar, tapa y batería los cambia el propio cliente. Se abre por módulos; no se desecha por averías." },
-        { title: "Se mide o no se afirma", body: "Cada cifra publicada lleva su estado: objetivo de diseño, dato de fábrica o verificado en banco. Sin humo." },
+        {
+          title: "Físico primero",
+          body: "Arrancar, pausar, velocidad, efecto y frecuencia funcionan sin cuenta ni teléfono. La app mejora la sesión; nunca la autoriza.",
+        },
+        {
+          title: "Pádel nativo",
+          body: "La bola de pádel bota distinto y vuelve de la pared. Las secuencias se calibran por pista, bola y unidad.",
+        },
+        {
+          title: "Se mide o no se afirma",
+          body: "Cada cifra publicada lleva su estado: objetivo de diseño, dato de fábrica o verificado en banco.",
+        },
       ],
-    },
-    {
-      blockType: "quote",
-      quote: "Cumplir antes de prometer.",
-      author: "Equipo Courvia",
-      appearance: { background: "surface", align: "center" },
+      appearance: { reveal: "rise" },
     },
     {
       blockType: "faq",
@@ -508,59 +602,139 @@ await seedComposedPage(
       items: [
         {
           question: "¿Cuándo se puede comprar?",
-          answer: richTextP("Cuando el robot supere sus fases de validación (DVT, PVT y piloto). Hasta entonces, lista de lanzamiento sin pago ni compromiso — y los primeros de la lista van primero."),
+          answer: richTextP(
+            "Cuando el robot supere DVT, PVT y un piloto real. Hasta entonces, lista de lanzamiento sin pago ni compromiso — y los primeros de la lista compran primero.",
+          ),
         },
         {
           question: "¿Qué deportes cubre?",
-          answer: richTextP("Pádel primero. El tenis llega tras su propia calibración y homologación, y el pickleball con hardware dedicado (Go) — nunca como conversión por software."),
+          answer: richTextP(
+            "Pádel primero. El tenis llega tras su propia calibración y homologación, y el pickleball con hardware dedicado (Go) — nunca como conversión por software.",
+          ),
         },
         {
           question: "¿Por qué no hay precios?",
-          answer: richTextP("Porque todavía no serían honestos. Publicamos precio cuando el coste real esté cerrado, sin descuentos teatrales sobre cifras infladas."),
+          answer: richTextP(
+            "Porque todavía no serían honestos. Publicamos precio cuando el coste real esté cerrado, sin descuentos teatrales sobre cifras infladas.",
+          ),
         },
       ],
     },
     {
       blockType: "ctaBand",
       heading: "Únete a la lista de lanzamiento",
-      body: "Sin pago y sin compromiso. Te contamos los hitos de validación según se cumplen.",
+      body: "Te contamos los hitos de validación según se cumplen. Sin pago y sin compromiso.",
       cta: [{ label: "Ir al lanzamiento", href: "/lanzamiento-tempo" }],
       appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
     },
   ],
   [
     {
-      blockType: "hero",
+      blockType: "stage",
       level: "h1",
-      eyebrow: "Training robots",
+      eyebrow: "Padel first",
       heading: "Your bandeja improves this week",
-      lead: "Tempo R1 opens the range: the accuracy-first padel robot, with lob, bandeja, víbora and wall play calibrated per ball and court. No account, no cloud: the remote rules.",
+      lead: "Tempo R1 opens the range: lob, bandeja, víbora and wall play calibrated per ball and per court. No account, no cloud, no phone — the remote rules.",
       ctas: [
         { label: "Meet Tempo R1", href: "/robots/tempo-r1" },
         { label: "Browse the range", href: "/robots" },
       ],
-      appearance: { spaceBlockStart: "xl", spaceBlockEnd: "xl" },
+      note: "Launch list open · no payment, no commitment",
+      ...(mediaIds.has("tempo-quickdock-system.webp")
+        ? { media: mediaIds.get("tempo-quickdock-system.webp") }
+        : {}),
+      appearance: {
+        width: "full",
+        height: "tall",
+        overlay: "strong",
+        spaceBlockStart: "none",
+        spaceBlockEnd: "none",
+      },
+    },
+    {
+      blockType: "statBand",
+      heading: "The numbers we are chasing",
+      items: [
+        { value: "≤16 kg", label: "Court-ready, battery included", note: "target" },
+        { value: "90–100", label: "Balls per load in the Daily hopper", note: "target" },
+        { value: "≤90 s", label: "From boot to first ball", note: "target" },
+        { value: "≤65 dBA", label: "One metre from the machine", note: "target" },
+      ],
+      appearance: { background: "surface", reveal: "rise" },
     },
     {
       blockType: "productShowcase",
       heading: "Three tempos. One direction.",
       products: allProducts,
-      appearance: { background: "surface" },
+      appearance: { reveal: "rise" },
+    },
+    {
+      blockType: "mediaText",
+      heading: "It opens by modules. It is never scrapped over a fault.",
+      body: richTextP(
+        "Hopper, collar, lid and battery are customer-replaceable; the hub swaps feeder, launcher and electronics. Captive fasteners, blind connectors and interlocks: every wearing part has a number and a spare.",
+      ),
+      ...(mediaIds.has("tempo-r1-hero-a002.webp")
+        ? { image: mediaIds.get("tempo-r1-hero-a002.webp") }
+        : {}),
+      appearance: { mediaPosition: "end", reveal: "rise" },
+    },
+    {
+      blockType: "timeline",
+      heading: "How the right to sell it is earned",
+      lead: "No robot goes on sale before crossing its gates. We publish the real state, not a marketing date.",
+      items: [
+        {
+          label: "Concept",
+          title: "Architecture frozen",
+          body: "Three lines and a single launch: Tempo first, in padel.",
+          state: "done",
+        },
+        {
+          label: "EVT",
+          title: "Engineering samples",
+          body: "The core is bought, stripped, radar-measured and run against padel scripts.",
+          state: "current",
+        },
+        {
+          label: "DVT",
+          title: "Design validation",
+          body: "Jams, drift after 500 balls, dust ingress, thermals and transport drops.",
+          state: "next",
+        },
+        {
+          label: "PVT",
+          title: "Production validation",
+          body: "The process that builds a thousand identical units, not one good unit.",
+          state: "next",
+        },
+        {
+          label: "Pilot",
+          title: "100 units · 10,000 balls",
+          body: "Only then does a figure freeze and the reservation open.",
+          state: "next",
+        },
+      ],
+      appearance: { background: "surface", reveal: "rise" },
     },
     {
       blockType: "featureGrid",
       heading: "Commitments, not promises",
       items: [
-        { title: "Physical first", body: "Start, pause, speed, spin and interval work without an account or a phone. The app improves the session; it never authorises it." },
-        { title: "Repairable by design", body: "Hopper, collar, lid and battery are customer-replaceable. It opens by modules; it is never thrown away over a fault." },
-        { title: "Measured or not claimed", body: "Every published figure carries its state: design target, factory claim or bench-verified. No hype." },
+        {
+          title: "Physical first",
+          body: "Start, pause, speed, spin and interval work without an account or a phone. The app improves the session; it never authorises it.",
+        },
+        {
+          title: "Native padel",
+          body: "A padel ball bounces differently and comes back off the wall. Sequences are calibrated per court, ball and unit.",
+        },
+        {
+          title: "Measured or not claimed",
+          body: "Every published figure carries its state: design target, factory claim or bench-verified.",
+        },
       ],
-    },
-    {
-      blockType: "quote",
-      quote: "Deliver before you promise.",
-      author: "Team Courvia",
-      appearance: { background: "surface", align: "center" },
+      appearance: { reveal: "rise" },
     },
     {
       blockType: "faq",
@@ -568,22 +742,28 @@ await seedComposedPage(
       items: [
         {
           question: "When can I buy one?",
-          answer: richTextP("Once the robot passes its validation gates (DVT, PVT and pilot). Until then, a launch list with no payment and no commitment — and the list goes first."),
+          answer: richTextP(
+            "Once the robot passes DVT, PVT and a real pilot. Until then, a launch list with no payment and no commitment — and the list buys first.",
+          ),
         },
         {
           question: "Which sports does it cover?",
-          answer: richTextP("Padel first. Tennis follows after its own calibration and homologation, and pickleball ships on dedicated hardware (Go) — never as a software conversion."),
+          answer: richTextP(
+            "Padel first. Tennis follows after its own calibration and homologation, and pickleball ships on dedicated hardware (Go) — never as a software conversion.",
+          ),
         },
         {
           question: "Why are there no prices?",
-          answer: richTextP("Because they wouldn't be honest yet. We publish prices once real costs are closed — no theatrical discounts on inflated figures."),
+          answer: richTextP(
+            "Because they would not be honest yet. We publish prices once real costs are closed — no theatrical discounts on inflated figures.",
+          ),
         },
       ],
     },
     {
       blockType: "ctaBand",
       heading: "Join the launch list",
-      body: "No payment, no commitment. We report validation milestones as they are met.",
+      body: "We report validation milestones as they are met. No payment, no commitment.",
       cta: [{ label: "Go to the launch", href: "/lanzamiento-tempo" }],
       appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
     },
@@ -745,12 +925,25 @@ await seedComposedPage(
   { es: "Lanzamiento Tempo R1", en: "Tempo R1 launch" },
   [
     {
-      blockType: "hero",
+      blockType: "stage",
       level: "h1",
       eyebrow: "Lista de lanzamiento",
       heading: "Tempo R1: el pádel, primero",
       lead: "Un robot accuracy-first que se valida antes de venderse: EVT, DVT, PVT y un piloto real preceden a cualquier preventa. La lista va primero y no cuesta nada.",
-      appearance: { background: "inverse" },
+      note: "Concepto 0.4 · sujeto a CAD, DVT y validación",
+      ...(mediaIds.has("tempo-r1-schematic.webp")
+        ? { media: mediaIds.get("tempo-r1-schematic.webp") }
+        : {}),
+      // Carbon is the engineering expression of the brand — a page about
+      // test gates is exactly where it belongs (brand book §5).
+      appearance: {
+        themeScope: "carbon",
+        width: "full",
+        height: "tall",
+        overlay: "strong",
+        spaceBlockStart: "none",
+        spaceBlockEnd: "none",
+      },
     },
     {
       blockType: "featureGrid",
@@ -760,6 +953,37 @@ await seedComposedPage(
         { title: "Base plantada", body: "El objetivo de estabilidad se mide: zona de impacto estable tras 500 bolas, sin deriva con el retroceso." },
         { title: "Packs Ready · Coach · Court", body: "El mismo robot con distinta intensidad de uso. Contenido y precio se publican cuando el coste real esté cerrado." },
       ],
+    },
+    {
+      blockType: "gallery",
+      heading: "El sistema, pieza a pieza",
+      items: [
+        ...(mediaIds.has("tempo-quickdock-system.webp")
+          ? [
+              {
+                image: mediaIds.get("tempo-quickdock-system.webp"),
+                caption: "QuickDock: la tolva Daily y el Coach Collar sobre la misma base rígida.",
+              },
+            ]
+          : []),
+        ...(mediaIds.has("tempo-r1-hero-a002.webp")
+          ? [
+              {
+                image: mediaIds.get("tempo-r1-hero-a002.webp"),
+                caption: "Base plantada, asa telescópica y batería en cassette.",
+              },
+            ]
+          : []),
+        ...(mediaIds.has("tempo-r1-schematic.webp")
+          ? [
+              {
+                image: mediaIds.get("tempo-r1-schematic.webp"),
+                caption: "Los objetivos de diseño, acotados. Ninguna cifra está verificada todavía.",
+              },
+            ]
+          : []),
+      ],
+      appearance: { columns: "3", background: "surface", reveal: "rise" },
     },
     {
       blockType: "waitlist",
@@ -789,12 +1013,23 @@ await seedComposedPage(
   ],
   [
     {
-      blockType: "hero",
+      blockType: "stage",
       level: "h1",
       eyebrow: "Launch list",
       heading: "Tempo R1: padel first",
       lead: "An accuracy-first robot validated before it is sold: EVT, DVT, PVT and a real pilot precede any preorder. The list goes first and costs nothing.",
-      appearance: { background: "inverse" },
+      note: "Concept 0.4 · subject to CAD, DVT and validation",
+      ...(mediaIds.has("tempo-r1-schematic.webp")
+        ? { media: mediaIds.get("tempo-r1-schematic.webp") }
+        : {}),
+      appearance: {
+        themeScope: "carbon",
+        width: "full",
+        height: "tall",
+        overlay: "strong",
+        spaceBlockStart: "none",
+        spaceBlockEnd: "none",
+      },
     },
     {
       blockType: "featureGrid",
@@ -804,6 +1039,37 @@ await seedComposedPage(
         { title: "Planted base", body: "Stability is a measured goal: a stable impact zone after 500 balls, no recoil drift." },
         { title: "Ready · Coach · Court packs", body: "The same robot at different intensities of use. Contents and price are published once real costs are closed." },
       ],
+    },
+    {
+      blockType: "gallery",
+      heading: "The system, part by part",
+      items: [
+        ...(mediaIds.has("tempo-quickdock-system.webp")
+          ? [
+              {
+                image: mediaIds.get("tempo-quickdock-system.webp"),
+                caption: "QuickDock: the Daily hopper and the Coach Collar on one rigid base.",
+              },
+            ]
+          : []),
+        ...(mediaIds.has("tempo-r1-hero-a002.webp")
+          ? [
+              {
+                image: mediaIds.get("tempo-r1-hero-a002.webp"),
+                caption: "Planted base, telescopic handle and a cassette battery.",
+              },
+            ]
+          : []),
+        ...(mediaIds.has("tempo-r1-schematic.webp")
+          ? [
+              {
+                image: mediaIds.get("tempo-r1-schematic.webp"),
+                caption: "The design targets, dimensioned. Not one figure is verified yet.",
+              },
+            ]
+          : []),
+      ],
+      appearance: { columns: "3", background: "surface", reveal: "rise" },
     },
     {
       blockType: "waitlist",

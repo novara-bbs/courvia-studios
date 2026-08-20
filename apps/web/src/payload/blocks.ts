@@ -45,6 +45,7 @@ function fieldToPayload(name: string, spec: FieldSpec): Field {
       return {
         name,
         type: "array",
+        required: spec.required ?? false,
         ...(spec.min !== undefined ? { minRows: spec.min } : {}),
         ...(spec.max !== undefined ? { maxRows: spec.max } : {}),
         fields: Object.entries(spec.of).map(([childName, child]) =>

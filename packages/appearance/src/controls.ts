@@ -110,6 +110,60 @@ export const CONTROLS = {
     attribute: "data-media-pos",
     css: null,
   },
+  /**
+   * Band height. A landing needs one or two moments that OWN the viewport;
+   * everything else stays on the rhythm scale. `svh` (small viewport height)
+   * because mobile browser chrome must not push the CTA below the fold.
+   */
+  height: {
+    values: ["auto", "tall", "full"],
+    default: "auto",
+    attribute: "data-height",
+    css: {
+      auto: "",
+      tall: "min-block-size: 62svh; display: grid; align-content: center;",
+      full: "min-block-size: 88svh; display: grid; align-content: center;",
+    },
+  },
+  /**
+   * Scrim over a section's background media. Mixed FROM the theme's own
+   * background role, so the veil is navy on volt and bone on carbon without
+   * the editor ever naming a colour — and text over media keeps its AA.
+   */
+  overlay: {
+    values: ["none", "soft", "strong", "gradient"],
+    default: "none",
+    attribute: "data-overlay",
+    css: {
+      none: "",
+      soft: "--cv-scrim: color-mix(in oklab, var(--cv-color-bg) 58%, transparent);",
+      strong: "--cv-scrim: color-mix(in oklab, var(--cv-color-bg) 82%, transparent);",
+      gradient:
+        "--cv-scrim: linear-gradient(to bottom, color-mix(in oklab, var(--cv-color-bg) 24%, transparent), color-mix(in oklab, var(--cv-color-bg) 92%, transparent));",
+    },
+  },
+  /**
+   * Scroll-linked entrance. Two rules make it safe rather than clever:
+   *
+   * 1. Only the animation NAME travels through the generated sheet; the
+   *    guards (`prefers-reduced-motion`, `@supports animation-timeline`)
+   *    live in sections.css.
+   * 2. Neither keyframe touches OPACITY. A view() timeline that never
+   *    advances — a page too short to scroll, a screenshot runner, a
+   *    browser quirk — would otherwise hold the section at its `from`
+   *    state and leave a blank band on a customer's screen. Transform-only
+   *    means the worst failure is a section sitting 24px low.
+   */
+  reveal: {
+    values: ["none", "rise", "settle"],
+    default: "none",
+    attribute: "data-reveal",
+    css: {
+      none: "",
+      rise: "--cv-reveal-name: cv-reveal-rise;",
+      settle: "--cv-reveal-name: cv-reveal-settle;",
+    },
+  },
   /** Nested brand theme for this section (CSS handled by tokens.css). */
   themeScope: {
     values: ["inherit", ...THEME_ALIAS_LIST],

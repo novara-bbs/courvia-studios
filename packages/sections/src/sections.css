@@ -103,6 +103,8 @@
 }
 
 .cv-media-text-media {
+  position: relative;
+  margin: 0;
   border-radius: var(--cv-radius-md);
   overflow: hidden;
 }
@@ -263,4 +265,349 @@
   padding: var(--cv-space-4);
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-sm);
+}
+
+/* ---------------------------------------------------------------- escena */
+
+/* Full-bleed media band. The media escapes the wrapper's inline padding with
+ * a logical negative inset (never left/right), so it reaches the viewport
+ * edge in LTR and RTL alike while the copy keeps its measure. */
+.cv-stage {
+  position: relative;
+  display: grid;
+  gap: var(--cv-space-4);
+  justify-items: start;
+  padding-block: var(--cv-space-12);
+}
+
+[data-align='center'] .cv-stage {
+  justify-items: center;
+}
+
+.cv-stage-media {
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc(var(--cv-space-6) * -1);
+  overflow: hidden;
+}
+
+.cv-stage-media img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* The veil the `overlay` control mixes from the theme's own background
+ * role; with overlay=none the variable is unset and nothing paints. */
+.cv-stage-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--cv-scrim, transparent);
+}
+
+/* On a stage the chip sits at the far block-end: the sticky header owns the
+ * top edge of the viewport. */
+.cv-stage .cv-asset-note {
+  inset-block-start: auto;
+  inset-inline-start: auto;
+  inset-block-end: var(--cv-space-3);
+  inset-inline-end: var(--cv-space-3);
+}
+
+.cv-stage-body {
+  position: relative;
+  display: grid;
+  gap: var(--cv-space-4);
+  justify-items: inherit;
+  max-inline-size: 28ch;
+}
+
+.cv-stage-lead,
+.cv-stage-note {
+  max-inline-size: 52ch;
+}
+
+/* The one place the display size earns its clamp: a stage headline is the
+ * page's thesis. `tight` is 1.0, which collides on uppercase multi-line
+ * settings, so the stage opens it just enough to breathe. */
+.cv-stage-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-display);
+  line-height: 1.04;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.cv-stage-lead {
+  color: var(--cv-color-text-muted);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+.cv-stage-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cv-space-3);
+}
+
+.cv-stage-ctas a {
+  text-decoration: none;
+}
+
+.cv-stage-note {
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cv-color-text-muted);
+}
+
+/* Compliance label over any asset that is not final product photography
+ * (evidence register E-028). Shared by every section that shows media. */
+.cv-asset-note {
+  position: absolute;
+  inset-block-start: var(--cv-space-2);
+  inset-inline-start: var(--cv-space-2);
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cv-color-text);
+  background: var(--cv-color-surface);
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-sm);
+  padding-block: var(--cv-space-1);
+  padding-inline: var(--cv-space-2);
+}
+
+/* ------------------------------------------------------- banda de cifras */
+
+.cv-stat-band-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  margin-block-end: var(--cv-space-6);
+}
+
+.cv-stat-band-list {
+  margin: 0;
+  display: grid;
+  gap: var(--cv-space-6);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.cv-stat {
+  display: grid;
+  gap: var(--cv-space-2);
+  padding-inline-start: var(--cv-space-4);
+  border-inline-start: 2px solid var(--cv-color-accent);
+}
+
+.cv-stat-value {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.cv-stat-label {
+  margin: 0;
+  display: grid;
+  gap: var(--cv-space-1);
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+.cv-stat-note {
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ---------------------------------------------------------------- hitos */
+
+.cv-timeline-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+}
+
+.cv-timeline-lead {
+  color: var(--cv-color-text-muted);
+  max-inline-size: 62ch;
+  margin-block-start: var(--cv-space-3);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+.cv-timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  margin-block-start: var(--cv-space-8);
+  display: grid;
+  gap: var(--cv-space-6);
+}
+
+@media (min-width: 680px) {
+  .cv-timeline-list {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  }
+}
+
+/* The rail: a hairline across the top of every step, with the marker
+ * sitting on it — the sequence reads at a glance, not from the numbers. */
+.cv-timeline-item {
+  position: relative;
+  padding-block-start: var(--cv-space-6);
+  padding-inline-end: var(--cv-space-4);
+  border-block-start: 1px solid var(--cv-color-border);
+}
+
+.cv-timeline-marker {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: 11px;
+  block-size: 11px;
+  border-radius: var(--cv-radius-pill);
+  transform: translateY(-50%);
+  background: var(--cv-color-border);
+}
+
+.cv-timeline-item[data-state='done'] .cv-timeline-marker {
+  background: var(--cv-color-fill-accent);
+}
+
+.cv-timeline-item[data-state='current'] .cv-timeline-marker {
+  background: var(--cv-color-fill-accent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--cv-color-accent) 28%, transparent);
+}
+
+.cv-timeline-label {
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--cv-color-text-muted);
+}
+
+.cv-timeline-item[data-state='current'] .cv-timeline-label {
+  color: var(--cv-color-text);
+}
+
+.cv-timeline-title {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-md);
+  margin-block: var(--cv-space-2);
+  text-wrap: balance;
+}
+
+.cv-timeline-body {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+/* -------------------------------------------------------------- galería */
+
+.cv-gallery-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  margin-block-end: var(--cv-space-6);
+}
+
+.cv-gallery-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--cv-space-4);
+}
+
+@media (min-width: 680px) {
+  .cv-gallery-grid {
+    grid-template-columns: repeat(var(--cv-section-columns, 3), minmax(0, 1fr));
+  }
+}
+
+.cv-gallery-item figure {
+  margin: 0;
+  display: grid;
+  gap: var(--cv-space-2);
+}
+
+/* One frame ratio for every tile: mixed portrait/landscape assets otherwise
+ * stagger the captions down the row. `contain` over the surface role letters
+ * a portrait in instead of cropping a product shot. */
+.cv-gallery-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--cv-radius-md);
+  overflow: hidden;
+  background: var(--cv-color-surface);
+}
+
+.cv-gallery-frame img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cv-gallery-item figcaption {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+/* ---------------------------------------------------------------- vídeo */
+
+.cv-embed {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--cv-radius-md);
+  overflow: hidden;
+  background: var(--cv-color-surface);
+}
+
+.cv-embed iframe {
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+  display: block;
+}
+
+/* ------------------------------------------------------------- entradas */
+
+/* Scroll-linked entrances. The generated sheet only carries the animation
+ * NAME; both guards live here, so a browser without scroll-driven
+ * animations — or a visitor who asked for less motion — sees the section
+ * plainly instead of a band that never fades in. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    [data-reveal] {
+      animation: var(--cv-reveal-name) linear both;
+      animation-timeline: view();
+      animation-range: entry 8% cover 30%;
+    }
+  }
+}
+
+/* Transform only — see the `reveal` control: a stalled scroll timeline must
+ * never be able to hide a section. */
+@keyframes cv-reveal-rise {
+  from {
+    transform: translateY(var(--cv-space-6));
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes cv-reveal-settle {
+  from {
+    transform: scale(0.985);
+  }
+  to {
+    transform: none;
+  }
 }

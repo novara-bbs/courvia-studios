@@ -13,13 +13,18 @@ describe("registry completeness", () => {
   it("registers the launch sections under their stored type strings", () => {
     expect(Object.keys(SECTIONS).sort()).toEqual([
       "ctaBand",
+      "embed",
       "faq",
       "featureGrid",
+      "gallery",
       "hero",
       "mediaText",
       "productShowcase",
       "quote",
       "richText",
+      "stage",
+      "statBand",
+      "timeline",
       "waitlist",
     ]);
   });

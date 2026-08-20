@@ -32,9 +32,13 @@ export default async function HomePage({ params }: PageArgs) {
 
   const page = await getPage(HOME_SLUG, locale);
   if (page !== null) {
+    const tCatalog = await getTranslations({ locale, namespace: "catalog" });
     return (
       <main className="page page--composed">
-        <SectionList blocks={page.blocks} ctx={makeRenderContext(false, region)} />
+        <SectionList
+          blocks={page.blocks}
+          ctx={makeRenderContext(false, region, tCatalog("conceptRender"))}
+        />
       </main>
     );
   }

@@ -29,6 +29,12 @@ export interface RenderContext {
     productSlug?: string;
   }) => ReactNode;
   /**
+   * The localized "concept render" label. Sections must show it over any
+   * non-final asset (E-028) but may not hold user-visible strings, so the
+   * app injects the translated word here.
+   */
+  conceptLabel?: string;
+  /**
    * Region-aware link resolution: content stores REGION-RELATIVE paths
    * ("/robots"), and the app prefixes the active region — one page serves
    * every region without baked-in "/es/..." links. Absent = hrefs pass
