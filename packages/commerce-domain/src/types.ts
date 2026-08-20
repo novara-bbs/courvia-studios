@@ -1,5 +1,5 @@
 /**
- * Core commerce domain types (CLAUDE.md §10.1).
+ * Core commerce domain types (docs/data-model.md §10.1).
  *
  * Cross-cutting vocabulary (Sport, LocaleId, MarketId, Currency, Incoterm)
  * lives in @courvia/platform: i18n and the CMS need it too and must not
@@ -45,6 +45,15 @@ export interface Spec {
   unit?: string;
 }
 
+/** A media-library image, resolved to what a renderer or og:image needs. */
+export interface ProductImage {
+  /** URL as the CMS serves it (may be origin-relative). */
+  url: string;
+  alt: string;
+  width?: number;
+  height?: number;
+}
+
 export interface Product {
   id: string;
   slug: string;
@@ -55,6 +64,8 @@ export interface Product {
   excerpt?: string;
   /** Opaque rich text; rendered through the injected serializer. */
   description?: unknown;
+  /** In display order; the first one is the primary/OG image. */
+  images?: ProductImage[];
   specs: Spec[];
   warrantyMonths?: number;
   variantIds: string[];
@@ -67,6 +78,8 @@ export interface ProductSummary {
   title: string;
   sports: Sport[];
   excerpt?: string;
+  /** Primary image, when the product has one. */
+  image?: ProductImage;
   /** Cheapest active variant price in the requested market, if any. */
   fromPrice: Money | null;
 }
@@ -158,7 +171,7 @@ export interface Address {
   country: string;
 }
 
-/** Filter for catalog listing pages and the comparator (§12). */
+/** Filter for catalog listing pages and the comparator (docs/product.md). */
 export interface ProductFilter {
   sport?: Sport;
   category?: string;

@@ -4,6 +4,8 @@ import * as migration_20260819_151837_catalog from './20260819_151837_catalog';
 import * as migration_20260819_172444_spec_label from './20260819_172444_spec_label';
 import * as migration_20260819_210633_commerce_orders from './20260819_210633_commerce_orders';
 import * as migration_20260819_223413_outbox_effects from './20260819_223413_outbox_effects';
+import * as migration_20260820_073808_nav_and_product_media from './20260820_073808_nav_and_product_media';
+import * as migration_20260820_075636_leads_funnel_outbox from './20260820_075636_leads_funnel_outbox';
 
 export const migrations = [
   {
@@ -34,6 +36,16 @@ export const migrations = [
   {
     up: migration_20260819_223413_outbox_effects.up,
     down: migration_20260819_223413_outbox_effects.down,
-    name: '20260819_223413_outbox_effects'
+    name: '20260819_223413_outbox_effects',
+  },
+  {
+    up: migration_20260820_073808_nav_and_product_media.up,
+    down: migration_20260820_073808_nav_and_product_media.down,
+    name: '20260820_073808_nav_and_product_media',
+  },
+  {
+    up: migration_20260820_075636_leads_funnel_outbox.up,
+    down: migration_20260820_075636_leads_funnel_outbox.down,
+    name: '20260820_075636_leads_funnel_outbox'
   },
 ];

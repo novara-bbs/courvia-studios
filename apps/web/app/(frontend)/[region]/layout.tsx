@@ -10,6 +10,8 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { SiteFooter } from "../../../src/chrome/site-footer";
+import { SiteHeader } from "../../../src/chrome/site-header";
 import { setRequestRegion } from "../../../src/i18n/request-region";
 import { OrganizationJsonLd } from "../../../src/seo/organization-json-ld";
 import { siteUrl } from "../../../src/seo/site-url";
@@ -43,6 +45,12 @@ export async function generateMetadata({
     metadataBase: new URL(siteUrl()),
     title: { default: t("title"), template: "%s · Courvia" },
     description: t("description"),
+    openGraph: {
+      title: t("title"),
+      description: t("description"),
+      siteName: "Courvia",
+      type: "website",
+    },
   };
 }
 
@@ -65,8 +73,20 @@ export default async function RegionLayout({ children, params }: LayoutArgs) {
       className={fontClassesFor(theme, def.locale)}
     >
       <body>
-        {children}
+        <SiteHeader region={region} />
+        <div id="contenido">{children}</div>
+        <SiteFooter region={region} />
         <OrganizationJsonLd />
+        {/* Cookieless analytics: no banner needed (docs/markets.md). GA4
+            stays out until a consent banner exists — never before. */}
+        {process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN === undefined ||
+        process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN === "" ? null : (
+          <script
+            defer
+            data-domain={process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN}
+            src="https://plausible.io/js/script.js"
+          />
+        )}
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
 import { format, type Money } from "@courvia/commerce-domain";
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -8,6 +9,7 @@ import { getRobot } from "../../../../../src/catalog/get-catalog";
 import { makeRenderContext } from "../../../../../src/content/render-context";
 import { setRequestRegion } from "../../../../../src/i18n/request-region";
 import { LeadForm } from "../../../../../src/leads/lead-form";
+import { ProductJsonLd } from "../../../../../src/seo/product-json-ld";
 import { regionAlternates } from "../../../../../src/seo/region-alternates";
 
 type PageArgs = { params: Promise<{ region: string; slug: string }> };
@@ -21,10 +23,23 @@ export async function generateMetadata({ params }: PageArgs): Promise<Metadata> 
   if (!isRegionId(region)) return {};
   const detail = await getRobot(slug, region);
   if (detail === null) return {};
+  const image = detail.product.images?.[0];
   return {
     title: detail.product.title,
     description: detail.product.excerpt,
     alternates: regionAlternates(region, `/robots/${detail.product.slug}`),
+    openGraph: {
+      title: detail.product.title,
+      description: detail.product.excerpt,
+      url: `/${region}/robots/${detail.product.slug}`,
+      siteName: "Courvia",
+      type: "website",
+      // Relative URLs resolve against metadataBase (set in the layout).
+      ...(image === undefined
+        ? {}
+        : { images: [{ url: image.url, width: image.width, height: image.height, alt: image.alt }] }),
+    },
+    twitter: { card: image === undefined ? "summary" : "summary_large_image" },
   };
 }
 
@@ -58,10 +73,24 @@ export default async function RobotDetailPage({ params }: PageArgs) {
         )}
       </header>
 
+      {product.images === undefined || product.images.length === 0 ? null : (
+        <figure className="pdp-media">
+          <Image
+            src={product.images[0]!.url}
+            alt={product.images[0]!.alt}
+            width={product.images[0]!.width ?? 1600}
+            height={product.images[0]!.height ?? 1200}
+            sizes="(max-width: 860px) 100vw, 860px"
+            priority
+          />
+        </figure>
+      )}
+
       <section className="pdp-variants" aria-labelledby="pdp-variants-title">
         <h2 id="pdp-variants-title">{t("variantsTitle")}</h2>
         <div className="table-scroll">
           <table>
+            <caption className="visually-hidden">{t("variantsTitle")}</caption>
             <thead>
               <tr>
                 <th scope="col">{t("variantSku")}</th>
@@ -126,17 +155,29 @@ export default async function RobotDetailPage({ params }: PageArgs) {
           region={region}
           productId={product.id}
           sourcePath={`/${region}/robots/${product.slug}`}
+          privacyHref={`/${region}/privacidad`}
+          variants={variants
+            .filter((offer) => offer.price !== null)
+            .map((offer) => ({
+              sku: offer.sku,
+              label: `${offer.sku} · ${t(`sport.${offer.sport}`)}`,
+            }))}
           labels={{
             title: t("leadTitle"),
             name: t("leadName"),
             email: t("leadEmail"),
             message: t("leadMessage"),
             consent: t("leadConsent"),
+            privacy: t("leadPrivacy"),
             submit: t("leadSubmit"),
             invalid: t("leadInvalid"),
+            variant: t("leadVariant"),
+            variantAny: t("leadVariantAny"),
           }}
         />
       </section>
+
+      <ProductJsonLd detail={detail} region={region} />
     </main>
   );
 }

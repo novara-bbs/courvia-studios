@@ -51,6 +51,19 @@
   gap: var(--cv-space-3);
 }
 
+/* Long-form rhythm: a heading opens its section, so it needs more air above
+ * than the uniform grid gap provides. */
+.cv-prose h2 {
+  margin-block-start: var(--cv-space-4);
+}
+
+.cv-prose h1 {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-tight);
+  margin-block-end: var(--cv-space-2);
+}
+
 .cv-cta-band {
   display: grid;
   gap: var(--cv-space-3);

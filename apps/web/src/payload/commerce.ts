@@ -40,7 +40,7 @@ export const Orders: CollectionConfig = {
     group: "Comercio",
     defaultColumns: ["id", "status", "market", "totalAmount", "email", "createdAt"],
     description:
-      "SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (§10.2).",
+      "SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (docs/orders-state-machine.md).",
   },
   access: serverOnly,
   fields: [
@@ -148,11 +148,18 @@ export const Outbox: CollectionConfig = {
       name: "effect",
       type: "select",
       required: true,
-      options: Object.entries(SIDE_EFFECT_EXECUTION)
-        .filter(([, execution]) => execution === "outbox")
-        .map(([effect]) => effect),
+      options: [
+        ...Object.entries(SIDE_EFFECT_EXECUTION)
+          .filter(([, execution]) => execution === "outbox")
+          .map(([effect]) => effect),
+        // Non-payment effects dispatched through the same queue. The payment
+        // domain never emits these; they come from their own hooks/actions.
+        "notify_sales_lead",
+      ],
     },
-    { name: "order", type: "relationship", relationTo: "orders", required: true, index: true },
+    // Optional: payment effects carry an order, lead effects carry a lead.
+    { name: "order", type: "relationship", relationTo: "orders", index: true },
+    { name: "lead", type: "relationship", relationTo: "leads", index: true },
     {
       name: "status",
       type: "select",

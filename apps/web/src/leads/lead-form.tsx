@@ -15,8 +15,19 @@ export interface LeadFormLabels {
   email: string;
   message: string;
   consent: string;
+  /** Visible text of the privacy-policy link appended to the consent line. */
+  privacy: string;
   submit: string;
   invalid: string;
+  /** Label of the configuration select; only used when variants are passed. */
+  variant?: string;
+  /** The "no preference" option of the configuration select. */
+  variantAny?: string;
+}
+
+export interface LeadFormVariant {
+  sku: string;
+  label: string;
 }
 
 const initialState: LeadFormState = { status: "idle" };
@@ -27,12 +38,18 @@ export function LeadForm({
   productId,
   sourcePath,
   sportInterest,
+  privacyHref,
+  variants,
 }: {
   labels: LeadFormLabels;
   region: string;
   productId?: string;
   sourcePath: string;
   sportInterest?: string;
+  privacyHref: string;
+  /** Purchasable configurations of the product, so a "Drill Pro" lead keeps
+   *  the T/P/PB intent the variants table just showed. */
+  variants?: LeadFormVariant[];
 }) {
   const [state, formAction, pending] = useActionState(createLead, initialState);
 
@@ -80,13 +97,31 @@ export function LeadForm({
           defaultValue={state.values?.email ?? ""}
         />
       </label>
+      {variants === undefined || variants.length === 0 ? null : (
+        <label>
+          <span>{labels.variant}</span>
+          <select name="variantSku" defaultValue="">
+            <option value="">{labels.variantAny}</option>
+            {variants.map((variant) => (
+              <option key={variant.sku} value={variant.sku}>
+                {variant.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label>
         <span>{labels.message}</span>
         <textarea name="message" rows={4} maxLength={1000} defaultValue={state.values?.message ?? ""} />
       </label>
       <label className="lead-form-consent">
         <input type="checkbox" name="consent" required />
-        <span>{labels.consent}</span>
+        <span>
+          {labels.consent}{" "}
+          <a href={privacyHref} target="_blank" rel="noopener">
+            {labels.privacy}
+          </a>
+        </span>
       </label>
 
       {state.status === "invalid" ? (

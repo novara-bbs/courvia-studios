@@ -1,6 +1,6 @@
 /**
  * Edge proxy (Next 16's middleware). One job: paths without a region prefix
- * get one. Negotiation SUGGESTS, never forces (CLAUDE.md §9): deep links to
+ * get one. Negotiation SUGGESTS, never forces (docs/markets.md §9, ADR-020): deep links to
  * a region are never rewritten, and the selector in the footer lets anyone
  * switch — this only picks a sensible landing for prefix-less URLs.
  */

@@ -35,6 +35,7 @@ import type {
   Product,
   ProductDetail,
   ProductFilter,
+  ProductImage,
   ProductSummary,
   ReturnInput,
   ReturnRequest,
@@ -56,8 +57,18 @@ interface ProductDoc {
   sports: Sport[];
   excerpt?: string | null;
   description?: unknown;
+  /** Upload relation; ids at depth 0, resolved via findImages(). */
+  images?: Array<number | string | { id: number | string }> | null;
   specs?: Array<{ key: string; label?: string | null; value: string; unit?: string | null }> | null;
   warrantyMonths?: number | null;
+}
+
+interface MediaDoc {
+  id: number | string;
+  url?: string | null;
+  alt?: string | null;
+  width?: number | null;
+  height?: number | null;
 }
 
 interface VariantDoc {
@@ -96,7 +107,7 @@ function toSpecs(docSpecs: ProductDoc["specs"]): Spec[] {
   }));
 }
 
-function toProduct(doc: ProductDoc, variantIds: string[]): Product {
+function toProduct(doc: ProductDoc, variantIds: string[], images: ProductImage[]): Product {
   return {
     id: String(doc.id),
     slug: doc.slug,
@@ -106,6 +117,7 @@ function toProduct(doc: ProductDoc, variantIds: string[]): Product {
     ...(doc.description === null || doc.description === undefined
       ? {}
       : { description: doc.description }),
+    ...(images.length > 0 ? { images } : {}),
     specs: toSpecs(doc.specs),
     ...(doc.warrantyMonths === null || doc.warrantyMonths === undefined
       ? {}
@@ -184,6 +196,36 @@ export class PayloadCommerceService implements CommerceService {
     return money(doc.amount, MARKET_DEFINITIONS[doc.market].currency);
   }
 
+  /** Resolves media-relation ids to renderable images, preserving the
+   *  document's display order and dropping files without a served URL. */
+  private async findImages(ids: readonly string[]): Promise<Map<string, ProductImage>> {
+    if (ids.length === 0) return new Map();
+    const result = await this.payload.find({
+      collection: "media",
+      where: { id: { in: ids.map(Number) } } as Where,
+      locale: this.locale,
+      limit: 100,
+      depth: 0,
+      overrideAccess: true,
+    });
+    const images = new Map<string, ProductImage>();
+    for (const doc of result.docs as unknown as MediaDoc[]) {
+      if (typeof doc.url !== "string" || doc.url === "") continue;
+      images.set(String(doc.id), {
+        url: doc.url,
+        alt: doc.alt ?? "",
+        ...(typeof doc.width === "number" ? { width: doc.width } : {}),
+        ...(typeof doc.height === "number" ? { height: doc.height } : {}),
+      });
+    }
+    return images;
+  }
+
+  /** The doc's image ids in display order. */
+  private static imageIds(doc: ProductDoc): string[] {
+    return (doc.images ?? []).map(relationId);
+  }
+
   async getProductDetail(slug: string, market: MarketId): Promise<ProductDetail | null> {
     const result = await this.payload.find({
       collection: "products",
@@ -198,14 +240,19 @@ export class PayloadCommerceService implements CommerceService {
 
     const variantDocs = await this.findVariants([String(doc.id)]);
     const variantIds = variantDocs.map((v) => String(v.id));
-    const [prices, availability] = await Promise.all([
+    const imageIds = PayloadCommerceService.imageIds(doc);
+    const [prices, availability, imagesById] = await Promise.all([
       this.findPrices(variantIds, market),
       this.findInventory(variantIds),
+      this.findImages(imageIds),
     ]);
     const priceByVariant = new Map(prices.map((p) => [relationId(p.variant), this.priceToMoney(p)]));
+    const images = imageIds
+      .map((id) => imagesById.get(id))
+      .filter((image): image is ProductImage => image !== undefined);
 
     return {
-      product: toProduct(doc, variantIds),
+      product: toProduct(doc, variantIds, images),
       variants: variantDocs.map((variantDoc) => ({
         ...toVariant(variantDoc),
         price: priceByVariant.get(String(variantDoc.id)) ?? null,
@@ -258,14 +305,24 @@ export class PayloadCommerceService implements CommerceService {
       }, new Map<string, Money>());
     }
 
-    return docs.map((doc) => ({
-      id: String(doc.id),
-      slug: doc.slug,
-      title: doc.title,
-      sports: doc.sports ?? [],
-      ...(doc.excerpt ? { excerpt: doc.excerpt } : {}),
-      fromPrice: fromPriceByProduct.get(String(doc.id)) ?? null,
-    }));
+    // One media query for the whole grid: only each product's FIRST image.
+    const firstImageIds = docs
+      .map((doc) => PayloadCommerceService.imageIds(doc)[0])
+      .filter((id): id is string => id !== undefined);
+    const imagesById = await this.findImages(firstImageIds);
+
+    return docs.map((doc) => {
+      const image = imagesById.get(PayloadCommerceService.imageIds(doc)[0] ?? "");
+      return {
+        id: String(doc.id),
+        slug: doc.slug,
+        title: doc.title,
+        sports: doc.sports ?? [],
+        ...(doc.excerpt ? { excerpt: doc.excerpt } : {}),
+        ...(image === undefined ? {} : { image }),
+        fromPrice: fromPriceByProduct.get(String(doc.id)) ?? null,
+      };
+    });
   }
 
   async getAvailability(skus: readonly string[]): Promise<Availability[]> {

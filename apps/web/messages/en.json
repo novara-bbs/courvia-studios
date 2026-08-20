@@ -7,8 +7,8 @@
     "eyebrow": "Training robots",
     "heading": "Your backhand improves this week",
     "lead": "Programmable drills, 140 balls per hopper and up to 6 hours per charge. A sparring partner that never tires: you set the shot, the tempo and the spin.",
-    "ctaPrimary": "Reserve Drill Pro",
-    "ctaSecondary": "Browse drills",
+    "ctaPrimary": "Choose your robot",
+    "ctaSecondary": "Compare models",
     "pillarsTitle": "One system, three sports",
     "pillarTenis": "Tennis",
     "pillarTenisBody": "Up to 110 km/h with topspin. Calibrated for fast-court bounce.",
@@ -20,11 +20,21 @@
   },
   "nav": {
     "regionSelector": "Country & language",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "mainNav": "Main navigation"
+  },
+  "footer": {
+    "tagline": "Training robots for tennis, padel and pickleball. Designed in Spain."
   },
   "notFound": {
     "title": "Out of bounds",
     "body": "This page does not exist or has moved.",
+    "back": "Back to home"
+  },
+  "error": {
+    "title": "Something broke",
+    "body": "It's not you — the error is on our side. Try again in a few seconds.",
+    "retry": "Try again",
     "back": "Back to home"
   },
   "catalog": {
@@ -51,10 +61,24 @@
     "leadName": "Name",
     "leadEmail": "Email",
     "leadMessage": "Where do you play, and what do you want to improve? (optional)",
+    "leadVariant": "Configuration",
+    "leadVariantAny": "No preference",
     "leadConsent": "I agree that Courvia may contact me about this request. No lists, no spam.",
+    "leadPrivacy": "Privacy policy",
     "leadSubmit": "Send request",
     "leadInvalid": "Check the name and email — something doesn't add up.",
     "notSoldHere": "Not sold here"
+  },
+  "compare": {
+    "title": "Compare the robots",
+    "lead": "The same rows for every model. If it isn't measured, it isn't claimed.",
+    "colFeature": "Feature",
+    "rowPrice": "Price",
+    "rowSports": "Sports",
+    "rowWarranty": "Warranty",
+    "warrantyValue": "{months} months",
+    "rowCta": "Product page",
+    "cta": "View details"
   },
   "thanks": {
     "title": "Got it",

@@ -3,7 +3,7 @@
  * interface; adapters (commerce-payload today, possibly commerce-medusa
  * some day) implement it.
  *
- * Kept deliberately small, but sized to the pages §12 actually specifies:
+ * Kept deliberately small, but sized to the pages docs/product.md actually specifies:
  * every route is slug-based, the facet listing and the comparator need a
  * list call, and availability is batched — one call per SKU would make the
  * comparator N+1.

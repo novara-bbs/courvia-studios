@@ -1,5 +1,5 @@
 /* App shell — semantic tokens only (--cv-*), logical properties from day one
- * so RTL needs no refactor (CLAUDE.md §5/§9). */
+ * so RTL needs no refactor (CLAUDE.md §5 · docs/markets.md §9). */
 
 * {
   margin: 0;
@@ -41,6 +41,15 @@ body {
   font-size: var(--cv-font-size-md);
   line-height: var(--cv-font-lineHeight-body);
   -webkit-font-smoothing: antialiased;
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .page {
@@ -94,13 +103,6 @@ code {
   align-items: center;
 }
 
-.foot {
-  color: var(--cv-color-text-muted);
-  font-size: var(--cv-font-size-sm);
-  border-block-start: 1px solid var(--cv-color-border);
-  padding-block-start: var(--cv-space-4);
-}
-
 .pillars {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -129,6 +131,120 @@ code {
 .region-selector a[aria-current='true'] {
   color: var(--cv-color-text);
   border-block-end: 2px solid var(--cv-color-accent);
+}
+
+/* --------------------------------------------------------------- chrome */
+
+.skip-link {
+  position: absolute;
+  inset-block-start: var(--cv-space-2);
+  inset-inline-start: var(--cv-space-2);
+  z-index: 20;
+  padding-block: var(--cv-space-2);
+  padding-inline: var(--cv-space-3);
+  background: var(--cv-color-accent);
+  color: var(--cv-color-accent-contrast);
+  border-radius: var(--cv-radius-sm);
+  font-size: var(--cv-font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - var(--cv-space-4)));
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+.site-header {
+  border-block-end: 1px solid var(--cv-color-border);
+  background: var(--cv-color-bg);
+}
+
+.site-header-inner {
+  max-width: var(--cv-breakpoint-xl);
+  margin-inline: auto;
+  padding-block: var(--cv-space-4);
+  padding-inline: var(--cv-space-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-4);
+}
+
+.wordmark {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-md);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cv-color-text);
+  text-decoration: none;
+}
+
+.wordmark-ball {
+  display: inline-block;
+  inline-size: 0.4em;
+  block-size: 0.4em;
+  background: var(--cv-color-accent);
+  border-radius: var(--cv-radius-pill);
+  margin-inline-start: 0.15em;
+}
+
+.site-nav {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cv-space-4);
+}
+
+.site-nav a {
+  color: var(--cv-color-text);
+  text-decoration: none;
+  font-size: var(--cv-font-size-sm);
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible {
+  color: var(--cv-color-link);
+}
+
+.site-footer {
+  border-block-start: 1px solid var(--cv-color-border);
+  background: var(--cv-color-surface);
+  margin-block-start: var(--cv-space-16);
+}
+
+.site-footer-inner {
+  max-width: var(--cv-breakpoint-xl);
+  margin-inline: auto;
+  padding-block: var(--cv-space-8);
+  padding-inline: var(--cv-space-6);
+  display: grid;
+  gap: var(--cv-space-4);
+}
+
+.site-footer-tagline {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  max-width: 62ch;
+}
+
+.site-footer-links {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cv-space-4);
+}
+
+.site-footer-links a {
+  color: var(--cv-color-link);
+  text-decoration: none;
+  font-size: var(--cv-font-size-sm);
+}
+
+.site-footer-links a:hover,
+.site-footer-links a:focus-visible {
+  text-decoration: underline;
 }
 
 /* ------------------------------------------------------------- catálogo */
@@ -167,6 +283,21 @@ code {
   border-color: var(--cv-color-accent);
 }
 
+.catalog-card-media {
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--cv-radius-sm);
+  margin-block-end: var(--cv-space-3);
+  background: var(--cv-color-bg);
+}
+
+.catalog-card-media img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
 .catalog-card h2 {
   font-size: var(--cv-font-size-md);
   margin-block-end: var(--cv-space-2);
@@ -196,6 +327,55 @@ code {
   color: var(--cv-color-text-muted);
 }
 
+/* ----------------------------------------------------------- comparador */
+
+.compare-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--cv-font-size-sm);
+}
+
+.compare-table th,
+.compare-table td {
+  text-align: start;
+  vertical-align: top;
+  padding-block: var(--cv-space-3);
+  padding-inline-end: var(--cv-space-4);
+  border-block-end: 1px solid var(--cv-color-border);
+  min-inline-size: 140px;
+}
+
+.compare-table thead th {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-md);
+}
+
+.compare-table thead a {
+  color: var(--cv-color-text);
+  text-decoration: none;
+}
+
+.compare-table thead a:hover,
+.compare-table thead a:focus-visible {
+  color: var(--cv-color-link);
+}
+
+.compare-table tbody th {
+  color: var(--cv-color-text-muted);
+  font-weight: 500;
+}
+
+.compare-cta {
+  color: var(--cv-color-link);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.compare-cta:hover,
+.compare-cta:focus-visible {
+  text-decoration: underline;
+}
+
 /* ------------------------------------------------------------------ PDP */
 
 .pdp-head {
@@ -213,6 +393,19 @@ code {
 .pdp-description,
 .pdp-lead {
   margin-block-end: var(--cv-space-6);
+}
+
+.pdp-media {
+  margin-block-end: var(--cv-space-6);
+  border-radius: var(--cv-radius-md);
+  overflow: hidden;
+  max-inline-size: 860px;
+}
+
+.pdp-media img {
+  inline-size: 100%;
+  block-size: auto;
+  display: block;
 }
 
 .table-scroll {
@@ -299,6 +492,7 @@ code {
 
 .lead-form input[type='text'],
 .lead-form input[type='email'],
+.lead-form select,
 .lead-form textarea {
   font: inherit;
   color: var(--cv-color-text);
@@ -310,6 +504,7 @@ code {
 }
 
 .lead-form input:focus-visible,
+.lead-form select:focus-visible,
 .lead-form textarea:focus-visible {
   outline: 2px solid var(--cv-color-accent);
   outline-offset: 1px;
@@ -353,6 +548,60 @@ code {
 .lead-form button:disabled {
   opacity: 0.6;
   cursor: progress;
+}
+
+/* ------------------------------------------------------ error y esqueleto */
+
+.error-retry {
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  padding-block: var(--cv-space-2);
+  padding-inline: var(--cv-space-4);
+  background: var(--cv-color-fill-accent);
+  color: var(--cv-color-on-fill-accent);
+}
+
+.skeleton {
+  background: var(--cv-color-surface);
+  border-radius: var(--cv-radius-sm);
+  animation: skeleton-pulse 1.2s var(--cv-motion-easing-standard) infinite alternate;
+}
+
+@keyframes skeleton-pulse {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.skeleton-title {
+  block-size: var(--cv-space-8);
+  max-inline-size: 320px;
+}
+
+.skeleton-lead {
+  block-size: var(--cv-space-4);
+  max-inline-size: 520px;
+}
+
+.skeleton-card {
+  block-size: 180px;
+}
+
+.skeleton-block {
+  block-size: 120px;
 }
 
 /* ----------------------------------------------------- barra de borrador */

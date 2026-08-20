@@ -7,8 +7,8 @@
     "eyebrow": "Robots de entrenamiento",
     "heading": "Tu revés mejora esta semana",
     "lead": "Rutinas programables, 140 pelotas por carga y hasta 6 horas de sesión. El sparring que no se cansa: tú decides el golpe, la frecuencia y el efecto.",
-    "ctaPrimary": "Reservar Drill Pro",
-    "ctaSecondary": "Ver rutinas",
+    "ctaPrimary": "Elige tu robot",
+    "ctaSecondary": "Compara modelos",
     "pillarsTitle": "Un sistema, tres deportes",
     "pillarTenis": "Tenis",
     "pillarTenisBody": "Hasta 110 km/h con topspin. Calibrado para bote de pista rápida.",
@@ -20,11 +20,21 @@
   },
   "nav": {
     "regionSelector": "País e idioma",
-    "skipToContent": "Saltar al contenido"
+    "skipToContent": "Saltar al contenido",
+    "mainNav": "Navegación principal"
+  },
+  "footer": {
+    "tagline": "Robots de entrenamiento para tenis, pádel y pickleball. Diseñados en España."
   },
   "notFound": {
     "title": "Fuera de pista",
     "body": "Esta página no existe o cambió de sitio.",
+    "back": "Volver al inicio"
+  },
+  "error": {
+    "title": "Algo ha fallado",
+    "body": "No eres tú: es un error nuestro. Inténtalo de nuevo en unos segundos.",
+    "retry": "Reintentar",
     "back": "Volver al inicio"
   },
   "catalog": {
@@ -51,10 +61,24 @@
     "leadName": "Nombre",
     "leadEmail": "Email",
     "leadMessage": "¿Dónde juegas y qué quieres mejorar? (opcional)",
+    "leadVariant": "Configuración",
+    "leadVariantAny": "Sin preferencia",
     "leadConsent": "Acepto que Courvia me contacte sobre esta solicitud. Sin listas, sin spam.",
+    "leadPrivacy": "Política de privacidad",
     "leadSubmit": "Enviar solicitud",
     "leadInvalid": "Revisa el nombre y el email: algo no cuadra.",
     "notSoldHere": "No disponible aquí"
+  },
+  "compare": {
+    "title": "Compara los robots",
+    "lead": "Las mismas filas para todos los modelos. Lo que no se mide, no se afirma.",
+    "colFeature": "Característica",
+    "rowPrice": "Precio",
+    "rowSports": "Deportes",
+    "rowWarranty": "Garantía",
+    "warrantyValue": "{months} meses",
+    "rowCta": "Ficha de producto",
+    "cta": "Ver ficha"
   },
   "thanks": {
     "title": "Recibido",

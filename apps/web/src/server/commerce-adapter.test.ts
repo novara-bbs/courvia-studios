@@ -169,6 +169,45 @@ if (hasDb && dbIsDisposable) {
     });
   });
 
+  describe("checkout expiry sweep", () => {
+    it("expires a stale pending_payment checkout and releases its reservation", async () => {
+      const { getCommerce } = await loadContainer();
+      const { expireStaleCheckouts } = await import("@courvia/commerce-payload");
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+
+      const before = await service.getAvailability(["DRL-ONE-P"]);
+      const checkout = await service.createCheckout({
+        ...CHECKOUT_INPUT,
+        lines: [{ sku: "DRL-ONE-P", quantity: 2 }],
+        email: "expiry@courvia.test",
+      });
+      const reserved = await service.getAvailability(["DRL-ONE-P"]);
+      expect(reserved[0]!.available).toBe(before[0]!.available - 2);
+
+      // "Older than an hour", measured by a clock an hour ahead: the fresh
+      // order qualifies without touching createdAt.
+      const result = await expireStaleCheckouts(payload, {
+        olderThanMinutes: 60,
+        now: () => Date.now() + 61 * 60_000,
+      });
+      expect(result.expired).toBeGreaterThanOrEqual(1);
+
+      const order = await service.getOrder(checkout.orderId);
+      expect(order?.status).toBe("cancelled");
+      const released = await service.getAvailability(["DRL-ONE-P"]);
+      expect(released[0]!.available).toBe(before[0]!.available);
+
+      // Idempotent: a second sweep finds nothing to move on this order.
+      await expireStaleCheckouts(payload, {
+        olderThanMinutes: 60,
+        now: () => Date.now() + 61 * 60_000,
+      });
+      const still = await service.getOrder(checkout.orderId);
+      expect(still?.status).toBe("cancelled");
+    });
+  });
+
   describe("payment pipeline (§4: ledger-first, transactional, outbox)", () => {
     function paidEvent(orderId: string, eventId: string): PaymentEvent {
       return {
@@ -225,7 +264,7 @@ if (hasDb && dbIsDisposable) {
       const service = await getCommerce("es");
       const checkout = await service.createCheckout(CHECKOUT_INPUT);
 
-      // pending_payment does not accept payment.refunded (§10.2).
+      // pending_payment does not accept payment.refunded (docs/data-model.md §10.2).
       const result = await applyPaymentEvent({
         type: "refunded",
         provider: "stripe",

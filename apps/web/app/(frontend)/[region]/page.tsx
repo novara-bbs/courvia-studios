@@ -1,11 +1,10 @@
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
-import { Badge, Button, Card } from "@courvia/ui";
+import { Badge, Card, LinkButton } from "@courvia/ui";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
 import { regionAlternates } from "../../../src/seo/region-alternates";
-import { RegionSelector } from "./region-selector";
 
 type PageArgs = { params: Promise<{ region: string }> };
 
@@ -21,7 +20,6 @@ export default async function HomePage({ params }: PageArgs) {
   const { locale } = REGION_DEFINITIONS[region];
 
   const t = await getTranslations({ locale, namespace: "home" });
-  const nav = await getTranslations({ locale, namespace: "nav" });
 
   return (
     <main className="page">
@@ -33,8 +31,12 @@ export default async function HomePage({ params }: PageArgs) {
         </h1>
         <p className="lead">{t("lead")}</p>
         <div className="samples">
-          <Button variant="primary">{t("ctaPrimary")}</Button>
-          <Button variant="ghost">{t("ctaSecondary")}</Button>
+          <LinkButton variant="primary" href={`/${region}/robots`}>
+            {t("ctaPrimary")}
+          </LinkButton>
+          <LinkButton variant="ghost" href={`/${region}/comparar`}>
+            {t("ctaSecondary")}
+          </LinkButton>
         </div>
       </header>
 
@@ -56,10 +58,6 @@ export default async function HomePage({ params }: PageArgs) {
         </div>
         <p className="lead">{t("academyNote")}</p>
       </section>
-
-      <footer className="foot">
-        <RegionSelector current={region} label={nav("regionSelector")} />
-      </footer>
     </main>
   );
 }

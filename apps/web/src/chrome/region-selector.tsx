@@ -11,7 +11,7 @@ const REGION_LABELS: Record<RegionId, string> = {
 
 /**
  * Plain links, one per region: crawlable, indexable, and they never force a
- * region on anyone (CLAUDE.md §9: negotiation suggests, never forces).
+ * region on anyone (docs/markets.md §9: negotiation suggests, never forces).
  */
 export function RegionSelector({ current, label }: { current: RegionId; label: string }) {
   return (

@@ -1,6 +1,7 @@
 import { format } from "@courvia/commerce-domain";
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -26,6 +27,13 @@ export async function generateMetadata({ params }: PageArgs): Promise<Metadata> 
     title: t("listTitle"),
     description: t("listDescription"),
     alternates: regionAlternates(region, "/robots"),
+    openGraph: {
+      title: t("listTitle"),
+      description: t("listDescription"),
+      url: `/${region}/robots`,
+      siteName: "Courvia",
+      type: "website",
+    },
   };
 }
 
@@ -55,6 +63,17 @@ export default async function RobotsPage({ params }: PageArgs) {
           {robots.map((robot) => (
             <li key={robot.id}>
               <Link className="catalog-card" href={`/${region}/robots/${robot.slug}`}>
+                {robot.image === undefined ? null : (
+                  <span className="catalog-card-media">
+                    <Image
+                      src={robot.image.url}
+                      alt={robot.image.alt}
+                      width={robot.image.width ?? 860}
+                      height={robot.image.height ?? 645}
+                      sizes="(max-width: 680px) 100vw, 320px"
+                    />
+                  </span>
+                )}
                 <h2>{robot.title}</h2>
                 {robot.excerpt === undefined ? null : <p>{robot.excerpt}</p>}
                 <p className="catalog-card-meta">

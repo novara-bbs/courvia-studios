@@ -1,5 +1,5 @@
 /**
- * Catalog collections (CLAUDE.md §10.1/§11).
+ * Catalog collections (docs/data-model.md §10.1/§11).
  *
  * Public read: products and categories only — the storefront navigation
  * surface. Variants, prices, inventory and leads are SERVER-ONLY: the
@@ -102,6 +102,16 @@ export const Products: CollectionConfig = {
       admin: { description: "Faceta de listado. La variante concreta fija SU deporte." },
     },
     { name: "category", type: "relationship", relationTo: "categories" },
+    {
+      name: "images",
+      type: "upload",
+      relationTo: "media",
+      hasMany: true,
+      admin: {
+        description:
+          "Producto sobre material (aluminio/carbono) o pista real — nunca stock genérico (guía de marca). La primera es la principal.",
+      },
+    },
     { name: "excerpt", type: "textarea", localized: true, maxLength: 200 },
     { name: "description", type: "richText", localized: true },
     {
@@ -250,7 +260,7 @@ export const Leads: CollectionConfig = {
   admin: {
     useAsTitle: "email",
     group: "Comercio",
-    defaultColumns: ["email", "market", "sportInterest", "createdAt"],
+    defaultColumns: ["email", "status", "market", "sportInterest", "createdAt"],
     description: "Captación comercial. Se crean desde el formulario web (server action), nunca por REST público.",
   },
   // Server-only writes (the public form uses a validated server action over
@@ -264,8 +274,30 @@ export const Leads: CollectionConfig = {
     { name: "market", type: "select", required: true, options: [...MARKETS] },
     { name: "sportInterest", type: "select", options: [...SPORTS] },
     { name: "product", type: "relationship", relationTo: "products" },
+    {
+      name: "variantSku",
+      type: "text",
+      admin: { description: "Configuración que el comprador marcó en el formulario (si eligió una)." },
+    },
     { name: "message", type: "textarea", maxLength: 1000 },
     { name: "consent", type: "checkbox", required: true },
+    {
+      name: "consentText",
+      type: "textarea",
+      admin: {
+        description:
+          "El texto exacto de consentimiento que se mostró al enviar (RGPD art. 7.1: el consentimiento debe poder demostrarse).",
+      },
+    },
+    {
+      name: "status",
+      type: "select",
+      required: true,
+      defaultValue: "new",
+      index: true,
+      options: ["new", "contacted", "closed"],
+      admin: { description: "Pipeline mínimo: nuevo → contactado → cerrado." },
+    },
     { name: "locale", type: "text" },
     { name: "sourcePath", type: "text" },
   ],

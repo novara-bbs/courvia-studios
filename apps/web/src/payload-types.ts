@@ -112,10 +112,12 @@ export interface Config {
   globals: {
     'theme-settings': ThemeSetting;
     'market-settings': MarketSetting;
+    navigation: Navigation;
   };
   globalsSelect: {
     'theme-settings': ThemeSettingsSelect<false> | ThemeSettingsSelect<true>;
     'market-settings': MarketSettingsSelect<false> | MarketSettingsSelect<true>;
+    navigation: NavigationSelect<false> | NavigationSelect<true>;
   };
   locale: 'es' | 'en' | 'ar';
   widgets: {
@@ -352,6 +354,10 @@ export interface Product {
    */
   sports: ('tenis' | 'padel' | 'pickleball')[];
   category?: (number | null) | Category;
+  /**
+   * Producto sobre material (aluminio/carbono) o pista real — nunca stock genérico (guía de marca). La primera es la principal.
+   */
+  images?: (number | Media)[] | null;
   excerpt?: string | null;
   description?: {
     root: {
@@ -461,15 +467,27 @@ export interface Lead {
   market: 'es' | 'uk' | 'ae';
   sportInterest?: ('tenis' | 'padel' | 'pickleball') | null;
   product?: (number | null) | Product;
+  /**
+   * Configuración que el comprador marcó en el formulario (si eligió una).
+   */
+  variantSku?: string | null;
   message?: string | null;
   consent: boolean;
+  /**
+   * El texto exacto de consentimiento que se mostró al enviar (RGPD art. 7.1: el consentimiento debe poder demostrarse).
+   */
+  consentText?: string | null;
+  /**
+   * Pipeline mínimo: nuevo → contactado → cerrado.
+   */
+  status: 'new' | 'contacted' | 'closed';
   locale?: string | null;
   sourcePath?: string | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
- * SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (§10.2).
+ * SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (docs/orders-state-machine.md).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "orders".
@@ -578,8 +596,10 @@ export interface Outbox {
     | 'send_refund_email'
     | 'issue_credit_note'
     | 'alert_refund_failure'
-    | 'alert_payment_conflict';
-  order: number | Order;
+    | 'alert_payment_conflict'
+    | 'notify_sales_lead';
+  order?: (number | null) | Order;
+  lead?: (number | null) | Lead;
   status: 'pending' | 'dispatched' | 'failed';
   /**
    * Datos del efecto (p. ej. importe de un reembolso, en unidades menores).
@@ -911,6 +931,7 @@ export interface ProductsSelect<T extends boolean = true> {
   slug?: T;
   sports?: T;
   category?: T;
+  images?: T;
   excerpt?: T;
   description?: T;
   specs?:
@@ -982,8 +1003,11 @@ export interface LeadsSelect<T extends boolean = true> {
   market?: T;
   sportInterest?: T;
   product?: T;
+  variantSku?: T;
   message?: T;
   consent?: T;
+  consentText?: T;
+  status?: T;
   locale?: T;
   sourcePath?: T;
   updatedAt?: T;
@@ -1058,6 +1082,7 @@ export interface PaymentsSelect<T extends boolean = true> {
 export interface OutboxSelect<T extends boolean = true> {
   effect?: T;
   order?: T;
+  lead?: T;
   status?: T;
   payload?: T;
   attempts?: T;
@@ -1167,6 +1192,37 @@ export interface MarketSetting {
   createdAt?: string | null;
 }
 /**
+ * Menú de cabecera y enlaces de pie. Rutas relativas a la región.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navigation".
+ */
+export interface Navigation {
+  id: number;
+  /**
+   * Enlaces del menú principal, en orden.
+   */
+  header?:
+    | {
+        label: string;
+        href: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Enlaces del pie (legales, contacto…), en orden.
+   */
+  footer?:
+    | {
+        label: string;
+        href: string;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "theme-settings_select".
  */
@@ -1193,6 +1249,29 @@ export interface MarketSettingsSelect<T extends boolean = true> {
               enabled?: T;
               id?: T;
             };
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navigation_select".
+ */
+export interface NavigationSelect<T extends boolean = true> {
+  header?:
+    | T
+    | {
+        label?: T;
+        href?: T;
+        id?: T;
+      };
+  footer?:
+    | T
+    | {
+        label?: T;
+        href?: T;
         id?: T;
       };
   updatedAt?: T;

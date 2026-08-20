@@ -11,6 +11,7 @@ import { Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
 import { Media } from "./src/payload/media";
 import { Pages } from "./src/payload/pages";
 import { MarketSettings } from "./src/payload/market-settings";
+import { Navigation } from "./src/payload/navigation";
 import { ThemeSettings } from "./src/payload/theme-settings";
 import { Users } from "./src/payload/users";
 
@@ -43,7 +44,7 @@ export default buildConfig({
   editor: lexicalEditor(),
   sharp,
 
-  // Locale ≠ market (CLAUDE.md §9): these are content languages; markets
+  // Locale ≠ market (docs/markets.md §9): these are content languages; markets
   // live in @courvia/platform and MarketSettings.
   localization: {
     locales: [
@@ -77,7 +78,7 @@ export default buildConfig({
     Outbox,
     Returns,
   ],
-  globals: [ThemeSettings, MarketSettings],
+  globals: [ThemeSettings, MarketSettings, Navigation],
 
   typescript: {
     outputFile: path.resolve(dirname, "src/payload-types.ts"),

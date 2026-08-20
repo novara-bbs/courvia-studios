@@ -27,6 +27,8 @@ import type { PaymentEvent, SideEffect } from "@courvia/commerce-domain";
 import type { BasePayload, PayloadRequest } from "payload";
 import { commitTransaction, initTransaction, killTransaction } from "payload";
 
+import { resolveRefundTotal } from "./refund-delta";
+
 export type ApplyOutcome =
   /** Ledger row written and the order moved. */
   | { outcome: "applied"; orderId: string; status: string }
@@ -263,12 +265,12 @@ export async function applyPaymentEvent(
       if (event.amount.currency !== currency) {
         return await commitConflict(payload, req, orderId, "refund_currency_mismatch", event);
       }
-      refundedAfter =
-        event.cumulative === true
-          ? event.amount.amount
-          : order.refundedAmount + event.amount.amount;
-      refundedAfter = Math.min(refundedAfter, order.totalAmount);
-      if (refundedAfter <= order.refundedAmount) {
+      const resolved = resolveRefundTotal(order, {
+        amountMinor: event.amount.amount,
+        cumulative: event.cumulative === true,
+      });
+      refundedAfter = resolved.refundedAfter;
+      if (resolved.delta <= 0) {
         // Zero-delta cumulative replay: ledger kept, nothing moves.
         await commitTransaction(req as TxArg);
         return { outcome: "already_applied" };
@@ -276,7 +278,7 @@ export async function applyPaymentEvent(
       // The partial flag derives from the running total vs the order total,
       // never from the event alone.
       if (trigger.type === "payment.refunded") {
-        trigger.partial = refundedAfter < order.totalAmount;
+        trigger.partial = resolved.partial;
       }
     }
 

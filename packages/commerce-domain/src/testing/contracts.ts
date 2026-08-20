@@ -2,7 +2,7 @@
  * Reusable port contract suites.
  *
  * Every adapter — the in-memory fakes today, commerce-payload and
- * payments-stripe tomorrow, commerce-medusa if the §18 gate ever opens —
+ * payments-stripe tomorrow, commerce-medusa if the Medusa gate (docs/roadmap.md) ever opens —
  * runs the identical suite. This is the mechanism that makes ADR-13's
  * "swap the gateway without touching the domain" true rather than
  * aspirational, and it is what makes an unimplementable port signature fail

@@ -58,7 +58,7 @@ function expectOk(current: OrderStatus, trigger: OrderTrigger, next: OrderStatus
   return result;
 }
 
-describe("happy path §10.2", () => {
+describe("happy path (docs/data-model.md §10.2)", () => {
   it("walks draft → delivered", () => {
     expectOk("draft", { type: "checkout.created" }, "pending_payment");
     expectOk("pending_payment", { type: "payment.paid" }, "paid");

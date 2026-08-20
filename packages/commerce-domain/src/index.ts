@@ -12,6 +12,7 @@ export type {
   Product,
   ProductDetail,
   ProductFilter,
+  ProductImage,
   ProductSummary,
   Spec,
   ReturnInput,

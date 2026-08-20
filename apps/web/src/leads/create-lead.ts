@@ -9,6 +9,7 @@
 import config from "@payload-config";
 import { REGION_DEFINITIONS, REGIONS, SPORTS } from "@courvia/platform";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getPayload } from "payload";
 import { z } from "zod";
 
@@ -22,6 +23,12 @@ const leadSchema = z.object({
     .transform((value) => (value === "" ? undefined : value))
     .optional(),
   sportInterest: z.enum(SPORTS).optional(),
+  variantSku: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/)
+    .transform((value) => (value === "" ? undefined : value))
+    .optional(),
   productId: z.coerce.number().int().positive().optional(),
   consent: z.literal("on"),
   region: z.enum(REGIONS),
@@ -54,6 +61,8 @@ export async function createLead(
     name: formData.get("name"),
     email: formData.get("email"),
     message: formData.get("message") ?? undefined,
+    sportInterest: formData.get("sportInterest") || undefined,
+    variantSku: formData.get("variantSku") || undefined,
     productId: formData.get("productId") || undefined,
     consent: formData.get("consent"),
     region: formData.get("region"),
@@ -80,8 +89,14 @@ export async function createLead(
   const { region, productId, website: _website, consent: _consent, ...lead } = parsed.data;
   const def = REGION_DEFINITIONS[region];
 
+  // RGPD art. 7.1: consent must be demonstrable, so we persist the exact
+  // text the visitor accepted — recomputed HERE from the locale catalog, not
+  // read from the form, so a tampered hidden field cannot rewrite history.
+  const t = await getTranslations({ locale: def.locale, namespace: "catalog" });
+  const consentText = `${t("leadConsent")} ${t("leadPrivacy")}: /${region}/privacidad`;
+
   const payload = await getPayload({ config });
-  await payload.create({
+  const created = await payload.create({
     collection: "leads",
     overrideAccess: true,
     data: {
@@ -89,9 +104,35 @@ export async function createLead(
       market: def.market,
       locale: def.locale,
       consent: true,
+      consentText,
+      status: "new",
       ...(productId === undefined ? {} : { product: productId }),
     },
   });
+
+  // Notification via the outbox queue (dispatch happens outside, per
+  // payments.md). Deliberately NOT atomic with the lead: the lead row is the
+  // source of truth and must survive a failed notification insert.
+  try {
+    await payload.create({
+      collection: "outbox",
+      overrideAccess: true,
+      data: {
+        effect: "notify_sales_lead",
+        lead: created.id,
+        status: "pending",
+        attempts: 0,
+        payload: {
+          email: lead.email,
+          market: def.market,
+          variantSku: lead.variantSku ?? null,
+          sourcePath: lead.sourcePath ?? null,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("lead notification enqueue failed", error);
+  }
 
   redirect(`/${region}/gracias`);
 }

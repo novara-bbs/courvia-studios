@@ -1,5 +1,5 @@
 /**
- * Order state machine (CLAUDE.md §10.2).
+ * Order state machine (docs/orders-state-machine.md · docs/data-model.md §10.2).
  *
  * Pure decision function: given the current status and a trigger it returns
  * the next status plus the side-effects the caller must run. The adapter
@@ -127,7 +127,7 @@ const REFUND_SIDE_EFFECTS: SideEffect[] = [
 ];
 
 /**
- * Transition table, one row per §10.2 entry. Refund destinations resolve
+ * Transition table, one row per docs/data-model.md §10.2 entry. Refund destinations resolve
  * dynamically (partial → partially_refunded) in transition().
  */
 const TRANSITIONS: Partial<Record<OrderStatus, Partial<Record<TriggerType, Rule>>>> = {
@@ -283,7 +283,14 @@ export function transition(current: OrderStatus, trigger: OrderTrigger): Transit
 
 export function canTransition(current: OrderStatus, triggerType: TriggerType): boolean {
   if (triggerType === "payment.refund_failed") {
-    return current === "return_received" || current === "refund_requested";
+    // Mirrors transition() exactly — including the optimistic-refund path
+    // where the failure arrives AFTER the order was marked refunded.
+    return (
+      current === "return_received" ||
+      current === "refund_requested" ||
+      current === "refunded" ||
+      current === "partially_refunded"
+    );
   }
   return TRANSITIONS[current]?.[triggerType] !== undefined;
 }
