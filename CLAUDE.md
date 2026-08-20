@@ -13,6 +13,7 @@
 | [`docs/markets.md`](docs/markets.md) | ES/UK/EAU: monedas, impuestos, pagos, privacidad, i18n, SEO. |
 | [`docs/data-model.md`](docs/data-model.md) | Entidades, máquina de estados, colecciones y bloques de Payload. |
 | [`docs/roadmap.md`](docs/roadmap.md) | Sprints, riesgos, gate de Medusa. |
+| [`docs/gap-analysis.md`](docs/gap-analysis.md) | **Al planificar.** Qué falta para ser mejor que Webflow y qué falta para vender: núcleo mínimo, extras y las reglas que salieron de la auditoría. |
 | [`docs/operations.md`](docs/operations.md) | Testing y CI, variables de entorno, setup de MCP. |
 | [`docs/orders-state-machine.md`](docs/orders-state-machine.md) | Al tocar pedidos. La máquina y sus replays. |
 | [`docs/payments-runbook.md`](docs/payments-runbook.md) | Al tocar pagos u operar webhooks. Circuito completo y activación de proveedores. |
