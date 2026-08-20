@@ -16,6 +16,20 @@
 
 Access control de Payload · schema no expuesto · RLS · **y un test que lo demuestra** conectando con la clave publicable y comprobando que no ve nada. Sin ese test las tres primeras son aspiraciones.
 
+### El disparador `ensure_rls` no cubría `payload`
+
+Hay un event trigger (`rls_auto_enable`) que activa RLS en cada tabla nueva. Su lista de schemas era **solo `public`**, así que ninguna tabla del schema `payload` —o sea, todos los datos de commerce y del CMS— nacía protegida. Parecía cubierto porque cada migración anterior activaba RLS a mano; la primera que se olvidó creó 36 tablas sin RLS y nada dijo nada.
+
+Corregido el 20 ago 2026: la función enumera `('public','payload')` y hay una migración que lo **demuestra** creando una tabla de prueba, comprobando que el disparador la protegió y borrándola. Aun así, al aplicar una migración a producción **se comprueba**, no se supone:
+
+```sql
+select count(*) filter (where rowsecurity) as rls_on, count(*) as total
+from pg_tables where schemaname = 'payload';   -- deben coincidir
+select count(*) from pg_policies where schemaname = 'payload';  -- debe ser 0
+```
+
+RLS activo **sin ninguna política** es la denegación total. Una política permisiva para `anon` sería el fallo; cero políticas es el diseño.
+
 ## Secretos
 
 `SUPABASE_SECRET_KEY` (legacy: `service_role`), contraseñas Postgres y secretos de pago: **jamás** en cliente, jamás en el repo, y el agente **jamás los solicita, lee ni usa**. Local en `.env.local` (ignorado por Git); despliegue en Vercel; CI en GitHub Environments.
