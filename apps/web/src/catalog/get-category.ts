@@ -21,7 +21,10 @@ export interface CategoryView {
 export async function getCategory(slug: string, locale: LocaleId): Promise<CategoryView | null> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog");
+  // "media" as well: the category header is an upload, and replacing that
+  // file has to show up here too. listCategorySlugs below does not need it
+  // — it selects the slug and nothing else.
+  cacheTag("catalog", "media");
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({

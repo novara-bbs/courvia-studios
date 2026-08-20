@@ -124,7 +124,21 @@ function contentSecurityPolicy(): string {
  * src/payload/pages.ts); 'none' would kill editing while blocking nothing an
  * attacker can do. /admin gets its own 'none' below.
  */
-const ENFORCED_POLICY = "frame-ancestors 'self'; object-src 'none'; base-uri 'self'";
+const ENFORCED_BASE = "object-src 'none'; base-uri 'self'";
+const ENFORCED_POLICY = `frame-ancestors 'self'; ${ENFORCED_BASE}`;
+
+/**
+ * The panel's own policy, and it repeats the base on purpose.
+ *
+ * Both header entries below match a request to /admin with the same header
+ * key, and the two plausible semantics disagree about what the browser ends
+ * up receiving: if Next appends, the browser enforces the intersection of
+ * two policies; if it overrides, only this one survives. A partial policy
+ * here is wrong under the second reading — /admin would silently lose
+ * object-src and base-uri, on the one route where a cookie-authenticated
+ * session lives — and repeating the base is correct under both.
+ */
+const ADMIN_POLICY = `frame-ancestors 'none'; ${ENFORCED_BASE}`;
 
 /**
  * Uploads are data, never code.
@@ -175,16 +189,37 @@ export async function securityHeaders(): Promise<
     {
       // The panel itself is never the framed document, only the framer, and
       // it is authenticated by a cookie that rides along in any frame. This
-      // entry also matches /:path* above; a second CSP header is enforced
-      // independently by the browser, so admin ends up with the intersection
-      // — 'none' — whether Next appends or overrides.
+      // entry also matches /:path* above, so ADMIN_POLICY repeats the shared
+      // base instead of naming frame-ancestors alone: see its definition for
+      // why a partial policy here would be a silent downgrade.
       source: "/admin/:path*",
-      headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" }],
+      headers: [{ key: "Content-Security-Policy", value: ADMIN_POLICY }],
     },
     {
-      // Where Payload serves every uploaded file.
+      // Where Payload serves every uploaded file. Listed BEFORE the /api
+      // rule below so a file gets this X-Robots-Tag: product photographs
+      // are the point of the page and have to stay indexable.
+      source: "/api/media/file/:path*",
+      headers: [
+        { key: "Content-Security-Policy", value: UPLOADS_POLICY },
+        { key: "X-Robots-Tag", value: "all" },
+      ],
+    },
+    {
+      // The rest of the upload route keeps the same sandbox, without the
+      // indexing opinion.
       source: "/api/media/:path*",
       headers: [{ key: "Content-Security-Policy", value: UPLOADS_POLICY }],
+    },
+    {
+      // robots.txt asks crawlers not to FETCH the REST API; this tells the
+      // ones that fetched it anyway — or that learned a URL from a link —
+      // not to INDEX it. The two are different mechanisms and only the pair
+      // closes the hole: `/api/pages?depth=2` is a byte-for-byte duplicate
+      // of a real page, and a duplicate with no canonical is the version
+      // Google may decide to keep.
+      source: "/api/:path*",
+      headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
     },
   ];
 }

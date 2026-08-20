@@ -10,6 +10,7 @@ import {
 
 import { listRobots } from "../../src/catalog/get-catalog";
 import { listIndexableSlugs } from "../../src/content/get-page";
+import { withoutHome } from "../../src/content/home-slug";
 import { siteUrl } from "../../src/seo/site-url";
 
 /** The region whose URLs this file cites, and whose currency it prices in. */
@@ -71,7 +72,10 @@ export async function GET(): Promise<Response> {
     listIndexableSlugs(),
   ]);
 
-  const pageLinks = pageSlugs
+  // The home is excluded for the same reason the sitemap excludes it: its
+  // slug redirects permanently to the region root, so listing it here hands
+  // an assistant a URL that 308s — and files the front page under policies.
+  const pageLinks = withoutHome(pageSlugs)
     .map((slug) => `- [${slug}](${origin}/${CANONICAL.id}/${slug})`)
     .join("\n");
 

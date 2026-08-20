@@ -223,3 +223,61 @@ describe("security headers", () => {
     });
   });
 });
+
+/**
+ * The two headers a review found missing, and why each is asserted here.
+ *
+ * `/admin` and `/:path*` both match a request to the panel with the same
+ * header key. Under the reading where the last match wins, a partial policy
+ * for /admin silently drops object-src and base-uri — on the one route that
+ * carries an authenticated session cookie. Repeating the base is correct
+ * under both readings, and this test is what keeps someone from "tidying"
+ * the repetition away.
+ *
+ * `X-Robots-Tag` exists because robots.txt governs crawling, not indexing:
+ * a URL learned from a link is indexed regardless of what robots.txt says.
+ * The file route has to be exempt or the product photographs disappear from
+ * image search, which is the failure the robots.txt rules exist to prevent.
+ */
+describe("headers a review found missing", () => {
+  const find = (
+    entries: Array<{ source: string; headers: Array<{ key: string; value: string }> }>,
+    source: string,
+    key: string,
+  ): string | undefined =>
+    entries.find((e) => e.source === source)?.headers.find((h) => h.key === key)?.value;
+
+  it("gives /admin the shared base, not frame-ancestors alone", async () => {
+    const entries = await securityHeaders();
+    const admin = find(entries, "/admin/:path*", "Content-Security-Policy");
+    expect(admin).toBeDefined();
+    expect(admin).toContain("frame-ancestors 'none'");
+    expect(admin).toContain("object-src 'none'");
+    expect(admin).toContain("base-uri 'self'");
+  });
+
+  it("tells crawlers not to index the REST API", async () => {
+    const entries = await securityHeaders();
+    expect(find(entries, "/api/:path*", "X-Robots-Tag")).toBe("noindex, nofollow");
+  });
+
+  it("exempts the upload file route, and declares it before the API rule", async () => {
+    const entries = await securityHeaders();
+    expect(find(entries, "/api/media/file/:path*", "X-Robots-Tag")).toBe("all");
+    // Order is the mechanism, not a coincidence: a later matching entry
+    // would be the one a file ends up with.
+    const fileAt = entries.findIndex((e) => e.source === "/api/media/file/:path*");
+    const apiAt = entries.findIndex((e) => e.source === "/api/:path*");
+    expect(fileAt).toBeGreaterThanOrEqual(0);
+    expect(apiAt).toBeGreaterThan(fileAt);
+  });
+
+  it("still sandboxes every upload path, file route included", async () => {
+    const entries = await securityHeaders();
+    for (const source of ["/api/media/file/:path*", "/api/media/:path*"]) {
+      expect(find(entries, source, "Content-Security-Policy"), source).toContain(
+        "default-src 'none'",
+      );
+    }
+  });
+});

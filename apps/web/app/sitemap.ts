@@ -4,6 +4,7 @@ import type { MetadataRoute } from "next";
 import { listRobots } from "../src/catalog/get-catalog";
 import { listCategorySlugs } from "../src/catalog/get-category";
 import { listIndexableSlugs } from "../src/content/get-page";
+import { withoutHome } from "../src/content/home-slug";
 import { siteUrl } from "../src/seo/site-url";
 
 /**
@@ -78,9 +79,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry(region, "/comparar", "weekly", 0.7),
     ...products.map((product) => entry(region, `/robots/${product.slug}`, "weekly", 0.9)),
     ...categorySlugs.map((slug) => entry(region, `/c/${slug}`, "weekly", 0.6)),
-    // "inicio" IS the region home — already listed as the root entry.
-    ...pageSlugs
-      .filter((slug) => slug !== "inicio")
-      .map((slug) => entry(region, `/${slug}`, "monthly", 0.4)),
+    // The home IS the region root, already listed above.
+    ...withoutHome(pageSlugs).map((slug) => entry(region, `/${slug}`, "monthly", 0.4)),
   ]);
 }

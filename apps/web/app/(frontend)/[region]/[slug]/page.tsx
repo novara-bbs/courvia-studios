@@ -5,6 +5,7 @@ import { draftMode } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { HOME_SLUG } from "../../../../src/content/home-slug";
 import { setRequestRegion } from "../../../../src/i18n/request-region";
 import { getDraftPage, getPage } from "../../../../src/content/get-page";
 import { makeRenderContext } from "../../../../src/content/render-context";
@@ -58,7 +59,7 @@ export default async function CmsPage({ params }: PageArgs) {
   setRequestRegion(region);
   // The home page's content doc: it lives at the region root, never at a
   // second URL of its own (duplicate content).
-  if (slug === "inicio") permanentRedirect(`/${region}`);
+  if (slug === HOME_SLUG) permanentRedirect(`/${region}`);
 
   const { isEnabled: draft } = await draftMode();
   const locale = REGION_DEFINITIONS[region].locale;

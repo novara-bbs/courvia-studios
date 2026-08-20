@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
+import { HOME_SLUG } from "../../../src/content/home-slug";
 import { getPage } from "../../../src/content/get-page";
 import { makeRenderContext } from "../../../src/content/render-context";
 import { setRequestRegion } from "../../../src/i18n/request-region";
@@ -17,7 +18,6 @@ type PageArgs = { params: Promise<{ region: string }> };
  *  block by block in the admin). The static markup below is only the
  *  fallback for a database without that page — the site never 500s over
  *  missing marketing content. */
-const HOME_SLUG = "inicio";
 
 export async function generateMetadata({ params }: PageArgs): Promise<Metadata> {
   const { region } = await params;

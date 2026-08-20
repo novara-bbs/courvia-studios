@@ -238,3 +238,67 @@ describe("lead rules", () => {
     expect((await store.consume(key, LEAD_DUPLICATE_RULE)).allowed).toBe(true);
   });
 });
+
+/**
+ * `peek` had no test at all, and it is half the limiter.
+ *
+ * `create-lead.ts` calls it before the write to decide whether a submission
+ * is a duplicate, and only spends the token once the lead is actually
+ * created — so that a failed write does not lock the visitor out of
+ * retrying. Implementing `peek` as `return this.consume(...)` would satisfy
+ * every other test in this file while silently swallowing the second attempt
+ * of anyone whose first one failed. That is a lost lead, on the site's only
+ * conversion.
+ */
+describe("peek", () => {
+  it("reads without spending: ten peeks leave the bucket where it was", async () => {
+    const clock = fakeClock();
+    const store = createInMemoryRateLimitStore({ now: clock.now });
+    await store.consume("ip:9.9.9.9", RULE);
+    await store.consume("ip:9.9.9.9", RULE);
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      expect((await store.peek("ip:9.9.9.9", RULE)).allowed).toBe(true);
+    }
+    // One token was left before the peeks; it must still be there.
+    expect((await store.consume("ip:9.9.9.9", RULE)).allowed).toBe(true);
+    expect((await store.consume("ip:9.9.9.9", RULE)).allowed).toBe(false);
+  });
+
+  it("sees the same denial consume would, and reports the same wait", async () => {
+    const clock = fakeClock();
+    const store = createInMemoryRateLimitStore({ now: clock.now });
+    for (let attempt = 0; attempt < RULE.capacity; attempt += 1) {
+      await store.consume("ip:8.8.8.8", RULE);
+    }
+
+    const peeked = await store.peek("ip:8.8.8.8", RULE);
+    const consumed = await store.consume("ip:8.8.8.8", RULE);
+    expect(peeked.allowed).toBe(false);
+    expect(consumed.allowed).toBe(false);
+    // They used to disagree by a whole refill period, which would have told
+    // a visitor to wait twice as long as they actually had to.
+    expect(peeked.retryAfterMs).toBe(consumed.retryAfterMs);
+    expect(peeked.retryAfterMs).toBe(RULE.refillMs);
+  });
+
+  it("does not create a bucket, so peeking cannot be a memory vector", async () => {
+    const clock = fakeClock();
+    const store = createInMemoryRateLimitStore({ now: clock.now });
+    for (let attempt = 0; attempt < 500; attempt += 1) {
+      await store.peek(`ip:10.0.0.${String(attempt)}`, RULE);
+    }
+    expect(store.size()).toBe(0);
+  });
+
+  it("refills on the same schedule consume does", async () => {
+    const clock = fakeClock();
+    const store = createInMemoryRateLimitStore({ now: clock.now });
+    for (let attempt = 0; attempt < RULE.capacity; attempt += 1) {
+      await store.consume("ip:7.7.7.7", RULE);
+    }
+    expect((await store.peek("ip:7.7.7.7", RULE)).allowed).toBe(false);
+    clock.advance(RULE.refillMs);
+    expect((await store.peek("ip:7.7.7.7", RULE)).allowed).toBe(true);
+  });
+});

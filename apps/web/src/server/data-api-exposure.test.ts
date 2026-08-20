@@ -33,6 +33,41 @@ if (!configured && process.env.CI === "true") {
 const SENSITIVE_TABLES = ["orders", "payments", "outbox", "leads", "users", "prices"];
 
 describe.skipIf(!configured)("Supabase Data API exposure (publishable key)", () => {
+  /**
+   * The positive control, and without it the assertions below prove nothing.
+   *
+   * Every one of them is `status >= 400`, which is satisfied by far more
+   * than "PostgREST refused to serve this table". A rotated or mistyped key
+   * gives 401. A SUPABASE_URL pointing at no project gives 404. And — found
+   * the hard way while writing this — a network that cannot reach
+   * supabase.co at all gives 403 from the egress proxy, so the entire suite
+   * reported seven passes against a host it never spoke to. Any of the three
+   * is the same failure mode as skipping: green, having tested nothing.
+   *
+   * So first, prove the credential is live AND the host is reachable, with
+   * the one thing none of those three can fake: a 2xx.
+   *
+   * The endpoint is GoTrue's public settings, not the Data API root. The
+   * root answers 403 on this project by design — no schema is exposed to
+   * PostgREST, which is the very property the suite exists to confirm — so
+   * it cannot tell "correctly locked down" from "credential dead". Auth
+   * settings answer 200 to any valid publishable key regardless of what the
+   * Data API exposes, which is exactly the independence needed.
+   */
+  it("the publishable key authenticates and the host is reachable", async () => {
+    const response = await fetch(`${url}/auth/v1/settings`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+    expect(
+      response.status,
+      `GoTrue settings answered ${String(response.status)} instead of 200. ` +
+        `401 means the publishable key is rotated or mistyped; 404 means ` +
+        `SUPABASE_URL points at no project; 403 usually means egress to ` +
+        `supabase.co is blocked. In all three cases the denials below are ` +
+        `meaningless and this suite must not be read as a pass.`,
+    ).toBe(200);
+  });
+
   it.each(SENSITIVE_TABLES)("cannot read %s through the default schema", async (table) => {
     const response = await fetch(`${url}/rest/v1/${table}?limit=1`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -40,6 +75,11 @@ describe.skipIf(!configured)("Supabase Data API exposure (publishable key)", () 
     // The payload schema is not exposed to PostgREST, so the table must not
     // resolve. Anything but an error status — or a 200 with rows — is a leak.
     expect(response.status).toBeGreaterThanOrEqual(400);
+    // And the error has to be about the TABLE, not about the credential: a
+    // 401 here would mean the key died and the denial proves nothing. The
+    // positive control above catches that globally; this catches a key that
+    // authenticates on the root and is rejected per request.
+    expect(response.status, `${table} was denied for the wrong reason`).not.toBe(401);
   });
 
   it("cannot switch to the payload schema via Accept-Profile", async () => {
@@ -51,6 +91,7 @@ describe.skipIf(!configured)("Supabase Data API exposure (publishable key)", () 
       },
     });
     expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status, "the schema switch was denied for the wrong reason").not.toBe(401);
   });
 });
 

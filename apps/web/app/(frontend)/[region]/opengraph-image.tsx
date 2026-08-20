@@ -1,3 +1,4 @@
+import { HOME_SLUG } from "../../../src/content/home-slug";
 import { OG_CONTENT_TYPE, OG_SIZE } from "../../../src/seo/og-card";
 import { pageOgImage } from "../../../src/seo/page-og-image";
 
@@ -23,5 +24,5 @@ export default async function OpengraphImage({
   params: Promise<{ region: string }>;
 }) {
   const { region } = await params;
-  return pageOgImage(region, "inicio", "");
+  return pageOgImage(region, HOME_SLUG, "");
 }

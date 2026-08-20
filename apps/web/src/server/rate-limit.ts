@@ -146,7 +146,12 @@ export function createInMemoryRateLimitStore(
     const allowed = available >= 1;
     return {
       allowed,
-      retryAfterMs: allowed ? 0 : Math.ceil((1 - (available - 1)) * rule.refillMs),
+      // `available`, not `available - 1`: the subtraction belongs to the
+      // token consume() spends, and a peek spends nothing. With it, peek
+      // reported one whole refill period more than consume did for the very
+      // same bucket — and a Retry-After built from that number would tell a
+      // visitor to wait twice as long as they have to.
+      retryAfterMs: allowed ? 0 : Math.ceil((1 - available) * rule.refillMs),
     };
   }
 

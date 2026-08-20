@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { setRequestRegion } from "../../../../src/i18n/request-region";
+import { composeRobots } from "../../../../src/seo/page-metadata";
 
 type PageArgs = { params: Promise<{ region: string }> };
 
@@ -21,7 +22,14 @@ export async function generateMetadata({ params }: PageArgs): Promise<Metadata> 
   });
   // Deliberately no canonical/hreflang: a post-submit confirmation is not a
   // landing page and must not be indexed.
-  return { title: t("title"), robots: { index: false } };
+  //
+  // But `robots` must be COMPOSED, not written flat. Next merges metadata
+  // shallowly, so a key defined here replaces the layout's whole object —
+  // and the layout is where a prepared region gets its `follow: false`
+  // (ADR-025). A flat `{ index: false }` therefore emitted `noindex` with no
+  // `nofollow` on /ar-ae/gracias, re-authorising a crawler to follow the
+  // links out of it into the very region tree the layout had just closed.
+  return { title: t("title"), robots: composeRobots(region, true) };
 }
 
 export default async function ThanksPage({ params }: PageArgs) {
