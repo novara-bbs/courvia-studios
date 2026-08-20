@@ -100,6 +100,25 @@ export function mediaValue(value: unknown): MediaValue | null {
   };
 }
 
+/**
+ * `width`/`height` attributes for an `<img>`.
+ *
+ * Without them the browser has no intrinsic ratio until the file arrives, so
+ * every image that sizes with `block-size: auto` occupies ZERO height first
+ * and shoves the page down when it loads — the worst kind of layout shift,
+ * and the reason a lazy image below the fold can leave an absolutely
+ * positioned overlay (the hotspot pins) stacked on a collapsed box.
+ *
+ * It lives here rather than in each section for the same reason the
+ * governance flags do: a rule every renderer must remember is a rule one of
+ * them eventually forgets.
+ */
+export function intrinsicSize(media: MediaValue): { width?: number; height?: number } {
+  return media.width === undefined || media.height === undefined
+    ? {}
+    : { width: media.width, height: media.height };
+}
+
 /** Slugs of the populated docs in a products field (ids are skipped). */
 export function productSlugs(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

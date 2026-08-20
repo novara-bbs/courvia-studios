@@ -928,6 +928,283 @@ await seedComposedPage(
   ],
 );
 
+/* --- tecnologia --------------------------------------------------------- */
+// La página que el header y el footer ya enlazaban y que no existía: un 404
+// en la navegación primaria. Es también donde el vocabulario nuevo gana su
+// sueldo — índice, imagen anotada, mosaico, pasos y tabla de specs viva.
+const quickdockId = mediaIds.get("tempo-quickdock-system.webp");
+const heroId = mediaIds.get("tempo-r1-hero-a002.webp");
+const pickleId = mediaIds.get("go-pickleball-hero.webp");
+
+/** Los cinco puntos de la imagen del QuickDock, con su posición (enum) y su
+ *  texto por idioma. Se declaran una vez para que las dos pasadas no puedan
+ *  desalinearse: `withIds` empareja las filas por posición. */
+const DOCK_POINTS = [
+  {
+    col: "2",
+    row: "3",
+    es: { title: "Tolva Daily", body: "Rígida, de una pieza y sin bisagras. Es la que se usa a diario y la que aguanta el maletero." },
+    en: { title: "Daily hopper", body: "Rigid, one piece, no hinges. The one you use every day and the one that survives the boot." },
+  },
+  {
+    col: "5",
+    row: "4",
+    es: { title: "La interfaz", body: "Dos pestillos, una junta y un bloque de contactos. Eso es todo lo que separa una tolva de la otra." },
+    en: { title: "The interface", body: "Two latches, one gasket and a contact block. That is everything that separates one hopper from the other." },
+  },
+  {
+    col: "7",
+    row: "2",
+    es: { title: "Coach Collar", body: "Se pliega para viajar y se despliega para una sesión de grupo. Misma base, más bolas entre recogidas." },
+    en: { title: "Coach Collar", body: "Folds to travel, unfolds for a group session. Same base, more balls between pickups." },
+  },
+  {
+    col: "8",
+    row: "6",
+    es: { title: "Ruedas de dos partes", body: "Neumático y buje se separan. Se cambia la goma, no la rueda entera." },
+    en: { title: "Two-part wheels", body: "Tyre and hub come apart. You replace the rubber, not the whole wheel." },
+  },
+  {
+    col: "11",
+    row: "5",
+    es: { title: "Base desnuda", body: "Sin tolva sigue siendo una máquina completa: batería, tracción y mando viven aquí abajo." },
+    en: { title: "Bare base", body: "Without a hopper it is still a whole machine: battery, drive and controls all live down here." },
+  },
+];
+
+function dockPoints(locale: "es" | "en"): SeedBlock[] {
+  return DOCK_POINTS.map((p) => ({ col: p.col, row: p.row, ...p[locale] }));
+}
+
+/** El bloque de imagen anotada solo existe si su render está en la mediateca;
+ *  `image` es obligatorio, así que una base sin medios lo omite entero. */
+function hotspotsBlock(locale: "es" | "en"): SeedBlock[] {
+  if (quickdockId === undefined) return [];
+  return [
+    {
+      blockType: "hotspots",
+      blockName: "QuickDock",
+      image: quickdockId,
+      heading: locale === "es" ? "Una base, dos tolvas" : "One base, two hoppers",
+      points: dockPoints(locale),
+      appearance: { background: "surface", width: "content", reveal: "rise" },
+    },
+  ];
+}
+
+function bentoImage(id: number | undefined): { image?: number } {
+  return id === undefined ? {} : { image: id };
+}
+
+await seedComposedPage(
+  "tecnologia",
+  { es: "Tecnología", en: "Technology" },
+  [
+    {
+      blockType: "stage",
+      level: "h1",
+      eyebrow: "Ingeniería Courvia",
+      heading: "La máquina, por dentro",
+      lead: "Un robot de pista se juzga por tres cosas: cómo lanza, cómo se transporta y cómo se repara. Aquí están las tres, y el estado de verificación de cada cifra.",
+      appearance: { spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "anchorNav",
+      label: "En esta página",
+      items: [
+        { text: "Arquitectura", anchor: "arquitectura" },
+        { text: "QuickDock", anchor: "quickdock" },
+        { text: "De maletero a primera bola", anchor: "primera-bola" },
+        { text: "Lo que se mide", anchor: "lo-que-se-mide" },
+        { text: "Servicio", anchor: "servicio" },
+      ],
+      appearance: { spaceBlockStart: "none", spaceBlockEnd: "lg" },
+    },
+    {
+      blockType: "bento",
+      blockName: "Arquitectura",
+      heading: "Cuatro decisiones que se notan en pista",
+      items: [
+        {
+          span: "lg",
+          ...bentoImage(heroId),
+          eyebrow: "Lanzamiento",
+          title: "Dos ruedas contrarrotantes, no un brazo",
+          body: "El efecto sale de la diferencia de velocidad entre ruedas. Cambiar de globo a víbora es cambiar dos números, no una pieza.",
+        },
+        {
+          span: "md",
+          eyebrow: "Calibración",
+          title: "La bola de pádel manda",
+          body: "Bota más baja y pesa distinto. Cada deporte lleva su curva de presión y de par, no un adaptador.",
+        },
+        {
+          span: "md",
+          ...bentoImage(pickleId),
+          eyebrow: "Pickleball",
+          title: "Hardware dedicado para la bola perforada",
+          body: "Una bola con agujeros no se comporta como una presurizada. Go nace para ella en vez de tolerarla.",
+        },
+        {
+          span: "md",
+          eyebrow: "Control",
+          title: "Sin cuenta, sin nube, sin teléfono",
+          body: "El mando manda. La app, si llega, será un extra — nunca el único camino a una sesión.",
+        },
+        {
+          span: "md",
+          eyebrow: "Energía",
+          title: "Batería extraíble",
+          body: "Se carga fuera de la máquina y se sustituye cuando envejece. Una celda cansada no jubila un robot.",
+        },
+      ],
+      appearance: { background: "surface", divider: "hairline", reveal: "rise" },
+    },
+    ...hotspotsBlock("es"),
+    {
+      blockType: "steps",
+      blockName: "Primera bola",
+      heading: "De maletero a primera bola",
+      lead: "El montaje es parte del producto. Si cuesta, se entrena menos.",
+      items: [
+        { title: "Saca la base", body: "Una sola pieza con asa y ruedas. Rueda hasta la pista sin cargar nada." },
+        { title: "Encaja la tolva", body: "Dos pestillos. El bloque de contactos hace el resto; no hay cables que conectar." },
+        { title: "Elige el patrón", body: "Globo, bandeja, víbora o pared, con su ritmo. Todo desde el mando." },
+        { title: "Juega", body: "La máquina no pide cuenta, ni red, ni actualización antes de la primera bola." },
+      ],
+      appearance: { columns: "4", divider: "hairline" },
+    },
+    {
+      blockType: "specTable",
+      blockName: "Lo que se mide",
+      heading: "Lo que se mide",
+      lead: "Cada cifra lleva su estado de verificación. Hoy son objetivos de diseño: cuando una salga del banco de pruebas, cambia aquí y en todas las páginas que la muestran.",
+      products: allProducts,
+      appearance: { background: "surface", reveal: "rise" },
+    },
+    {
+      blockType: "featureGrid",
+      blockName: "Servicio",
+      heading: "Reparable por diseño",
+      items: [
+        { title: "Repuestos publicados", body: "Ruedas, motores, batería y tolvas se piden por referencia, no por favor." },
+        { title: "Herramientas normales", body: "Nada de tornillería propietaria ni adhesivos estructurales en las piezas de desgaste." },
+        { title: "Garantía legal de tres años", body: "En España respondemos con la garantía que marca la ley. El detalle de servicio por línea se publica con el lanzamiento." },
+      ],
+      appearance: { divider: "hairline" },
+    },
+    {
+      blockType: "ctaBand",
+      heading: "¿Quieres verlo en tu pista?",
+      body: "Cuéntanos dónde juegas y organizamos una demo si encaja.",
+      cta: [{ label: "Pide una demo", href: "/contacto" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+  [
+    {
+      blockType: "stage",
+      level: "h1",
+      eyebrow: "Courvia engineering",
+      heading: "The machine, from the inside",
+      lead: "A court robot is judged on three things: how it feeds, how it travels and how it is repaired. Here are all three, and the verification state of every figure.",
+      appearance: { spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "anchorNav",
+      label: "On this page",
+      items: [
+        { text: "Architecture", anchor: "arquitectura" },
+        { text: "QuickDock", anchor: "quickdock" },
+        { text: "Boot to first ball", anchor: "primera-bola" },
+        { text: "What we measure", anchor: "lo-que-se-mide" },
+        { text: "Service", anchor: "servicio" },
+      ],
+      appearance: { spaceBlockStart: "none", spaceBlockEnd: "lg" },
+    },
+    {
+      blockType: "bento",
+      blockName: "Arquitectura",
+      heading: "Four decisions you feel on court",
+      items: [
+        {
+          span: "lg",
+          ...bentoImage(heroId),
+          eyebrow: "Feeding",
+          title: "Two counter-rotating wheels, not an arm",
+          body: "Spin comes from the speed difference between wheels. Going from lob to kick is changing two numbers, not a part.",
+        },
+        {
+          span: "md",
+          eyebrow: "Calibration",
+          title: "The padel ball rules",
+          body: "It bounces lower and weighs differently. Each sport gets its own pressure and torque curve, not an adapter.",
+        },
+        {
+          span: "md",
+          ...bentoImage(pickleId),
+          eyebrow: "Pickleball",
+          title: "Dedicated hardware for the perforated ball",
+          body: "A ball with holes does not behave like a pressurised one. Go is built for it rather than tolerating it.",
+        },
+        {
+          span: "md",
+          eyebrow: "Control",
+          title: "No account, no cloud, no phone",
+          body: "The remote is in charge. An app, if it comes, is an extra — never the only route to a session.",
+        },
+        {
+          span: "md",
+          eyebrow: "Power",
+          title: "Removable battery",
+          body: "It charges off the machine and gets replaced when it ages. A tired cell does not retire a robot.",
+        },
+      ],
+      appearance: { background: "surface", divider: "hairline", reveal: "rise" },
+    },
+    ...hotspotsBlock("en"),
+    {
+      blockType: "steps",
+      blockName: "Primera bola",
+      heading: "Boot to first ball",
+      lead: "Setup is part of the product. If it costs effort, you drill less.",
+      items: [
+        { title: "Take out the base", body: "One piece with a handle and wheels. Roll it to the court carrying nothing." },
+        { title: "Drop the hopper on", body: "Two latches. The contact block does the rest; there are no cables to plug." },
+        { title: "Pick the pattern", body: "Lob, drop, kick or wall, each with its interval. All from the remote." },
+        { title: "Play", body: "The machine asks for no account, no network and no update before the first ball." },
+      ],
+      appearance: { columns: "4", divider: "hairline" },
+    },
+    {
+      blockType: "specTable",
+      blockName: "Lo que se mide",
+      heading: "What we measure",
+      lead: "Every figure carries its verification state. Today they are design targets: when one leaves the test bench it changes here and on every page that shows it.",
+      products: allProducts,
+      appearance: { background: "surface", reveal: "rise" },
+    },
+    {
+      blockType: "featureGrid",
+      blockName: "Servicio",
+      heading: "Repairable by design",
+      items: [
+        { title: "Published spare parts", body: "Wheels, motors, battery and hoppers are ordered by part number, not as a favour." },
+        { title: "Ordinary tools", body: "No proprietary fasteners and no structural adhesive on the wear parts." },
+        { title: "Three-year statutory warranty", body: "In Spain we answer with the warranty the law sets. Per-line service details are published at launch." },
+      ],
+      appearance: { divider: "hairline" },
+    },
+    {
+      blockType: "ctaBand",
+      heading: "Want to see it on your court?",
+      body: "Tell us where you play and we'll arrange a demo if it fits.",
+      cta: [{ label: "Book a demo", href: "/contacto" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+);
+
 /* --- lanzamiento-tempo --------------------------------------------------- */
 // La landing de lanzamiento estilo Kickstarter (ADR-021): waitlist + relato
 // de validación. Sin fechas, sin precios, sin promesas — backer-first.

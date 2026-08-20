@@ -611,3 +611,394 @@
     transform: none;
   }
 }
+
+/* ------------------------------------------------- visibilidad responsive */
+
+/* The `hiddenOn` control: media queries cannot live in the generated sheet
+ * (it is declaration-only), so the breakpoints live here against the same
+ * attribute the resolver emits. */
+@media (max-width: 679px) {
+  [data-hidden-on='mobile'] {
+    display: none;
+  }
+}
+
+@media (min-width: 680px) {
+  [data-hidden-on='desktop'] {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------- mosaico */
+
+.cv-bento-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  margin-block-end: var(--cv-space-6);
+}
+
+.cv-bento-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--cv-space-4);
+}
+
+/* Six columns is what makes thirds and halves land on the same rhythm; the
+ * three spans below are the ONLY widths a tile can take. */
+@media (min-width: 860px) {
+  .cv-bento-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .cv-bento-item[data-span='sm'] {
+    grid-column: span 2;
+  }
+
+  .cv-bento-item[data-span='md'] {
+    grid-column: span 3;
+  }
+
+  .cv-bento-item[data-span='lg'] {
+    grid-column: span 6;
+  }
+}
+
+.cv-bento-item {
+  display: grid;
+  gap: var(--cv-space-3);
+  align-content: start;
+  background: var(--cv-color-surface);
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-md);
+  overflow: hidden;
+}
+
+.cv-bento-media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+
+.cv-bento-media img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cv-bento-body {
+  display: grid;
+  gap: var(--cv-space-2);
+  padding: var(--cv-space-5);
+  align-content: start;
+}
+
+/* Tiles stretch to their row, so a text-only one beside an image tile would
+ * leave a tall empty box under three lines of copy. With media the rows pack
+ * to the top (the image leads); without it there is nothing to lead, so the
+ * copy centres in the space it was given. */
+.cv-bento-item:not(:has(.cv-bento-media)) {
+  align-content: center;
+}
+
+.cv-bento-eyebrow {
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--cv-color-text-muted);
+}
+
+.cv-bento-title {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-md);
+  text-wrap: balance;
+}
+
+.cv-bento-text {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+/* ----------------------------------------------------------------- pasos */
+
+.cv-steps-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+}
+
+.cv-steps-lead {
+  color: var(--cv-color-text-muted);
+  max-inline-size: 62ch;
+  margin-block-start: var(--cv-space-3);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+/* The number comes from a counter, never from the content: reordering rows
+ * in the admin renumbers the list for free. */
+.cv-steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  margin-block-start: var(--cv-space-8);
+  counter-reset: cv-step;
+  display: grid;
+  gap: var(--cv-space-6);
+}
+
+@media (min-width: 680px) {
+  .cv-steps-list {
+    grid-template-columns: repeat(var(--cv-section-columns, 3), minmax(0, 1fr));
+  }
+}
+
+.cv-step {
+  counter-increment: cv-step;
+  padding-block-start: var(--cv-space-8);
+  position: relative;
+}
+
+.cv-step::before {
+  content: counter(cv-step, decimal-leading-zero);
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-sm);
+  letter-spacing: 0.08em;
+  color: var(--cv-color-accent);
+}
+
+.cv-step-title {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-md);
+  margin-block-end: var(--cv-space-2);
+  text-wrap: balance;
+}
+
+.cv-step-body {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+/* ------------------------------------------------------- índice de página */
+
+/* Deliberately NOT sticky. A second sticky bar under an already-sticky
+ * header eats a third of a phone viewport and covers the very heading the
+ * reader just jumped to. The index is a chapter list at the top of the
+ * page; `scroll-padding-block-start` in app.css is what makes the jump
+ * land clear of the header. */
+.cv-anchor-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cv-space-3);
+  padding-block: var(--cv-space-3);
+  border-block: 1px solid var(--cv-color-border);
+}
+
+.cv-anchor-nav-label {
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--cv-color-text-muted);
+}
+
+/* `min-inline-size: 0` is the load-bearing line: a flex item defaults to
+ * `min-width: auto`, so this list would sit at its max-content width, never
+ * reach its own wrap point, and push the whole page into horizontal scroll
+ * on a phone. */
+.cv-anchor-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cv-space-3);
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.cv-anchor-nav-list a {
+  color: var(--cv-color-text-muted);
+  text-decoration: none;
+  font-size: var(--cv-font-size-sm);
+}
+
+.cv-anchor-nav-list a:hover,
+.cv-anchor-nav-list a:focus-visible {
+  color: var(--cv-color-text);
+}
+
+/* -------------------------------------------------------- imagen anotada */
+
+.cv-hotspots-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+  margin-block-end: var(--cv-space-6);
+}
+
+.cv-hotspots-figure {
+  position: relative;
+  margin: 0;
+  border-radius: var(--cv-radius-md);
+  overflow: hidden;
+}
+
+.cv-hotspots-figure > img {
+  inline-size: 100%;
+  block-size: auto;
+  display: block;
+}
+
+/* A photograph does not mirror in RTL, so the pin layer is anchored LTR and
+ * only the panel text follows the page direction. */
+.cv-hotspots-layer {
+  position: absolute;
+  inset: 0;
+  direction: ltr;
+}
+
+.cv-hotspot {
+  position: absolute;
+  inset-block-start: var(--cv-hotspot-y, 50%);
+  inset-inline-start: var(--cv-hotspot-x, 50%);
+}
+
+.cv-hotspot[data-col='1'] { --cv-hotspot-x: 4.17%; }
+.cv-hotspot[data-col='2'] { --cv-hotspot-x: 12.50%; }
+.cv-hotspot[data-col='3'] { --cv-hotspot-x: 20.83%; }
+.cv-hotspot[data-col='4'] { --cv-hotspot-x: 29.17%; }
+.cv-hotspot[data-col='5'] { --cv-hotspot-x: 37.50%; }
+.cv-hotspot[data-col='6'] { --cv-hotspot-x: 45.83%; }
+.cv-hotspot[data-col='7'] { --cv-hotspot-x: 54.17%; }
+.cv-hotspot[data-col='8'] { --cv-hotspot-x: 62.50%; }
+.cv-hotspot[data-col='9'] { --cv-hotspot-x: 70.83%; }
+.cv-hotspot[data-col='10'] { --cv-hotspot-x: 79.17%; }
+.cv-hotspot[data-col='11'] { --cv-hotspot-x: 87.50%; }
+.cv-hotspot[data-col='12'] { --cv-hotspot-x: 95.83%; }
+.cv-hotspot[data-row='1'] { --cv-hotspot-y: 6.25%; }
+.cv-hotspot[data-row='2'] { --cv-hotspot-y: 18.75%; }
+.cv-hotspot[data-row='3'] { --cv-hotspot-y: 31.25%; }
+.cv-hotspot[data-row='4'] { --cv-hotspot-y: 43.75%; }
+.cv-hotspot[data-row='5'] { --cv-hotspot-y: 56.25%; }
+.cv-hotspot[data-row='6'] { --cv-hotspot-y: 68.75%; }
+.cv-hotspot[data-row='7'] { --cv-hotspot-y: 81.25%; }
+.cv-hotspot[data-row='8'] { --cv-hotspot-y: 93.75%; }
+
+/* Near the trailing edge or the bottom, a panel would be clipped by the
+ * figure's `overflow: hidden`, so it opens inward instead. The flip is
+ * another closed rule keyed off the same enums — never a measurement. */
+.cv-hotspot[data-col='8'] .cv-hotspot-panel,
+.cv-hotspot[data-col='9'] .cv-hotspot-panel,
+.cv-hotspot[data-col='10'] .cv-hotspot-panel,
+.cv-hotspot[data-col='11'] .cv-hotspot-panel,
+.cv-hotspot[data-col='12'] .cv-hotspot-panel {
+  inset-inline-start: auto;
+  inset-inline-end: -14px;
+}
+
+.cv-hotspot[data-row='7'] .cv-hotspot-panel,
+.cv-hotspot[data-row='8'] .cv-hotspot-panel {
+  inset-block-start: auto;
+  inset-block-end: 22px;
+}
+
+/* On a phone there is no room to open a 15rem panel beside a pin without
+ * clipping it against the figure. Making `.cv-hotspot` static hands both the
+ * pin and the panel to the layer as their containing block — the pin keeps
+ * its grid position (the x/y custom properties inherit), and the panel
+ * becomes a sheet across the foot of the image, which is what an annotated
+ * photo does on a small screen. */
+@media (max-width: 679px) {
+  .cv-hotspots-layer .cv-hotspot {
+    position: static;
+  }
+
+  .cv-hotspots-layer .cv-hotspot-pin {
+    position: absolute;
+    inset-block-start: var(--cv-hotspot-y, 50%);
+    inset-inline-start: var(--cv-hotspot-x, 50%);
+  }
+
+  .cv-hotspots-figure .cv-hotspot-panel {
+    inset-block: auto var(--cv-space-3);
+    inset-inline: var(--cv-space-3);
+    inline-size: auto;
+    max-inline-size: none;
+  }
+}
+
+.cv-hotspot-pin {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  margin-inline-start: -14px;
+  margin-block-start: -14px;
+  border-radius: var(--cv-radius-pill);
+  background: var(--cv-color-fill-accent);
+  color: var(--cv-color-on-fill-accent);
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  font-weight: 600;
+}
+
+.cv-hotspot-pin::-webkit-details-marker {
+  display: none;
+}
+
+.cv-hotspot-pin:focus-visible {
+  outline: var(--cv-focus-width) solid var(--cv-color-accent);
+  outline-offset: var(--cv-focus-offset);
+}
+
+.cv-hotspot-panel {
+  position: absolute;
+  inset-block-start: 22px;
+  inset-inline-start: -14px;
+  inline-size: 15rem;
+  max-inline-size: 60vw;
+  display: grid;
+  gap: var(--cv-space-1);
+  background: var(--cv-color-surface);
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-md);
+  padding: var(--cv-space-3);
+}
+
+[dir='rtl'] .cv-hotspot-panel {
+  direction: rtl;
+}
+
+.cv-hotspot-title {
+  font-weight: 600;
+  font-size: var(--cv-font-size-sm);
+}
+
+.cv-hotspot-body {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+/* -------------------------------------------------------- tabla de specs */
+
+.cv-spec-table-heading {
+  font-family: var(--cv-font-display);
+  font-size: var(--cv-font-size-xl);
+}
+
+.cv-spec-table-lead {
+  color: var(--cv-color-text-muted);
+  max-inline-size: 62ch;
+  margin-block: var(--cv-space-3) var(--cv-space-6);
+  line-height: var(--cv-font-lineHeight-body);
+}

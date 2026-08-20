@@ -8,7 +8,7 @@
 import config from "@payload-config";
 import type { LocaleId, PaymentProviderId } from "@courvia/platform";
 import type { CommerceService, PaymentEvent, PaymentProvider } from "@courvia/commerce-domain";
-import { FakePaymentProvider } from "@courvia/commerce-domain/testing";
+import { FakePaymentProvider } from "@courvia/commerce-domain/fakes";
 import {
   PayloadCommerceService,
   applyPaymentEvent as applyPaymentEventToPayload,

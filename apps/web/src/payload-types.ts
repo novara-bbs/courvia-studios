@@ -329,6 +329,27 @@ export interface Page {
             blockType: 'hero';
           }
         | {
+            label?: string | null;
+            items: {
+              text: string;
+              anchor: string;
+              id?: string | null;
+            }[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'anchorNav';
+          }
+        | {
             body: {
               root: {
                 type: string;
@@ -392,6 +413,32 @@ export interface Page {
         | {
             heading?: string | null;
             items: {
+              span?: ('sm' | 'md' | 'lg') | null;
+              image?: (number | null) | Media;
+              eyebrow?: string | null;
+              title: string;
+              body?: string | null;
+              id?: string | null;
+            }[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'bento';
+          }
+        | {
+            heading?: string | null;
+            items: {
               value: string;
               label: string;
               note?: string | null;
@@ -440,6 +487,31 @@ export interface Page {
             heading?: string | null;
             lead?: string | null;
             items: {
+              title: string;
+              body?: string | null;
+              id?: string | null;
+            }[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              columns?: ('2' | '3' | '4') | null;
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'steps';
+          }
+        | {
+            heading?: string | null;
+            lead?: string | null;
+            items: {
               label: string;
               title: string;
               body?: string | null;
@@ -459,6 +531,32 @@ export interface Page {
             id?: string | null;
             blockName?: string | null;
             blockType: 'timeline';
+          }
+        | {
+            image: number | Media;
+            heading?: string | null;
+            points: {
+              col: '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
+              row: '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
+              title: string;
+              body?: string | null;
+              id?: string | null;
+            }[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              width?: ('prose' | 'content' | 'full') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hotspots';
           }
         | {
             heading?: string | null;
@@ -501,6 +599,29 @@ export interface Page {
             id?: string | null;
             blockName?: string | null;
             blockType: 'productShowcase';
+          }
+        | {
+            heading?: string | null;
+            lead?: string | null;
+            /**
+             * El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.
+             */
+            products: (number | Product)[];
+            /**
+             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             */
+            appearance?: {
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'specTable';
           }
         | {
             provider: 'youtube' | 'vimeo';
@@ -1253,6 +1374,29 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        anchorNav?:
+          | T
+          | {
+              label?: T;
+              items?:
+                | T
+                | {
+                    text?: T;
+                    anchor?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
         richText?:
           | T
           | {
@@ -1281,6 +1425,34 @@ export interface PagesSelect<T extends boolean = true> {
                     spaceBlockEnd?: T;
                     background?: T;
                     mediaPosition?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        bento?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    span?: T;
+                    image?: T;
+                    eyebrow?: T;
+                    title?: T;
+                    body?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    reveal?: T;
+                    hiddenOn?: T;
                     themeScope?: T;
                   };
               id?: T;
@@ -1335,6 +1507,33 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        steps?:
+          | T
+          | {
+              heading?: T;
+              lead?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    body?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    columns?: T;
+                    divider?: T;
+                    reveal?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
         timeline?:
           | T
           | {
@@ -1356,6 +1555,34 @@ export interface PagesSelect<T extends boolean = true> {
                     spaceBlockEnd?: T;
                     background?: T;
                     reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        hotspots?:
+          | T
+          | {
+              image?: T;
+              heading?: T;
+              points?:
+                | T
+                | {
+                    col?: T;
+                    row?: T;
+                    title?: T;
+                    body?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    width?: T;
+                    reveal?: T;
+                    hiddenOn?: T;
                     themeScope?: T;
                   };
               id?: T;
@@ -1397,6 +1624,26 @@ export interface PagesSelect<T extends boolean = true> {
                     spaceBlockEnd?: T;
                     background?: T;
                     align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        specTable?:
+          | T
+          | {
+              heading?: T;
+              lead?: T;
+              products?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    reveal?: T;
+                    hiddenOn?: T;
                     themeScope?: T;
                   };
               id?: T;

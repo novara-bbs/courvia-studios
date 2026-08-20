@@ -164,6 +164,33 @@ export const CONTROLS = {
       settle: "--cv-reveal-name: cv-reveal-settle;",
     },
   },
+  /**
+   * Edge treatment between bands. A page of stacked sections needs a way to
+   * separate two bands that share a background without inventing a colour:
+   * the hairline uses the border role, the soft edge a fade of it.
+   */
+  divider: {
+    values: ["none", "hairline", "soft"],
+    default: "none",
+    attribute: "data-divider",
+    css: {
+      none: "",
+      hairline: "border-block-start: 1px solid var(--cv-color-border);",
+      soft: "border-block-start: 1px solid color-mix(in oklab, var(--cv-color-border) 45%, transparent);",
+    },
+  },
+  /**
+   * Responsive visibility — the one Elementor/Webflow staple with a real
+   * job here: a stage's decorative band on desktop, a compact card on
+   * mobile. `display: none` (not visibility) so screen readers skip it too:
+   * a section hidden for layout reasons is hidden for everyone.
+   */
+  hiddenOn: {
+    values: ["never", "mobile", "desktop"],
+    default: "never",
+    attribute: "data-hidden-on",
+    css: null,
+  },
   /** Nested brand theme for this section (CSS handled by tokens.css). */
   themeScope: {
     values: ["inherit", ...THEME_ALIAS_LIST],

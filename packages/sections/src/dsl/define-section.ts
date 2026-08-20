@@ -28,6 +28,9 @@ export interface RenderContext {
     intent: "demo" | "waitlist" | "preorder";
     productSlug?: string;
   }) => ReactNode;
+  /** Live spec comparison for the given product slugs, priced and labelled
+   *  with each figure's evidence state by the app. Optional, like the grid. */
+  renderSpecTable?: (slugs: string[]) => ReactNode;
   /**
    * The localized "concept render" label. Sections must show it over any
    * non-final asset (E-028) but may not hold user-visible strings, so the

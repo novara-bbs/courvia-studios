@@ -11,9 +11,9 @@ import {
   describeCommerceServiceContract,
   describePaymentProviderContract,
 } from "./contracts";
-import { FakeCommerceService, makeFakeCatalog } from "./fake-commerce-service";
-import { FakePaymentProvider, signFakePayload } from "./fake-payment-provider";
-import type { FakeProviderPayload } from "./fake-payment-provider";
+import { FakeCommerceService, makeFakeCatalog } from "../fakes/fake-commerce-service";
+import { FakePaymentProvider, signFakePayload } from "../fakes/fake-payment-provider";
+import type { FakeProviderPayload } from "../fakes/fake-payment-provider";
 
 const SECRET = "whsec_test";
 

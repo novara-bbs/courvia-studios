@@ -10,6 +10,7 @@ import * as migration_20260820_092450_cms_commerce_and_methods from './20260820_
 import * as migration_20260820_094933_nav_pro_hero_level from './20260820_094933_nav_pro_hero_level';
 import * as migration_20260820_104736_media_governance_spec_evidence from './20260820_104736_media_governance_spec_evidence';
 import * as migration_20260820_122752_visual_sections from './20260820_122752_visual_sections';
+import * as migration_20260820_165317_landing_vocabulary from './20260820_165317_landing_vocabulary';
 
 export const migrations = [
   {
@@ -70,6 +71,11 @@ export const migrations = [
   {
     up: migration_20260820_122752_visual_sections.up,
     down: migration_20260820_122752_visual_sections.down,
-    name: '20260820_122752_visual_sections'
+    name: '20260820_122752_visual_sections',
+  },
+  {
+    up: migration_20260820_165317_landing_vocabulary.up,
+    down: migration_20260820_165317_landing_vocabulary.down,
+    name: '20260820_165317_landing_vocabulary'
   },
 ];

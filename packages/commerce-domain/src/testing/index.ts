@@ -1,3 +1,9 @@
+/**
+ * Test-only entry point: the contract suites import `vitest` at module
+ * scope, so importing anything from here pulls a test runner in. Runtime
+ * code wanting a fake must use `@courvia/commerce-domain/fakes` instead —
+ * the same objects, without that cost.
+ */
 export {
   describeCatalogContract,
   describeCommerceServiceContract,
@@ -8,7 +14,4 @@ export type {
   CommerceServiceFixtures,
   PaymentProviderFixtures,
 } from "./contracts";
-export { FakeCommerceService, makeFakeCatalog } from "./fake-commerce-service";
-export type { FakeCatalog } from "./fake-commerce-service";
-export { FakePaymentProvider, signFakePayload } from "./fake-payment-provider";
-export type { FakeProviderPayload, FakePaymentProviderOptions } from "./fake-payment-provider";
+export * from "../fakes";

@@ -1,5 +1,5 @@
 import { defineSection } from "../../dsl/define-section";
-import { mediaValue } from "../../dsl/fields";
+import { intrinsicSize, mediaValue } from "../../dsl/fields";
 
 /**
  * A grid of images with captions. Governance rides on the asset itself
@@ -56,7 +56,7 @@ export const gallery = defineSection({
               <li key={cell.media.url} className="cv-gallery-item">
                 <figure>
                   <div className="cv-gallery-frame">
-                    <img src={cell.media.url} alt={cell.media.alt} loading="lazy" />
+                    <img src={cell.media.url} alt={cell.media.alt} {...intrinsicSize(cell.media)} loading="lazy" />
                     {cell.media.concept === true && ctx.conceptLabel !== undefined ? (
                       <span className="cv-asset-note">{ctx.conceptLabel}</span>
                     ) : null}

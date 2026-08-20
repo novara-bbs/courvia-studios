@@ -34,6 +34,21 @@
   --cv-font-body: var(--font-ibm-plex-sans-arabic), sans-serif;
 }
 
+/* The header is sticky, so an in-page anchor would land UNDER it. Both rules
+ * are written against the same spacing token — and `.site-header` gets it as
+ * a `min-block-size`, so the height is a contract the header must honour
+ * rather than a number this rule guesses about it. */
+html {
+  scroll-padding-block-start: calc(var(--cv-space-16) + var(--cv-space-4));
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
   background: var(--cv-color-bg);
   color: var(--cv-color-text);
@@ -67,6 +82,15 @@ body {
   gap: 0;
   padding-block-start: 0;
   padding-inline: 0;
+}
+
+/* A grid item defaults to `min-width: auto`, so ONE section wider than the
+ * viewport — a spec table with four columns on a phone — stretches this grid
+ * and every other section with it, and the whole page scrolls sideways. The
+ * reset belongs to the grid that creates the constraint, not to each
+ * section: sections cannot know what container they were composed into. */
+.page--composed > * {
+  min-inline-size: 0;
 }
 
 .hero h1 {
@@ -167,6 +191,7 @@ code {
   position: sticky;
   inset-block-start: 0;
   z-index: 30;
+  min-block-size: var(--cv-space-16);
   border-block-end: 1px solid var(--cv-color-border);
   background: var(--cv-color-bg);
 }

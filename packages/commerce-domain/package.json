@@ -6,6 +6,7 @@
   "description": "Domain types, CommerceService and PaymentProvider ports, normalized PaymentEvents and the order state machine",
   "exports": {
     ".": "./src/index.ts",
+    "./fakes": "./src/fakes/index.ts",
     "./testing": "./src/testing/index.ts"
   },
   "scripts": {

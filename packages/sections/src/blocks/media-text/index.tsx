@@ -1,5 +1,5 @@
 import { defineSection } from "../../dsl/define-section";
-import { mediaValue } from "../../dsl/fields";
+import { intrinsicSize, mediaValue } from "../../dsl/fields";
 
 /**
  * Image beside text — the workhorse of product landings. The side the media
@@ -48,7 +48,7 @@ export const mediaText = defineSection({
       <div className="cv-media-text">
         {image === null ? null : (
           <figure className="cv-media-text-media">
-            <img src={image.url} alt={image.alt} loading="lazy" />
+            <img src={image.url} alt={image.alt} {...intrinsicSize(image)} loading="lazy" />
             {image.concept === true && ctx.conceptLabel !== undefined ? (
               <span className="cv-asset-note">{ctx.conceptLabel}</span>
             ) : null}

@@ -13,6 +13,7 @@ import type { RegionId } from "@courvia/platform";
 
 import { SectionLeadForm } from "./section-lead-form";
 import { SectionProductGrid } from "./section-product-grid";
+import { SectionSpecTable } from "./section-spec-table";
 
 export function makeRenderContext(
   preview: boolean,
@@ -29,6 +30,7 @@ export function makeRenderContext(
         <RichText data={value as SerializedEditorState} />
       ),
     renderProductGrid: (slugs) => <SectionProductGrid slugs={slugs} region={region} />,
+    renderSpecTable: (slugs) => <SectionSpecTable slugs={slugs} region={region} />,
     renderLeadForm: (options) => (
       <SectionLeadForm region={region} intent={options.intent} productSlug={options.productSlug} />
     ),

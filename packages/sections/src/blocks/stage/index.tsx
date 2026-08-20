@@ -1,7 +1,7 @@
 import { Badge, Button } from "@courvia/ui";
 
 import { defineSection } from "../../dsl/define-section";
-import { mediaValue } from "../../dsl/fields";
+import { intrinsicSize, mediaValue } from "../../dsl/fields";
 import type { Link } from "../../dsl/fields";
 
 /**
@@ -64,7 +64,7 @@ export const stage = defineSection({
       <div className="cv-stage">
         {media === null ? null : (
           <div className="cv-stage-media">
-            <img src={media.url} alt="" aria-hidden="true" />
+            <img src={media.url} alt="" {...intrinsicSize(media)} aria-hidden="true" />
             <span className="cv-stage-scrim" aria-hidden="true" />
             {media.concept === true && ctx.conceptLabel !== undefined ? (
               <span className="cv-asset-note">{ctx.conceptLabel}</span>

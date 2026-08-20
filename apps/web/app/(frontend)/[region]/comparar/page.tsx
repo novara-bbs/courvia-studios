@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { getRobot, listRobots } from "../../../../src/catalog/get-catalog";
+import { specRows } from "../../../../src/catalog/spec-rows";
 import { setRequestRegion } from "../../../../src/i18n/request-region";
 import { regionAlternates } from "../../../../src/seo/region-alternates";
 
@@ -26,18 +27,6 @@ export async function generateMetadata({ params }: PageArgs): Promise<Metadata> 
     description: t("lead"),
     alternates: regionAlternates(region, "/comparar"),
   };
-}
-
-/** Spec keys in first-seen order across products, so the comparator aligns
- *  rows by the stable machine key while labels stay localized. */
-function specRows(details: ProductDetail[]): { key: string; label: string; unit?: string }[] {
-  const rows = new Map<string, { key: string; label: string; unit?: string }>();
-  for (const detail of details) {
-    for (const spec of detail.product.specs) {
-      if (!rows.has(spec.key)) rows.set(spec.key, spec);
-    }
-  }
-  return [...rows.values()];
 }
 
 export default async function ComparePage({ params }: PageArgs) {
