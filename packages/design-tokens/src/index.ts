@@ -22,5 +22,6 @@ export type {
   TokenValue,
   TokensDocument,
 } from "./types";
+export { lookupToken, referencePath, resolveToken, themeColor } from "./resolve";
 export { COLOR_ROLES, FONT_ROLES, REQUIRED_ROLES } from "./semantic-contract";
 export type { ColorRole, FontRole } from "./semantic-contract";

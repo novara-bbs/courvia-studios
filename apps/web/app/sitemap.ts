@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 
 import { listRobots } from "../src/catalog/get-catalog";
 import { listCategorySlugs } from "../src/catalog/get-category";
-import { listPublishedSlugs } from "../src/content/get-page";
+import { listIndexableSlugs } from "../src/content/get-page";
 import { siteUrl } from "../src/seo/site-url";
 
 /**
@@ -45,8 +45,10 @@ function entry(
 
 /**
  * Every indexable route of every PUBLISHED region: home, catalog,
- * comparator, PDPs and published CMS pages, each carrying the full hreflang
- * alternate set. A prepared region contributes nothing — neither rows nor
+ * comparator, PDPs and INDEXABLE CMS pages, each carrying the full hreflang
+ * alternate set. A page an editor marked `noIndex` is left out for the same
+ * reason a prepared region is: asking for a URL we then refuse is the
+ * contradiction Search Console reports. A prepared region contributes nothing — neither rows nor
  * annotations — because a sitemap is a request to index while its pages
  * answer `noindex`, and asking for a URL we then refuse is exactly the
  * contradiction Search Console reports.
@@ -66,7 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // configured database answers with an error.
   const [products, pageSlugs, categorySlugs] = await Promise.all([
     listRobots("es"),
-    listPublishedSlugs(),
+    listIndexableSlugs(),
     listCategorySlugs(),
   ]);
 

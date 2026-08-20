@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     media: Media;
     pages: Page;
+    redirects: Redirect;
     brands: Brand;
     categories: Category;
     products: Product;
@@ -91,6 +92,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     brands: BrandsSelect<false> | BrandsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
@@ -745,6 +747,27 @@ export interface Page {
           }
       )[]
     | null;
+  /**
+   * Todo opcional. Vacío = el título de la página, su primer texto y una tarjeta generada con los colores del tema.
+   */
+  seo?: {
+    /**
+     * Solo si el título de buscador debe diferir del de la página. Google corta sobre los 60 caracteres.
+     */
+    title?: string | null;
+    /**
+     * Lo que se lee bajo el enlace en Google y al compartir. Una frase concreta; sin “Descubre” ni adjetivos sin medida.
+     */
+    description?: string | null;
+    /**
+     * Imagen al compartir (1200×630). Sin ella se genera una tarjeta con el título y los colores del tema activo.
+     */
+    ogImage?: (number | null) | Media;
+    /**
+     * La página sigue siendo pública y navegable; solo se le pide a los buscadores que no la listen. Se suma al noindex de la región: una región no publicada no se reactiva desmarcando esto.
+     */
+    noIndex?: boolean | null;
+  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -856,6 +879,33 @@ export interface Brand {
   slug: string;
   logo?: (number | null) | Media;
   description?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Rutas relativas a la región (/tecnologia, no /es/tecnologia): una fila cubre es, en-gb, en-ae y ar-ae. Al renombrar el slug de una página se crea sola.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redirects".
+ */
+export interface Redirect {
+  id: number;
+  /**
+   * URL antigua, sin el prefijo de región. Ej.: /tecnologia
+   */
+  from: string;
+  /**
+   * URL nueva, sin el prefijo de región. Ej.: /tecnologia-tempo
+   */
+  to: string;
+  /**
+   * 301 para un cambio definitivo de URL. 302 solo mientras algo esté de paso: un 302 no traslada el posicionamiento.
+   */
+  code: '301' | '302';
+  /**
+   * Quién creó la fila. Las automáticas se reescriben solas al volver a renombrar.
+   */
+  source: 'manual' | 'slug-change';
   updatedAt: string;
   createdAt: string;
 }
@@ -1139,6 +1189,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'pages';
         value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'redirects';
+        value: number | Redirect;
       } | null)
     | ({
         relationTo: 'brands';
@@ -1753,9 +1807,29 @@ export interface PagesSelect<T extends boolean = true> {
               blockName?: T;
             };
       };
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        ogImage?: T;
+        noIndex?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redirects_select".
+ */
+export interface RedirectsSelect<T extends boolean = true> {
+  from?: T;
+  to?: T;
+  code?: T;
+  source?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

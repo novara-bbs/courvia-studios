@@ -54,6 +54,37 @@ Estados terminales: solo `cancelled` y `refunded` (`partially_refunded` no lo es
 
 **Colecciones** (\*=localizado): `products` (title*, slug, sport, description*, specs jsonb, warranty — público read) · `variants` · `prices` (**solo servidor**) · `pages` (blocks[], seo) · `academyPosts` (sport, level) · `leads` (**servidor/CRM**) · `orders` / `payments` / `returns` / `shipments` (**solo servidor/RLS**) · `media` (Supabase Storage) · `redirects` · `users` (roles).
 
+### `pages.seo` y `redirects` (ADR-026)
+
+`pages` lleva un grupo `seo` con cuatro campos y ni uno más — el admin se
+degrada con exceso de campos:
+
+| Campo | Localizado | Por qué |
+|---|---|---|
+| `seo.title` | sí | Solo si el título de buscador debe diferir del de la página. |
+| `seo.description` | sí | Vacío = la primera prosa de la propia página; en su defecto, la descripción de sitio. |
+| `seo.ogImage` | **no** | El `alt` que la hace accesible ya está localizado en el documento de `media`. |
+| `seo.noIndex` | **no** | hreflang es recíproco: una versión indexable y otra `noindex` del mismo clúster lo rompen. Se **compone** con el estado de la región (ADR-025), nunca lo sustituye. |
+
+La cadena de respaldo vive en un único módulo (`apps/web/src/seo/page-metadata.ts`),
+no repetida en cada `generateMetadata`.
+
+`redirects` guarda rutas **relativas a la región** (`/tecnologia`, no
+`/es/tecnologia`): el slug de una página es único y compartido por los cuatro
+locales, así que una fila cubre las cuatro URLs.
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `from` | text, **único** | Ruta de 1 o 2 segmentos kebab. Rechazada si la sirve una ruta del código o si ya la ocupa una página publicada. |
+| `to` | text | Interna y de 1 o 2 segmentos. `//host` es una URL protocolo-relativa disfrazada de ruta: rechazada. |
+| `code` | enum `301` \| `302` | Nunca un número libre. |
+| `source` | enum `manual` \| `slug-change` | Quién escribió la fila. |
+
+Renombrar el slug de una página **publicada** crea la fila sola, en la misma
+transacción, y aplana cadenas: A→B→C deja `A→C` y `B→C`. El proxy las aplica
+antes de que la respuesta empiece a hacer streaming, que es lo único que
+permite emitir un 301 o un 404 de verdad bajo `cacheComponents`.
+
 **Globals:** `ThemeSettings` (tema activo + overrides Zod) · `Navigation` por locale · `MarketSettings` por mercado (moneda, impuestos, envíos, incoterm, **paymentProviders[] con orden de presentación**).
 
 **Bloques (definitivos):** Hero · BentoGrid · SpecsTable · ProductComparator · VideoBlock · LeadForm · TestimonialStrip · FAQBlock · CTABand · RichText · MediaGallery · WarrantyBlock.

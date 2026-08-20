@@ -51,7 +51,7 @@ export const next = tseslint.config({
  * 100x for the first zero-decimal currency we add. Multiply a quantity with
  * `multiply()`, render with `format()` or `toDecimalString()`.
  */
-const moneyArithmetic = [
+export const moneyArithmetic = [
   {
     // Either operand: `a.amount / 100` and `100 * a.amount` both match. The
     // non-null assertion in `price!.amount` sits below the MemberExpression,
@@ -110,6 +110,33 @@ export const designSystemGuardrails = tseslint.config({
     ],
   },
 });
+
+/**
+ * The one context where `style` is not an escape hatch: satori.
+ *
+ * `next/og` rasterizes JSX with satori, which loads no stylesheet and
+ * supports no class attribute — inline style is its ONLY input. Banning it
+ * there does not protect anything, because nothing an editor writes becomes
+ * CSS: the card is a PNG, and the only values that reach it are colours read
+ * from tokens.json.
+ *
+ * Everything else the guardrail bans stays banned, `dangerouslySetInnerHTML`
+ * included. Pass the exact files, so this cannot quietly widen.
+ */
+export const satoriInlineStyles = (files) =>
+  tseslint.config({
+    files,
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...moneyArithmetic,
+        {
+          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+          message: "Render rich text through the sanitised renderer, never raw HTML.",
+        },
+      ],
+    },
+  });
 
 export default tseslint.config(
   {

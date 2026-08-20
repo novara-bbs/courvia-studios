@@ -10,44 +10,59 @@ import { getDraftPage, getPage } from "../../../../src/content/get-page";
 import { makeRenderContext } from "../../../../src/content/render-context";
 import { DraftModeBar } from "../../../../src/preview/draft-mode-bar";
 import { RefreshRouteOnSave } from "../../../../src/preview/refresh-route-on-save";
-import { regionAlternates } from "../../../../src/seo/region-alternates";
+import { pageMetadata } from "../../../../src/seo/page-metadata";
 import { siteUrl } from "../../../../src/seo/site-url";
 
-type PageArgs = { params: Promise<{ region: string; slug: string[] }> };
+type PageArgs = { params: Promise<{ region: string; slug: string }> };
 
+// [slug], not [...slug]. This route only ever served a single segment — it
+// answered notFound() for anything deeper — and a catch-all cannot carry an
+// `opengraph-image` sibling ("Catch-all must be the last part of the URL",
+// next build). One segment is also the truth about the content model: a page
+// has a flat, unique slug. Deeper URLs now match no route at all, which is
+// how they get a real 404 for free.
+//
 // Request-rendered with per-slug tagged caching: the first hit renders and
-// caches (ISR-equivalent) and publish revalidates the tag. An unknown slug
-// streams the localized not-found UI with a 200 + framework-injected
-// noindex (the documented Cache Components behaviour; out-of-tree URLs get
-// real 404s from global-not-found). generateStaticParams is deliberately
-// absent: under cacheComponents it must return >=1 result, which no
-// empty/CI database can.
+// caches (ISR-equivalent) and publish revalidates the tag.
+//
+// An unknown slug no longer reaches this component at all: the proxy
+// resolves it against the routing manifest before anything streams and
+// rewrites it to a real 404 (ADR-026). The notFound() calls below stay as
+// the honest fallback for the seconds-wide window where the manifest is
+// stale or unavailable — there they still stream the localized not-found UI
+// with a 200 and a framework-injected noindex, which is what this route did
+// for every miss until now. generateStaticParams is deliberately absent:
+// under cacheComponents it must return >=1 result, which no empty/CI
+// database can.
 export const instant = false;
 
 export async function generateMetadata({ params }: PageArgs): Promise<Metadata> {
   const { region, slug } = await params;
-  if (!isRegionId(region) || slug.length !== 1 || slug[0] === undefined) return {};
-  const page = await getPage(slug[0], REGION_DEFINITIONS[region].locale);
+  if (!isRegionId(region)) return {};
+  const { locale } = REGION_DEFINITIONS[region];
+  const page = await getPage(slug, locale);
   if (page === null) return {};
-  return {
-    title: page.title,
-    alternates: regionAlternates(region, `/${page.slug}`),
-  };
+  const t = await getTranslations({ locale, namespace: "meta" });
+  // Every fallback lives in pageMetadata: this route decides nothing.
+  return pageMetadata({
+    page,
+    region,
+    path: `/${page.slug}`,
+    siteDescription: t("description"),
+  });
 }
 
 export default async function CmsPage({ params }: PageArgs) {
   const { region, slug } = await params;
   if (!isRegionId(region)) notFound();
   setRequestRegion(region);
-  // Nested paths are reserved for future scoped routes (robots/, academy/…).
-  if (slug.length !== 1 || slug[0] === undefined) notFound();
   // The home page's content doc: it lives at the region root, never at a
   // second URL of its own (duplicate content).
-  if (slug[0] === "inicio") permanentRedirect(`/${region}`);
+  if (slug === "inicio") permanentRedirect(`/${region}`);
 
   const { isEnabled: draft } = await draftMode();
   const locale = REGION_DEFINITIONS[region].locale;
-  const page = draft ? await getDraftPage(slug[0], locale) : await getPage(slug[0], locale);
+  const page = draft ? await getDraftPage(slug, locale) : await getPage(slug, locale);
   if (page === null) notFound();
   const tCatalog = await getTranslations({ locale, namespace: "catalog" });
 

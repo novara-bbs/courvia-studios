@@ -10,6 +10,7 @@ import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from
 import { Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
 import { Media } from "./src/payload/media";
 import { Pages } from "./src/payload/pages";
+import { Redirects } from "./src/payload/redirects";
 import { storagePlugins } from "./src/payload/storage";
 import { MarketSettings } from "./src/payload/market-settings";
 import { Navigation } from "./src/payload/navigation";
@@ -68,6 +69,7 @@ export default buildConfig({
     Users,
     Media,
     Pages,
+    Redirects,
     Brands,
     Categories,
     Products,

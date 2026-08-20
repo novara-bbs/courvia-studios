@@ -9,18 +9,20 @@
  * - Theme values that reference a global token emit `var(--cv-...)` so the
  *   CSS keeps a single source per primitive; literals emit as-is.
  */
+import { referencePath, resolveToken } from "./resolve";
 import { THEME_ALIASES, isToken } from "./types";
 import type {
   ShadowValue,
   Token,
   TokenGroup,
   TokensDocument,
-  TokenValue,
 } from "./types";
 
-const PREFIX = "--cv";
-const REFERENCE_RE = /^\{([^}]+)\}$/;
+// Re-exported because the pure resolver used to live in this module, and its
+// tests — plus the semantic-contract suite — import it from here.
+export { lookupToken, resolveToken } from "./resolve";
 
+const PREFIX = "--cv";
 /** Generic CSS font families that must not be quoted. */
 const GENERIC_FAMILIES = new Set([
   "serif",
@@ -53,50 +55,6 @@ export function flattenGroup(group: TokenGroup, base = ""): FlatToken[] {
 /** "color.court.950" -> "--cv-color-court-950" */
 export function cssVarName(path: string): string {
   return `${PREFIX}-${path.split(".").join("-")}`;
-}
-
-function referencePath(value: TokenValue): string | null {
-  if (typeof value !== "string") return null;
-  const match = REFERENCE_RE.exec(value);
-  return match?.[1] ?? null;
-}
-
-/** Look a token up by absolute document path, e.g. "global.color.court.950". */
-export function lookupToken(doc: TokensDocument, absPath: string): Token {
-  const segments = absPath.split(".");
-  let node: TokenGroup | Token | undefined;
-  const [head, ...rest] = segments;
-  if (head === "global") {
-    node = doc.global;
-  } else if (head === "theme") {
-    node = doc.theme[rest.shift() ?? ""];
-  }
-  for (const segment of rest) {
-    if (node === undefined || isToken(node)) {
-      // Path continues past a token (over-long/typo'd reference) — invalid.
-      node = undefined;
-      break;
-    }
-    node = node[segment];
-  }
-  if (node === undefined || !isToken(node)) {
-    throw new Error(`Token reference not found: {${absPath}}`);
-  }
-  return node;
-}
-
-/** Resolve a token to its literal value, following references (with cycle guard). */
-export function resolveToken(
-  doc: TokensDocument,
-  token: Token,
-  seen: string[] = [],
-): Token {
-  const ref = referencePath(token.$value);
-  if (ref === null) return token;
-  if (seen.includes(ref)) {
-    throw new Error(`Circular token reference: ${[...seen, ref].join(" -> ")}`);
-  }
-  return resolveToken(doc, lookupToken(doc, ref), [...seen, ref]);
 }
 
 function fontFamilyCss(families: string[]): string {

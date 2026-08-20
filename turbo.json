@@ -65,7 +65,8 @@
     },
     "@courvia/web#test": {
       "dependsOn": [
-        "^build"
+        "^build",
+        "build"
       ],
       "cache": false
     }

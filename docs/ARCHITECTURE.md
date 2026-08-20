@@ -189,6 +189,31 @@ Las **etiquetas** de specs viven en un diccionario global, no como texto libre p
 
 **Locale ≠ Market.** Un `region` compone ambos y tiene URL propia e indexable: `/es`, `/en-gb`, `/en-ae`, `/ar-ae`. UK y EAU comparten idioma pero difieren en moneda, impuestos, envíos y SEO. Una cookie de mercado no se puede indexar y forzaría render dinámico de toda página con precio.
 
+### Qué URL existe, y quién lo decide (ADR-026)
+
+Bajo `cacheComponents` una página **no puede fijar su propio status**: el
+shell estático ya salió como 200 cuando el componente descubre que el slug no
+existe, así que ni `notFound()` ni `permanentRedirect()` pueden emitir un 404
+o un 301. Medido en esta versión y documentado por la propia Next
+(`03-file-conventions/loading.md`: *«run this check in proxy»*).
+
+Por eso la decisión vive **delante** del render:
+
+```
+proxy.ts ──HTTP──> /next/routing   (manifiesto: slugs, productos, categorías, redirecciones)
+   │                    ↑ cacheado con las etiquetas "pages" · "catalog" · "redirects"
+   ├─ ¿se movió?  → NextResponse.redirect(destino, 301|302)
+   ├─ ¿no existe? → NextResponse.rewrite("/_not-found")   → 404 + global-not-found.tsx
+   └─ si no       → next()
+```
+
+El proxy no habla con Postgres —se empaqueta aparte y corre antes que la
+app—, y **falla abierto**: sin manifiesto, todo vuelve al comportamiento
+anterior (la página renderiza; un slug ausente sirve el 404 localizado con
+200 + `noindex`). Un manifiesto vacío se rechaza por la misma razón: es
+indistinguible de un build sin base de datos, y creérselo sería responder 404
+en el sitio entero.
+
 ---
 
 ## 6. Commerce
@@ -224,7 +249,7 @@ Las suites de contrato son la pieza de mayor apalancamiento: se exportan desde e
 
 ## 8. Estado y secuencia
 
-Hecho: monorepo · tokens con contrato semántico y contraste garantizado · primitivas sin escape hatches · puertos implementables con suites de contrato · `Money` · máquina de estados con outbox y códigos de razón · fronteras verificadas · CI (con Postgres real: migra + siembra + test de contrato del adaptador) · **Payload 3.88 embebido** (admin en `/admin`, schema `payload` en Supabase con RLS, `push:false` — solo migraciones, localización es/en/ar) · **catálogo completo** (`categories`/`products`/`variants`/`prices`/`inventory`/`leads`; precios/inventario/leads solo-servidor; precios fijos por mercado en unidades menores) · **adaptador `commerce-payload`** pasando la suite de contrato contra Postgres real vía el composition root · **rutas `/robots` y `/robots/[slug]`** cacheadas por tags con revalidación desde hooks · **captación de leads** (server action validada, honeypot, consentimiento) · **live preview + draft mode** (`/next/preview` autenticado con payload.auth, sin secreto compartido).
+Hecho: monorepo · tokens con contrato semántico y contraste garantizado · primitivas sin escape hatches · puertos implementables con suites de contrato · `Money` · máquina de estados con outbox y códigos de razón · fronteras verificadas · CI (con Postgres real: migra + siembra + test de contrato del adaptador) · **Payload 3.88 embebido** (admin en `/admin`, schema `payload` en Supabase con RLS, `push:false` — solo migraciones, localización es/en/ar) · **catálogo completo** (`categories`/`products`/`variants`/`prices`/`inventory`/`leads`; precios/inventario/leads solo-servidor; precios fijos por mercado en unidades menores) · **adaptador `commerce-payload`** pasando la suite de contrato contra Postgres real vía el composition root · **rutas `/robots` y `/robots/[slug]`** cacheadas por tags con revalidación desde hooks · **captación de leads** (server action validada, honeypot, consentimiento) · **live preview + draft mode** (`/next/preview` autenticado con payload.auth, sin secreto compartido) · **SEO por página + redirecciones editoriales + 404 real** (ADR-026: cadena de respaldo en un módulo, tarjeta OG generada desde tokens, `redirects` creadas al renombrar y resueltas en el proxy).
 
 Pendiente, en orden (cada paquete = una sesión):
 

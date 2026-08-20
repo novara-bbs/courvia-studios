@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { getPage } from "../../../src/content/get-page";
 import { makeRenderContext } from "../../../src/content/render-context";
 import { setRequestRegion } from "../../../src/i18n/request-region";
+import { pageMetadata } from "../../../src/seo/page-metadata";
 import { regionAlternates } from "../../../src/seo/region-alternates";
 
 type PageArgs = { params: Promise<{ region: string }> };
@@ -21,7 +22,13 @@ const HOME_SLUG = "inicio";
 export async function generateMetadata({ params }: PageArgs): Promise<Metadata> {
   const { region } = await params;
   if (!isRegionId(region)) return {};
-  return { alternates: regionAlternates(region, "") };
+  const { locale } = REGION_DEFINITIONS[region];
+  const page = await getPage(HOME_SLUG, locale);
+  // No "inicio" document: the static fallback below is what renders, and the
+  // region layout's own title/description already describe it correctly.
+  if (page === null) return { alternates: regionAlternates(region, "") };
+  const t = await getTranslations({ locale, namespace: "meta" });
+  return pageMetadata({ page, region, path: "", siteDescription: t("description") });
 }
 
 export default async function HomePage({ params }: PageArgs) {

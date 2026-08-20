@@ -32,7 +32,10 @@ vi.mock("../catalog/get-category", () => ({
   listCategorySlugs: () => Promise.resolve(["padel"]),
 }));
 vi.mock("../content/get-page", () => ({
-  listPublishedSlugs: () => Promise.resolve(["inicio", "privacidad"]),
+  // The sitemap asks for the INDEXABLE slugs, not every published one: a
+  // page an editor marked noIndex stays live and stays out of here.
+  listIndexableSlugs: () => Promise.resolve(["inicio", "privacidad"]),
+  listPublishedSlugs: () => Promise.resolve(["inicio", "privacidad", "oculta"]),
 }));
 
 const preparedTags = PREPARED_REGIONS.map((r) => REGION_DEFINITIONS[r].hreflang);

@@ -12,6 +12,7 @@ import * as migration_20260820_104736_media_governance_spec_evidence from './202
 import * as migration_20260820_122752_visual_sections from './20260820_122752_visual_sections';
 import * as migration_20260820_165317_landing_vocabulary from './20260820_165317_landing_vocabulary';
 import * as migration_20260820_210000_rls_lockdown from './20260820_210000_rls_lockdown';
+import * as migration_20260820_215618_page_seo_and_redirects from './20260820_215618_page_seo_and_redirects';
 
 export const migrations = [
   {
@@ -77,11 +78,16 @@ export const migrations = [
   {
     up: migration_20260820_165317_landing_vocabulary.up,
     down: migration_20260820_165317_landing_vocabulary.down,
-    name: '20260820_165317_landing_vocabulary'
+    name: '20260820_165317_landing_vocabulary',
   },
   {
     up: migration_20260820_210000_rls_lockdown.up,
     down: migration_20260820_210000_rls_lockdown.down,
-    name: '20260820_210000_rls_lockdown'
+    name: '20260820_210000_rls_lockdown',
+  },
+  {
+    up: migration_20260820_215618_page_seo_and_redirects.up,
+    down: migration_20260820_215618_page_seo_and_redirects.down,
+    name: '20260820_215618_page_seo_and_redirects'
   },
 ];

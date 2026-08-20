@@ -18,6 +18,7 @@ Registro de decisiones estructurales **nuevas o que se desvíen de CLAUDE.md**. 
 | [ADR-023](./ADR-023-composition-vocabulary.md) | Vocabulario de composición: por qué no hay bloque de HTML libre | aceptado |
 | [ADR-024](./ADR-024-commerce-portability.md) | Portabilidad del puerto de commerce: catálogo sí, checkout no | aceptado |
 | [ADR-025](./ADR-025-prepared-regions.md) | Regiones publicadas y regiones preparadas (`ar-ae` no se declara) | aceptado |
+| [ADR-026](./ADR-026-page-seo-and-redirects.md) | SEO por página, redirecciones editoriales y un 404 que devuelve 404 | aceptado |
 
 ## Convención
 

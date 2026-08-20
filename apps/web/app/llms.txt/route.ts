@@ -9,7 +9,7 @@ import {
 } from "@courvia/platform";
 
 import { listRobots } from "../../src/catalog/get-catalog";
-import { listPublishedSlugs } from "../../src/content/get-page";
+import { listIndexableSlugs } from "../../src/content/get-page";
 import { siteUrl } from "../../src/seo/site-url";
 
 /** The region whose URLs this file cites, and whose currency it prices in. */
@@ -68,7 +68,7 @@ export async function GET(): Promise<Response> {
   // instead of failing loudly.
   const [products, pageSlugs] = await Promise.all([
     listRobots(DEFAULT_REGION),
-    listPublishedSlugs(),
+    listIndexableSlugs(),
   ]);
 
   const pageLinks = pageSlugs
