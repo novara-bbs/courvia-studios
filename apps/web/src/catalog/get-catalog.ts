@@ -31,7 +31,7 @@ function swallowAtBuild(): boolean {
 export async function listRobots(region: RegionId): Promise<ProductSummary[]> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog");
+  cacheTag("catalog", "media");
   const { locale, market } = REGION_DEFINITIONS[region];
   try {
     const commerce = await getCommerce(locale);
@@ -50,7 +50,7 @@ export async function listRobotsInCategory(
 ): Promise<ProductSummary[]> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog");
+  cacheTag("catalog", "media");
   const { locale, market } = REGION_DEFINITIONS[region];
   try {
     const commerce = await getCommerce(locale);
@@ -70,7 +70,7 @@ export async function listRobotsBySlugs(
 ): Promise<ProductSummary[]> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog");
+  cacheTag("catalog", "media");
   if (slugs.length === 0) return [];
   const { locale, market } = REGION_DEFINITIONS[region];
   try {
@@ -91,7 +91,7 @@ export async function listRobotsBySlugs(
 export async function getRobot(slug: string, region: RegionId): Promise<ProductDetail | null> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog", `product:${slug}`);
+  cacheTag("catalog", `product:${slug}`, "media");
   const { locale, market } = REGION_DEFINITIONS[region];
   try {
     const commerce = await getCommerce(locale);

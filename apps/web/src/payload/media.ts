@@ -3,10 +3,20 @@ import { fileURLToPath } from "node:url";
 
 import type { CollectionConfig } from "payload";
 
+import { revalidateTag } from "next/cache";
+
 import { anyone, isAuthenticated } from "./access";
 import { uploadsWouldBeLost } from "./storage";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function revalidateMedia(): void {
+  try {
+    revalidateTag("media", "max");
+  } catch {
+    // Outside the Next runtime (CLI, seeds) there is no cache to mark.
+  }
+}
 
 /**
  * Media library.
@@ -37,6 +47,28 @@ export const Media: CollectionConfig = {
     update: (args) => (uploadsWouldBeLost() ? false : isAuthenticated(args)),
     delete: isAuthenticated,
   },
+  /**
+   * Media was the only collection with no revalidation hooks, while every
+   * surface that renders it caches with `cacheLife("max")`. So fixing an alt
+   * text, replacing a photograph, or flipping `evidenceStatus` to `blocked`
+   * — the switch that is supposed to pull an asset off the storefront
+   * immediately — changed nothing a visitor could see, for up to a year.
+   *
+   * A media document cannot know which pages embed it, so it invalidates the
+   * shared `media` tag that `get-page.ts` and `get-catalog.ts` carry
+   * alongside their own. Broad on purpose: a librarian edits rarely, and a
+   * governance flag that does not take effect is worse than a cold cache.
+   */
+  hooks: {
+    afterChange: [
+      ({ doc }) => {
+        revalidateMedia();
+        return doc;
+      },
+    ],
+    afterDelete: [() => revalidateMedia()],
+  },
+
   upload: {
     staticDir: path.resolve(dirname, "../../media"),
     mimeTypes: ["image/*", "video/mp4", "video/webm"],

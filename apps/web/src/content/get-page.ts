@@ -16,7 +16,7 @@ export interface PageDocument {
 export async function getPage(slug: string, locale: LocaleId): Promise<PageDocument | null> {
   "use cache";
   cacheLife("max");
-  cacheTag(`page:${slug}`);
+  cacheTag(`page:${slug}`, "media");
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({
@@ -47,7 +47,7 @@ export async function getPage(slug: string, locale: LocaleId): Promise<PageDocum
 export async function listPublishedSlugs(): Promise<string[]> {
   "use cache";
   cacheLife("max");
-  cacheTag("pages");
+  cacheTag("pages", "media");
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({
