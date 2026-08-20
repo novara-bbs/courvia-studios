@@ -82,12 +82,18 @@ export interface Config {
     payments: Payment;
     outbox: Outbox;
     returns: Return;
+    carriers: Carrier;
+    shipments: Shipment;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    orders: {
+      shipment: 'shipments';
+    };
+  };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -104,6 +110,8 @@ export interface Config {
     payments: PaymentsSelect<false> | PaymentsSelect<true>;
     outbox: OutboxSelect<false> | OutboxSelect<true>;
     returns: ReturnsSelect<false> | ReturnsSelect<true>;
+    carriers: CarriersSelect<false> | CarriersSelect<true>;
+    shipments: ShipmentsSelect<false> | ShipmentsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -1011,7 +1019,7 @@ export interface Lead {
 export interface Order {
   id: number;
   /**
-   * Solo lo mueve la máquina de estados. No editar.
+   * Lo mueve la máquina de estados: pagos por webhook, envíos desde la colección Envíos. No se edita.
    */
   status:
     | 'draft'
@@ -1070,6 +1078,88 @@ export interface Order {
    * Id del pago en la pasarela; llega al crear la sesión.
    */
   providerPaymentId?: string | null;
+  /**
+   * El envío de este pedido, si ya se abrió.
+   */
+  shipment?: {
+    docs?: (number | Shipment)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * El envío ES la transición: crearlo manda el pedido a preparar, rellenar transportista y seguimiento lo marca enviado, y fechar la entrega lo cierra. Si la máquina de estados no lo permite, no se guarda.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "shipments".
+ */
+export interface Shipment {
+  id: number;
+  /**
+   * Un envío por pedido: la máquina rechaza el segundo, porque `shipped` es un único estado.
+   */
+  order: number | Order;
+  /**
+   * Al rellenarlo junto con el número de seguimiento, el pedido pasa a enviado.
+   */
+  carrier?: (number | null) | Carrier;
+  /**
+   * Número que da el transportista. Va tal cual en el email al cliente.
+   */
+  trackingNumber?: string | null;
+  /**
+   * Se construye con la plantilla del transportista; no se escribe a mano.
+   */
+  trackingUrl?: string | null;
+  /**
+   * La pone la transición al marcar enviado.
+   */
+  shippedAt?: string | null;
+  /**
+   * Fecharla cierra el pedido como entregado y abre el desistimiento.
+   */
+  deliveredAt?: string | null;
+  /**
+   * Del mercado del pedido (ADR-08: EAU se sirve DDP vía courier-broker).
+   */
+  incoterm?: ('DDP' | 'DDU') | null;
+  /**
+   * Quién movió el envío por última vez. Un envío lo marca una persona, no un webhook.
+   */
+  markedBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Añadir un transportista es crear una fila, no un despliegue: la URL de seguimiento es una plantilla, no código.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "carriers".
+ */
+export interface Carrier {
+  id: number;
+  /**
+   * Identificador estable en minúsculas: seur, dpd, aramex.
+   */
+  code: string;
+  /**
+   * Nombre visible para quien prepara el envío.
+   */
+  name: string;
+  /**
+   * URL de seguimiento con {tracking} donde va el número. Ej.: https://track.aramex.com/{tracking}
+   */
+  trackingUrlTemplate: string;
+  /**
+   * Mercados en los que se puede usar. Vacío = todos. Un pedido de otro mercado se rechaza al guardar el envío.
+   */
+  markets?: ('es' | 'uk' | 'ae')[] | null;
+  /**
+   * Desmarcar retira el transportista sin borrar los envíos que lo usaron.
+   */
+  active?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1239,6 +1329,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'returns';
         value: number | Return;
+      } | null)
+    | ({
+        relationTo: 'carriers';
+        value: number | Carrier;
+      } | null)
+    | ({
+        relationTo: 'shipments';
+        value: number | Shipment;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1996,6 +2094,7 @@ export interface OrdersSelect<T extends boolean = true> {
       };
   provider?: T;
   providerPaymentId?: T;
+  shipment?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2046,6 +2145,35 @@ export interface ReturnsSelect<T extends boolean = true> {
       };
   reason?: T;
   refundAmount?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "carriers_select".
+ */
+export interface CarriersSelect<T extends boolean = true> {
+  code?: T;
+  name?: T;
+  trackingUrlTemplate?: T;
+  markets?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "shipments_select".
+ */
+export interface ShipmentsSelect<T extends boolean = true> {
+  order?: T;
+  carrier?: T;
+  trackingNumber?: T;
+  trackingUrl?: T;
+  shippedAt?: T;
+  deliveredAt?: T;
+  incoterm?: T;
+  markedBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }
