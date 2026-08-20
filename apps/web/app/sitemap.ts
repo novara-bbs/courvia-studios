@@ -52,14 +52,18 @@ function entry(
  * contradiction Search Console reports.
  *
  * The catalog/page reads are the same cached loaders the routes use (tags
- * "catalog"/"pages"), and they resolve empty in a DB-less build — the
- * sitemap then still lists the static routes.
+ * "catalog"/"pages"). They resolve empty only where empty is correct — a
+ * machine with no database at all — and on Vercel or CI they fail the build
+ * instead (apps/web/src/server/build-env.ts). A sitemap that lists nothing
+ * but the static routes is a shop with no products, and it would be cached
+ * for a year.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Slugs are shared across regions; ES is the base market and sees the
   // whole published catalog (unsold-here products still render their PDP).
-  // listRobots keeps its own policy: empty in a DB-less build, throw when a
-  // configured DB fails (never bake an empty catalog into a max-life cache).
+  // All three go through the same gate: empty on a machine with no
+  // database, a failed build on a deployment or in CI, and a rethrow when a
+  // configured database answers with an error.
   const [products, pageSlugs, categorySlugs] = await Promise.all([
     listRobots("es"),
     listPublishedSlugs(),

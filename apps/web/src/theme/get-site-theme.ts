@@ -12,6 +12,8 @@ import type { ThemeAlias } from "@courvia/design-tokens";
 import { cacheLife, cacheTag } from "next/cache";
 import { getPayload } from "payload";
 
+import { isDatabaselessBuild } from "../server/build-env";
+
 export async function getSiteTheme(): Promise<ThemeAlias> {
   "use cache";
   cacheLife("max");
@@ -21,16 +23,19 @@ export async function getSiteTheme(): Promise<ThemeAlias> {
     const settings = await payload.findGlobal({ slug: "theme-settings", depth: 0 });
     return isThemeAlias(settings.activeTheme) ? settings.activeTheme : DEFAULT_THEME;
   } catch (error) {
-    // Build environments without a database (CI) prerender with the compiled
-    // default. At RUNTIME we rethrow instead: returning the default here
-    // would cache the WRONG theme under cacheLife("max") — a transient DB
-    // blip during a background revalidation would pin the site to volt for
-    // up to a month, while a thrown error leaves the correct stale entry
-    // in place.
-    if (process.env.NEXT_PHASE === "phase-production-build") {
-      return DEFAULT_THEME;
-    }
     console.error("theme-settings read failed", error);
+    // This used to fall back on ANY build-time failure, database configured
+    // or not — which is the one case that had to be excluded. A build that
+    // reaches Postgres and gets an error would bake the compiled default
+    // over whatever the CMS actually says, under cacheLife("max"): the whole
+    // site wearing the wrong brand for up to a month, from a green build.
+    //
+    // `isDatabaselessBuild` keeps the case that IS correct — a laptop with
+    // no database prerendering the compiled default — and turns the other
+    // two into what they are: a failure on a deployment build, and a
+    // rethrow at runtime, where a thrown error leaves the correct stale
+    // entry in place instead of pinning the wrong theme.
+    if (isDatabaselessBuild("the site theme", error)) return DEFAULT_THEME;
     throw error;
   }
 }

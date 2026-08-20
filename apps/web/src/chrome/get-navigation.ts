@@ -8,6 +8,8 @@ import type { LocaleId } from "@courvia/platform";
 import { cacheLife, cacheTag } from "next/cache";
 import { getPayload } from "payload";
 
+import { isDatabaselessBuild } from "../server/build-env";
+
 export interface NavLink {
   label: string;
   href: string;
@@ -57,12 +59,7 @@ export async function getNavigation(locale: LocaleId): Promise<Navigation> {
     };
   } catch (error) {
     console.error("navigation read failed", error);
-    if (
-      process.env.NEXT_PHASE === "phase-production-build" &&
-      (process.env.DATABASE_URL ?? "") === ""
-    ) {
-      return EMPTY;
-    }
+    if (isDatabaselessBuild("the site navigation", error)) return EMPTY;
     throw error;
   }
 }

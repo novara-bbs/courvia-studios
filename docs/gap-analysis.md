@@ -52,8 +52,8 @@ Ordenado. Cada punto es aproximadamente una sesión.
 | 9 | **`llms.txt` deja de ser un catálogo a mano y obsoleto** | Le cuenta a los asistentes que los productos son Drill One/Pro/Club —nombres retirados— y cita un corredor de 900-2.000 € que ADR-022 retiró. Veinte líneas más abajo, la sección de enlaces sí sale del catálogo real: el fichero se contradice a sí mismo. | **hecho** |
 | 10 | **Colección de redirecciones y un 404 de verdad** | Renombrar una página —acción editorial normal— rompe en silencio todo enlace entrante. Peor: la URL muerta responde **200** con cuerpo de "no encontrado", así que Google la mantiene indexada como soft 404. | pendiente |
 | 11 | **Una salida de `paid`** | Nada emite un disparador `fulfilment.*`. Un pedido que llega a `paid` se queda ahí para siempre, y los pedidos no tienen transportista, seguimiento ni fecha de envío. | pendiente |
-| 12 | **Las secciones sirven las derivadas que ya se generan** | Cada subida genera WebP de 480/860/1600 y `mediaValue()` las tira: los cinco renderers emiten `<img src={media.url}>` a pelo. Un máster de 1600px viaja a un móvil de 390px sin negociación de formato. **Es el único punto donde una página de Courvia es medible­mente peor que la misma página en Webflow.** | pendiente |
-| 13 | **Un build sin base de datos debe fallar** | `swallowAtBuild()` devuelve `[]` cuando falta `DATABASE_URL` en un build de producción, y todos esos loaders son `cacheLife("max")`: `/es/robots` y el sitemap sirven vacío con 30 días de revalidación y un año de caducidad. En Vercel se llega fácil (una variable con scope solo Production mientras compila un Preview). | pendiente |
+| 12 | **Las secciones sirven las derivadas que ya se generan** | Cada subida genera WebP de 480/860/1600 y `mediaValue()` las tira: los cinco renderers emiten `<img src={media.url}>` a pelo. Un máster de 1600px viaja a un móvil de 390px sin negociación de formato. **Era el único punto donde una página de Courvia era medible­mente peor que la misma página en Webflow.** | **hecho** |
+| 13 | **Un build sin base de datos debe fallar** | `swallowAtBuild()` devuelve `[]` cuando falta `DATABASE_URL` en un build de producción, y todos esos loaders son `cacheLife("max")`: `/es/robots` y el sitemap sirven vacío con 30 días de revalidación y un año de caducidad. En Vercel se llega fácil (una variable con scope solo Production mientras compila un Preview). | **hecho** |
 
 ---
 
@@ -79,10 +79,10 @@ Cada una es un test, una regla de lint o un paso de CI. Ninguna es prosa.
 1. **El test de exposición del Data API se ejecuta o falla; no se salta.** Se saltaba en cada run porque CI nunca puso las variables, y una suite que se salta reporta el mismo verde que una que pasa. *(hecho)*
 2. **Toda tabla del esquema `payload` tiene RLS y cero políticas, y lo afirma la propia base de datos.** La migración se autoafirma y CI repite las dos consultas contra su Postgres. *(hecho)*
 3. **Aritmética sobre `Money.amount` prohibida fuera de `money.ts`.** El fichero llevaba desde el principio un comentario diciendo que una regla de lint lo impedía. La regla no existía. *(hecho)*
-4. **Todo paquete `payments-*` corre `describePaymentProviderContract`.** Es lo que convierte «puerto intercambiable» en propiedad verificada. *(pendiente)*
+4. **Todo paquete `payments-*` corre `describePaymentProviderContract`.** Es lo que convierte «puerto intercambiable» en propiedad verificada. Ninguno lo corría, y la suite tal como estaba era imposible de pasar para los cuatro: hubo que hacerla declarar lo que cada pasarela firma de verdad. *(hecho)*
 5. **La prosa sobre la gama tiene que coincidir con el catálogo sembrado.** Un test que renderiza `llms.txt` y comprueba que cada nombre de producto existe como marca. *(hecho)*
 6. **Una página desplegada tiene que servir una imagen real.** Smoke de Playwright sobre una PDP + axe. Cierra el hueco que CLAUDE.md §4 nombra («Playwright como fuente de verdad») y que CI aplaza. *(pendiente)*
-7. **Toda `process.env.X` leída en `apps/web` aparece en `.env.example`.** La deriva ya existía en los dos sentidos. *(pendiente)*
+7. **Toda `process.env.X` leída en `apps/web` aparece en `.env.example`.** La deriva ya existía en los dos sentidos, y el test falla en las dos: la plantilla no es un inventario, es lo que alguien copia a `.env.local`. *(hecho)*
 
 Y la que salió de la avería de Vercel, ya en CLAUDE.md §6: **CI en verde no es
 despliegue en verde.**

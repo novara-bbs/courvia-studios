@@ -7,6 +7,8 @@ import type { LocaleId } from "@courvia/platform";
 import { cacheLife, cacheTag } from "next/cache";
 import { getPayload } from "payload";
 
+import { isDatabaselessBuild } from "../server/build-env";
+
 export interface PageDocument {
   slug: string;
   title: string;
@@ -31,19 +33,19 @@ export async function getPage(slug: string, locale: LocaleId): Promise<PageDocum
     return { slug: doc.slug, title: doc.title, blocks: doc.blocks ?? [] };
   } catch (error) {
     console.error(`page read failed for "${slug}"`, error);
-    // Swallow only a genuinely DB-less build; a configured DB that fails is
-    // a real fault and must not bake an empty page into a max-life cache.
-    if (
-      process.env.NEXT_PHASE === "phase-production-build" &&
-      (process.env.DATABASE_URL ?? "") === ""
-    ) {
-      return null;
-    }
+    if (isDatabaselessBuild(`the page "${slug}"`, error)) return null;
     throw error;
   }
 }
 
-/** Published slugs, for build-time prerender. Empty in DB-less CI builds. */
+/**
+ * Published slugs, for build-time prerender and for the sitemap.
+ *
+ * This used to end in a bare `catch { return [] }`, which is the worst
+ * possible shape for a function that feeds the sitemap: a failed query
+ * became a sitemap with no pages in it, cached for a year, and nothing
+ * anywhere said so. Now it answers empty only where empty is correct.
+ */
 export async function listPublishedSlugs(): Promise<string[]> {
   "use cache";
   cacheLife("max");
@@ -58,8 +60,10 @@ export async function listPublishedSlugs(): Promise<string[]> {
       select: { slug: true },
     });
     return result.docs.map((doc) => doc.slug);
-  } catch {
-    return [];
+  } catch (error) {
+    console.error("published slug listing failed", error);
+    if (isDatabaselessBuild("the list of published page slugs", error)) return [];
+    throw error;
   }
 }
 
