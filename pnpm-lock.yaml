@@ -172,6 +172,22 @@ importers:
         specifier: 3.88.0
         version: 3.88.0(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.9.3)
 
+  packages/commerce-shopify:
+    dependencies:
+      '@courvia/commerce-domain':
+        specifier: workspace:*
+        version: link:../commerce-domain
+      '@courvia/platform':
+        specifier: workspace:*
+        version: link:../platform
+    devDependencies:
+      '@courvia/config':
+        specifier: workspace:*
+        version: link:../config
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@types/node@22.20.1)(happy-dom@20.11.2)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(sass@1.77.4)(tsx@4.23.12))
+
   packages/config:
     dependencies:
       '@next/eslint-plugin-next':
@@ -183,6 +199,16 @@ importers:
       typescript-eslint:
         specifier: 8.67.0
         version: 8.67.0(eslint@10.8.1(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3)
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@types/node@22.20.1)(happy-dom@20.11.2)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(sass@1.77.4)(tsx@4.23.12))
 
   packages/design-tokens:
     devDependencies:

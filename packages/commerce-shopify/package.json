@@ -1,0 +1,23 @@
+{
+  "name": "@courvia/commerce-shopify",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Proof that the CommerceService port survives an external platform: the catalog half over Shopify's Storefront API, and an honest NotImplementedError for the half Shopify hosts itself (ADR-024).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@courvia/commerce-domain": "workspace:*",
+    "@courvia/platform": "workspace:*"
+  },
+  "devDependencies": {
+    "@courvia/config": "workspace:*",
+    "vitest": "4.1.11"
+  }
+}

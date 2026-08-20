@@ -1,20 +1,49 @@
 /**
  * Architectural boundaries, enforced. CLAUDE.md §3.1 claims "the frontend
- * consumes ONLY this interface" — until this file existed, nothing stopped
- * a route importing the Stripe adapter directly and CI staying green.
+ * consumes ONLY this interface"; ADR-13/17 claim the ports are swappable.
+ * This file is what makes those claims cost something.
  *
  * Layer order (each may only depend on the ones below it):
  *   apps/web  →  sections → ui → design-tokens
  *             →  commerce-domain ← adapters
  *             →  platform (leaf, depended on by everything)
+ *
+ * ---------------------------------------------------------------------------
+ * READ THIS BEFORE ADDING A RULE
+ *
+ * dependency-cruiser matches `to.path` against the module's RESOLVED path
+ * whenever the import resolves — and a workspace import resolves as soon as
+ * the dependency is declared in the importing package's `package.json`,
+ * which is exactly what a developer does when they add the import. A rule
+ * written only as `"^@courvia/ui"` therefore fires for an import that would
+ * fail to install, and goes SILENT for the one that would actually ship.
+ * Nearly every rule here was written that way, and every one of them was
+ * decorative: `pnpm arch` was green while almost nothing was enforced.
+ *
+ * So each rule below names both forms, through the helpers, and each was
+ * checked by introducing its violation WITH the dependency declared and
+ * watching it fail. A boundary rule nobody has seen fail is a comment.
+ * ---------------------------------------------------------------------------
  */
+
+/** Both shapes a workspace package can appear as: bare specifier (the import
+ *  did not resolve) and resolved path (it did). */
+const workspace = (...names) =>
+  names.flatMap((name) => [`^@courvia/${name}$`, `^@courvia/${name}/`, `^packages/${name}/`]);
+
+/** Same for an npm package. pnpm resolves to
+ *  `node_modules/.pnpm/<pkg>@<version>_<hash>/node_modules/<pkg>/…`, so the
+ *  trailing `node_modules/<pkg>/` is the only stable anchor. */
+const npm = (...names) =>
+  names.flatMap((name) => [`^${name}$`, `^${name}/`, `(^|/)node_modules/${name}/`]);
+
 module.exports = {
   forbidden: [
     {
       name: "no-circular",
       severity: "error",
       comment: "A cycle between packages means the boundary is fictional.",
-      from: {},
+      from: { pathNot: "(^|/)node_modules/" },
       to: { circular: true },
     },
     {
@@ -26,7 +55,7 @@ module.exports = {
         "leaks into everything.",
       from: { path: "^packages/commerce-domain/src" },
       to: {
-        path: "^@courvia/(?!platform$)",
+        path: ["^@courvia/(?!platform($|/))", "^packages/(?!commerce-domain/|platform/)"],
       },
     },
     {
@@ -34,13 +63,15 @@ module.exports = {
       severity: "error",
       comment: "The domain must stay renderer- and vendor-free.",
       from: { path: "^packages/(commerce-domain|platform)/src" },
-      to: { path: "^(next|react|react-dom|payload|stripe|@payloadcms)" },
+      to: { path: npm("next", "react", "react-dom", "payload", "stripe", "@payloadcms/[^/]+") },
     },
     {
       name: "platform-is-a-leaf",
       severity: "error",
-      comment: "@courvia/platform is the shared vocabulary; it may depend on nothing.",
-      from: { path: "^packages/platform/src" },
+      comment:
+        "@courvia/platform is the shared vocabulary; it may depend on nothing. Its " +
+        "own tests may reach for vitest, hence the pathNot on the source side.",
+      from: { path: "^packages/platform/src", pathNot: "\\.test\\.ts$" },
       to: { path: "^(@courvia/|[a-z@])", pathNot: "^(node:|packages/platform)" },
     },
     {
@@ -50,7 +81,7 @@ module.exports = {
         "design-tokens must stay usable outside this repo (a native app, a Figma " +
         "sync). Node builtins are fine in its build CLI; workspace packages are not.",
       from: { path: "^packages/design-tokens/src" },
-      to: { path: "^@courvia/" },
+      to: { path: ["^@courvia/", "^packages/(?!design-tokens/)"] },
     },
     {
       name: "appearance-knows-only-tokens",
@@ -59,7 +90,13 @@ module.exports = {
         "The design-control table must stay framework-free: it is generated into " +
         "CSS and consumed by both the storefront and the CMS layer.",
       from: { path: "^packages/appearance/src" },
-      to: { path: "^(@courvia/(?!design-tokens$)|react|next|payload)" },
+      to: {
+        path: [
+          "^@courvia/(?!design-tokens($|/))",
+          "^packages/(?!appearance/|design-tokens/)",
+          ...npm("react", "next", "payload"),
+        ],
+      },
     },
     {
       name: "sections-are-pure",
@@ -70,7 +107,10 @@ module.exports = {
         "preview, Storybook and visual regression cheap (ADR-016).",
       from: { path: "^packages/sections/src" },
       to: {
-        path: "^(payload|@payloadcms|next|@courvia/(commerce-|payments-|platform))",
+        path: [
+          ...npm("payload", "@payloadcms/[^/]+", "next"),
+          ...workspace("commerce-[a-z-]+", "payments-[a-z-]+", "platform"),
+        ],
       },
     },
     {
@@ -80,14 +120,14 @@ module.exports = {
         "Primitives must stay renderable in isolation (Storybook, visual tests). " +
         "They may not reach for the CMS, the domain or an adapter.",
       from: { path: "^packages/ui/src" },
-      to: { path: "^@courvia/(?!design-tokens$)" },
+      to: { path: ["^@courvia/(?!design-tokens($|/))", "^packages/(?!ui/|design-tokens/)"] },
     },
     {
       name: "ui-is-framework-free",
       severity: "error",
       comment: "next/* or payload in a primitive makes it untestable outside an app.",
       from: { path: "^packages/ui/src" },
-      to: { path: "^(next|payload|stripe|@payloadcms)" },
+      to: { path: npm("next", "payload", "stripe", "@payloadcms/[^/]+") },
     },
     {
       name: "adapters-are-not-imported-by-routes",
@@ -98,16 +138,29 @@ module.exports = {
         "prevent.",
       from: {
         path: "^apps/web",
-        pathNot: "^apps/web/src/server/container\\.ts$",
+        pathNot: [
+          // The composition root. Naming adapters is its entire purpose.
+          "^apps/web/src/server/container\\.ts$",
+          // Each maintenance script is its own entry point: it has no request
+          // path to lock in, and the operational helpers it calls
+          // (expireStaleCheckouts) are adapter functions, not port methods —
+          // widening the port for one cron job would be the worse trade.
+          "^apps/web/src/scripts/",
+          // A contract test that did not name the real adapter would be
+          // testing nothing. This is the proof of the boundary, not a breach.
+          "\\.(test|spec)\\.[tj]sx?$",
+        ],
       },
-      to: { path: "^@courvia/(payments-|commerce-payload|commerce-shopify)" },
+      to: {
+        path: workspace("payments-[a-z-]+", "commerce-payload", "commerce-shopify"),
+      },
     },
     {
       name: "no-adapter-to-adapter",
       severity: "error",
       comment: "A gateway adapter must never reach into persistence, or vice versa.",
       from: { path: "^packages/payments-" },
-      to: { path: "^@courvia/commerce-payload" },
+      to: { path: workspace("commerce-payload") },
     },
     {
       name: "testing-entry-is-test-only",
@@ -132,7 +185,9 @@ module.exports = {
       severity: "error",
       comment:
         "Import a package through its exports map, never through src/. Deep imports " +
-        "are how boundaries silently rot.",
+        "are how boundaries silently rot. This one is correct as a bare-specifier " +
+        "match: the exports maps make such an import UNresolvable, so it never gets " +
+        "a resolved path to check.",
       from: {},
       to: { path: "^@courvia/[^/]+/src/" },
     },
@@ -148,13 +203,16 @@ module.exports = {
           "\\.d\\.ts$",
           "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$",
           "\\.config\\.(ts|mjs|cjs|js)$",
+          // Third-party modules are in the graph so the framework rules can
+          // see them; they are not ours to call dead.
+          "(^|/)node_modules/",
           // Adapter shells: implemented in their own roadmap task (WP12/WP15).
           "^packages/(payments-stripe|commerce-payload)/src/index\\.ts$",
           // Generated by `payload generate:types`; consumed by the CMS runtime,
           // not by an import graph. Deleting it breaks the build, so "unused"
           // here is an artefact of how it is produced.
           "^apps/web/src/payload-types\\.ts$",
-          // The four-layer proof of docs/.claude/rules/database.md: it talks to
+          // The four-layer proof of .claude/rules/database.md: it talks to
           // Supabase over HTTP with the publishable key and imports nothing of
           // ours ON PURPOSE — an import would let our own code fake the answer.
           "^apps/web/src/server/data-api-exposure\\.test\\.ts$",
@@ -167,8 +225,11 @@ module.exports = {
     },
   ],
   options: {
+    // Keep node_modules OUT of the traversal but IN the graph: excluding it
+    // dropped every edge to an npm package, which is why "no framework in the
+    // domain" could not fire at all.
     doNotFollow: { path: "node_modules" },
-    exclude: { path: "(node_modules|\\.next|dist|\\.turbo)" },
+    exclude: { path: "(\\.next|dist|\\.turbo)" },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {
       exportsFields: ["exports"],
