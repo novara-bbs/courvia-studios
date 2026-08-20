@@ -38,6 +38,22 @@ export interface MarketConfig {
   paymentProviders: MarketPaymentProvider[];
 }
 
+/**
+ * Verification lifecycle of a published figure (portfolio v0.4 §39 / brand
+ * book §27): a number is a design target until a sample, pilot or lab proves
+ * it. The storefront labels every non-`published` value with its state — the
+ * publication rule is "0 claims verificados" until the register says
+ * otherwise, so the label IS the compliance mechanism.
+ */
+export const SPEC_EVIDENCE_LEVELS = [
+  "target",
+  "factory_claim",
+  "sample_tested",
+  "pilot_verified",
+  "published",
+] as const;
+export type SpecEvidence = (typeof SPEC_EVIDENCE_LEVELS)[number];
+
 /** One technical specification row; keys align across SKUs for comparison. */
 export interface Spec {
   /** Stable machine key that aligns the same row across products in the
@@ -47,6 +63,8 @@ export interface Spec {
   label: string;
   value: string;
   unit?: string;
+  /** Absent = `published` (legacy rows predating the evidence register). */
+  evidence?: SpecEvidence;
 }
 
 /**
@@ -71,6 +89,11 @@ export interface ProductImage {
   alt: string;
   width?: number;
   height?: number;
+  /** Localized caption rendered under the image in the PDP gallery. */
+  caption?: string;
+  /** True while the asset is a CGI concept render (no golden sample behind
+   *  it): the storefront MUST overlay the "render conceptual" label. */
+  concept?: boolean;
 }
 
 export interface Product {

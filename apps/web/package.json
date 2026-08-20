@@ -16,6 +16,7 @@
     "migrate:create": "payload migrate:create",
     "seed:admin": "tsx src/seeds/seed-admin.ts",
     "seed:catalog": "tsx src/seeds/seed-catalog.ts",
+    "seed:media": "tsx src/seeds/seed-media.ts",
     "seed:markets": "tsx src/seeds/seed-markets.ts",
     "seed:content": "tsx src/seeds/seed-content.ts",
     "sweep:checkouts": "tsx src/scripts/expire-checkouts.ts",

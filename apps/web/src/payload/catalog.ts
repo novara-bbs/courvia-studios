@@ -11,7 +11,7 @@
  * currency mapping lives once in @courvia/platform (prices store amount +
  * market only, so the two can never drift).
  */
-import { LAUNCH_STATUSES } from "@courvia/commerce-domain";
+import { LAUNCH_STATUSES, SPEC_EVIDENCE_LEVELS } from "@courvia/commerce-domain";
 import { MARKETS, SPORTS } from "@courvia/platform";
 import type { CollectionConfig } from "payload";
 
@@ -198,6 +198,17 @@ export const Products: CollectionConfig = {
         },
         { name: "value", type: "text", required: true, localized: true },
         { name: "unit", type: "text" },
+        {
+          name: "evidence",
+          type: "select",
+          required: true,
+          defaultValue: "target",
+          options: [...SPEC_EVIDENCE_LEVELS],
+          admin: {
+            description:
+              "Estado de verificación (register CV-DATA): target = objetivo de diseño · factory_claim = dato OEM sin verificar · sample_tested/pilot_verified = medido · published = verificado y aprobado. La PDP etiqueta todo lo no-published.",
+          },
+        },
       ],
     },
     { name: "warrantyMonths", type: "number", min: 0, defaultValue: 24 },

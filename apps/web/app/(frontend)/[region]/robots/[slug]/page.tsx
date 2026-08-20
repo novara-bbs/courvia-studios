@@ -86,16 +86,29 @@ export default async function RobotDetailPage({ params }: PageArgs) {
       </header>
 
       {product.images === undefined || product.images.length === 0 ? null : (
-        <figure className="pdp-media">
-          <Image
-            src={product.images[0]!.url}
-            alt={product.images[0]!.alt}
-            width={product.images[0]!.width ?? 1600}
-            height={product.images[0]!.height ?? 1200}
-            sizes="(max-width: 860px) 100vw, 860px"
-            priority
-          />
-        </figure>
+        // Canonical gallery (brand book §26): hero first and full-width, the
+        // rest in a two-up grid; every non-photographic asset carries the
+        // "render conceptual" label the evidence register mandates (E-028).
+        <section className="pdp-gallery" aria-label={t("galleryTitle")}>
+          {product.images.map((image, index) => (
+            <figure key={image.url} className="pdp-media">
+              <Image
+                src={image.url}
+                alt={image.alt}
+                width={image.width ?? 1600}
+                height={image.height ?? 1200}
+                sizes={
+                  index === 0 ? "(max-width: 860px) 100vw, 860px" : "(max-width: 860px) 100vw, 430px"
+                }
+                priority={index === 0}
+              />
+              {image.concept === true ? (
+                <span className="pdp-concept">{t("conceptRender")}</span>
+              ) : null}
+              {image.caption === undefined ? null : <figcaption>{image.caption}</figcaption>}
+            </figure>
+          ))}
+        </section>
       )}
 
       {status === "waitlist" ? null : (
@@ -153,10 +166,16 @@ export default async function RobotDetailPage({ params }: PageArgs) {
                 <dd>
                   {spec.value}
                   {spec.unit === undefined ? "" : ` ${spec.unit}`}
+                  {spec.evidence === undefined || spec.evidence === "published" ? null : (
+                    <span className="spec-evidence">{t(`evidence.${spec.evidence}`)}</span>
+                  )}
                 </dd>
               </div>
             ))}
           </dl>
+          {product.specs.some((spec) => spec.evidence !== undefined && spec.evidence !== "published") ? (
+            <p className="pdp-evidence-note">{t("evidenceNote")}</p>
+          ) : null}
         </section>
       )}
 

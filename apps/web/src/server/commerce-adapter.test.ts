@@ -1,8 +1,13 @@
 /**
  * The real adapter, through the real composition root, against a real
- * Postgres with the seeded demo catalog (`pnpm seed:catalog` +
- * `pnpm seed:markets`). Skipped when no DATABASE_URL is configured; CI
- * provides one plus migrations and seeds.
+ * Postgres (`pnpm seed:markets` for MarketSettings). Skipped when no
+ * DATABASE_URL is configured; CI provides one plus migrations and seeds.
+ *
+ * The purchasable fixtures are TEST-OWNED: the real catalog (ADR-022) is
+ * all-waitlist with no prices by design, so this suite seeds its own
+ * disposable priced product in beforeAll and removes it in afterAll —
+ * checkout, stock and the payment pipeline stay covered without giving the
+ * marketing catalog a fake price.
  *
  * Covers the FULL CommerceService contract (catalog + checkout, ADR-13's
  * proof) and the §4 payment pipeline: ledger-first idempotency, state
@@ -25,7 +30,7 @@ process.env.PAYMENT_FAKE_SECRET ??= "test-secret";
 
 const CHECKOUT_INPUT = {
   market: "es" as const,
-  lines: [{ sku: "DRL-PRO-P", quantity: 1 }],
+  lines: [{ sku: "TST-RIG-P", quantity: 1 }],
   email: "contract@courvia.test",
   provider: "stripe" as const,
   shippingAddress: {
@@ -47,18 +52,112 @@ async function loadPayload() {
   return getPayload({ config });
 }
 
-/** The canonical seed stock (src/payload/seed-catalog.ts): tests commit
- *  real units, so both hooks restore this exact profile — runs stay
- *  deterministic and the dev DB keeps its demo state (incl. the agotado). */
-const SEED_STOCK: Record<string, number> = {
-  "DRL-ONE-P": 12,
-  "DRL-ONE-T": 8,
-  "DRL-PRO-P": 9,
-  "DRL-PRO-T": 0,
-  "DRL-PRO-PB": 5,
-  "DRL-CLB-P": 3,
-  "DRL-CLB-T": 2,
+/** Test-owned purchasable stock: 9 on the checkout SKU (the "5+5 must fail
+ *  as a sum" case depends on it), 12 on the secondary reserve/release SKU. */
+const TEST_STOCK: Record<string, number> = {
+  "TST-RIG-P": 9,
+  "TST-RIG-B": 12,
 };
+
+const TEST_PRICES: Record<string, Partial<Record<"es" | "uk", number>>> = {
+  // 129000 is what the checkout total assertions expect.
+  "TST-RIG-P": { es: 129_000, uk: 112_000 },
+  "TST-RIG-B": { es: 99_000 },
+};
+
+/** Creates the disposable priced product the suite checks out against. */
+async function seedTestCatalog() {
+  const payload = await loadPayload();
+  const existing = await payload.find({
+    collection: "products",
+    where: { slug: { equals: "test-rig" } },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  });
+  if (existing.totalDocs > 0) return;
+  const product = await payload.create({
+    collection: "products",
+    locale: "es",
+    draft: false,
+    overrideAccess: true,
+    data: {
+      title: "Test Rig",
+      slug: "test-rig",
+      sports: ["padel"],
+      excerpt: "Banco de pruebas del contrato de commerce. No es un producto.",
+      specs: [],
+      launchStatus: "available",
+      _status: "published",
+    },
+  });
+  for (const [sku, prices] of Object.entries(TEST_PRICES)) {
+    const variant = await payload.create({
+      collection: "variants",
+      overrideAccess: true,
+      data: { product: product.id, sku, sport: "padel", active: true },
+    });
+    await payload.create({
+      collection: "inventory",
+      overrideAccess: true,
+      data: { variant: variant.id, qtyOnHand: TEST_STOCK[sku] ?? 0, qtyCommitted: 0 },
+    });
+    for (const [market, amount] of Object.entries(prices)) {
+      await payload.create({
+        collection: "prices",
+        overrideAccess: true,
+        data: {
+          variant: variant.id,
+          market: market as "es" | "uk",
+          amount,
+          taxBehavior: "inclusive",
+          active: true,
+        },
+      });
+    }
+  }
+}
+
+/** Removes the rig (and its variants/prices/inventory) from the shared DB. */
+async function removeTestCatalog() {
+  const payload = await loadPayload();
+  const product = (
+    await payload.find({
+      collection: "products",
+      where: { slug: { equals: "test-rig" } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+  ).docs[0];
+  if (product === undefined) return;
+  const variants = await payload.find({
+    collection: "variants",
+    where: { product: { equals: product.id } },
+    limit: 100,
+    depth: 0,
+    overrideAccess: true,
+  });
+  const variantIds = variants.docs.map((doc) => doc.id);
+  if (variantIds.length > 0) {
+    await payload.delete({
+      collection: "prices",
+      where: { variant: { in: variantIds } },
+      overrideAccess: true,
+    });
+    await payload.delete({
+      collection: "inventory",
+      where: { variant: { in: variantIds } },
+      overrideAccess: true,
+    });
+    await payload.delete({
+      collection: "variants",
+      where: { id: { in: variantIds } },
+      overrideAccess: true,
+    });
+  }
+  await payload.delete({ collection: "products", where: { id: { equals: product.id } }, overrideAccess: true });
+}
 
 async function resetCommerceRows() {
   const payload = await loadPayload();
@@ -86,7 +185,7 @@ async function resetCommerceRows() {
   for (const row of inventory.docs) {
     const variantId = typeof row.variant === "object" ? row.variant.id : row.variant;
     const sku = skuByVariant.get(variantId);
-    const qtyOnHand = sku !== undefined && sku in SEED_STOCK ? SEED_STOCK[sku]! : row.qtyOnHand;
+    const qtyOnHand = sku !== undefined && sku in TEST_STOCK ? TEST_STOCK[sku]! : row.qtyOnHand;
     await payload.update({
       collection: "inventory",
       id: row.id,
@@ -97,8 +196,14 @@ async function resetCommerceRows() {
 }
 
 if (hasDb && dbIsDisposable) {
-  beforeAll(resetCommerceRows);
-  afterAll(resetCommerceRows);
+  beforeAll(async () => {
+    await seedTestCatalog();
+    await resetCommerceRows();
+  });
+  afterAll(async () => {
+    await resetCommerceRows();
+    await removeTestCatalog();
+  });
 
   describeCommerceServiceContract(
     "PayloadCommerceService (via container)",
@@ -107,9 +212,9 @@ if (hasDb && dbIsDisposable) {
       return getCommerce("es");
     },
     {
-      knownSlug: "drill-pro",
+      knownSlug: "test-rig",
       unknownSlug: "no-such-robot",
-      knownSku: "DRL-PRO-P",
+      knownSku: "TST-RIG-P",
       unknownSku: "NOPE-0",
       market: "es",
       otherMarket: "uk",
@@ -140,7 +245,7 @@ if (hasDb && dbIsDisposable) {
       const { getCommerce } = await loadContainer();
       const service = await getCommerce("es");
       await expect(
-        service.createCheckout({ ...CHECKOUT_INPUT, lines: [{ sku: "DRL-PRO-P", quantity: 999 }] }),
+        service.createCheckout({ ...CHECKOUT_INPUT, lines: [{ sku: "TST-RIG-P", quantity: 999 }] }),
       ).rejects.toMatchObject({ code: "insufficient_stock" });
     });
 
@@ -149,9 +254,9 @@ if (hasDb && dbIsDisposable) {
       const payload = await loadPayload();
       const service = await getCommerce("es");
 
-      const before = await service.getAvailability(["DRL-PRO-P"]);
+      const before = await service.getAvailability(["TST-RIG-P"]);
       const checkout = await service.createCheckout(CHECKOUT_INPUT);
-      const after = await service.getAvailability(["DRL-PRO-P"]);
+      const after = await service.getAvailability(["TST-RIG-P"]);
       expect(after[0]!.available).toBe(before[0]!.available - 1);
 
       const order = await service.getOrder(checkout.orderId);
@@ -176,13 +281,13 @@ if (hasDb && dbIsDisposable) {
       const payload = await loadPayload();
       const service = await getCommerce("es");
 
-      const before = await service.getAvailability(["DRL-ONE-P"]);
+      const before = await service.getAvailability(["TST-RIG-B"]);
       const checkout = await service.createCheckout({
         ...CHECKOUT_INPUT,
-        lines: [{ sku: "DRL-ONE-P", quantity: 2 }],
+        lines: [{ sku: "TST-RIG-B", quantity: 2 }],
         email: "expiry@courvia.test",
       });
-      const reserved = await service.getAvailability(["DRL-ONE-P"]);
+      const reserved = await service.getAvailability(["TST-RIG-B"]);
       expect(reserved[0]!.available).toBe(before[0]!.available - 2);
 
       // "Older than an hour", measured by a clock an hour ahead: the fresh
@@ -195,7 +300,7 @@ if (hasDb && dbIsDisposable) {
 
       const order = await service.getOrder(checkout.orderId);
       expect(order?.status).toBe("cancelled");
-      const released = await service.getAvailability(["DRL-ONE-P"]);
+      const released = await service.getAvailability(["TST-RIG-B"]);
       expect(released[0]!.available).toBe(before[0]!.available);
 
       // Idempotent: a second sweep finds nothing to move on this order.
@@ -419,8 +524,8 @@ if (hasDb && dbIsDisposable) {
         service.createCheckout({
           ...CHECKOUT_INPUT,
           lines: [
-            { sku: "DRL-PRO-P", quantity: 5 },
-            { sku: "DRL-PRO-P", quantity: 5 },
+            { sku: "TST-RIG-P", quantity: 5 },
+            { sku: "TST-RIG-P", quantity: 5 },
           ],
         }),
       ).rejects.toMatchObject({ code: "insufficient_stock" });

@@ -527,8 +527,28 @@ code {
   margin-block-end: var(--cv-space-6);
 }
 
-.pdp-media {
+/* Galería canónica: hero a ancho completo, el resto a dos columnas. La
+ * etiqueta "render conceptual" es obligatoria sobre todo asset CGI. */
+.pdp-gallery {
+  display: grid;
+  gap: var(--cv-space-4);
+  max-inline-size: 860px;
   margin-block-end: var(--cv-space-6);
+}
+
+@media (min-width: 860px) {
+  .pdp-gallery {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pdp-gallery .pdp-media:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.pdp-media {
+  position: relative;
+  margin: 0;
   border-radius: var(--cv-radius-md);
   overflow: hidden;
   max-inline-size: 860px;
@@ -538,6 +558,29 @@ code {
   inline-size: 100%;
   block-size: auto;
   display: block;
+}
+
+.pdp-concept {
+  position: absolute;
+  inset-block-start: var(--cv-space-2);
+  inset-inline-start: var(--cv-space-2);
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cv-color-text);
+  background: var(--cv-color-surface);
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-sm);
+  padding-block: var(--cv-space-1);
+  padding-inline: var(--cv-space-2);
+}
+
+.pdp-media figcaption {
+  font-size: var(--cv-font-size-sm);
+  color: var(--cv-color-text-muted);
+  padding-block: var(--cv-space-2);
+  padding-inline: var(--cv-space-1);
 }
 
 .table-scroll {
@@ -596,6 +639,24 @@ code {
 
 .specs-row dd {
   margin: 0;
+}
+
+/* Estado de evidencia junto al valor: la etiqueta ES el mecanismo de
+ * cumplimiento (0 claims verificados hasta que el register diga otra cosa). */
+.spec-evidence {
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cv-color-text-muted);
+  margin-inline-start: var(--cv-space-2);
+}
+
+.pdp-evidence-note {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-sm);
+  max-inline-size: 62ch;
+  margin-block-start: var(--cv-space-3);
 }
 
 .pdp-warranty {

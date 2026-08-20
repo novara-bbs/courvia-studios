@@ -27,10 +27,12 @@ export const Media: CollectionConfig = {
   upload: {
     staticDir: path.resolve(dirname, "../../media"),
     mimeTypes: ["image/*", "video/mp4", "video/webm"],
+    focalPoint: true,
+    // Derived sizes ship as WebP: the original stays untouched as master.
     imageSizes: [
-      { name: "thumbnail", width: 480 },
-      { name: "card", width: 860 },
-      { name: "hero", width: 1600 },
+      { name: "thumbnail", width: 480, formatOptions: { format: "webp", options: { quality: 82 } } },
+      { name: "card", width: 860, formatOptions: { format: "webp", options: { quality: 84 } } },
+      { name: "hero", width: 1600, formatOptions: { format: "webp", options: { quality: 86 } } },
     ],
   },
   fields: [
@@ -39,6 +41,52 @@ export const Media: CollectionConfig = {
       type: "text",
       required: true,
       localized: true,
+    },
+    {
+      name: "caption",
+      type: "textarea",
+      localized: true,
+      maxLength: 200,
+      admin: { description: "Pie visible bajo la imagen en la galería de producto (opcional)." },
+    },
+    {
+      name: "kind",
+      type: "select",
+      options: [
+        "hero",
+        "gallery",
+        "detail",
+        "action",
+        "lineup",
+        "in-the-box",
+        "service",
+        "packaging",
+        "schematic",
+        "ecosystem",
+        "contact-sheet",
+      ],
+      admin: {
+        description:
+          "Rol del asset en la galería canónica. El orden de PDP es: hero → detail/gallery → schematic → action; el resto es material interno o de secciones.",
+      },
+    },
+    {
+      name: "assetCode",
+      type: "text",
+      admin: {
+        description: "Código de trazabilidad del evidence register (A-002…) o del board V0.4.",
+      },
+    },
+    {
+      name: "evidenceStatus",
+      type: "select",
+      required: true,
+      defaultValue: "concept",
+      options: ["concept", "blocked", "published"],
+      admin: {
+        description:
+          "concept = render CGI, se muestra SIEMPRE con etiqueta de render conceptual · blocked = jamás en PDP/campaña/RFQ (el storefront lo excluye aunque se adjunte) · published = fotografía real de muestra final.",
+      },
     },
   ],
 };

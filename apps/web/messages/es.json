@@ -1,22 +1,22 @@
 {
   "meta": {
-    "title": "Courvia — Robots lanzapelotas para tenis, pádel y pickleball",
+    "title": "Courvia — Robots lanzapelotas para pádel, tenis y pickleball",
     "description": "Robots de entrenamiento con rutinas programables, equipamiento y academy. Diseñado en España para pistas de todo el mundo."
   },
   "home": {
     "eyebrow": "Robots de entrenamiento",
-    "heading": "Tu revés mejora esta semana",
-    "lead": "Rutinas programables, 140 pelotas por carga y hasta 6 horas de sesión. El sparring que no se cansa: tú decides el golpe, la frecuencia y el efecto.",
+    "heading": "Tu bandeja mejora esta semana",
+    "lead": "Tempo R1 abre la gama: el robot de pádel accuracy-first, con globo, bandeja, víbora y pared calibrados por bola y pista. Sin cuenta, sin nube: el mando manda.",
     "ctaPrimary": "Elige tu robot",
     "ctaSecondary": "Compara modelos",
-    "pillarsTitle": "Un sistema, tres deportes",
+    "pillarsTitle": "Tres ritmos. Una dirección.",
     "pillarTenis": "Tenis",
-    "pillarTenisBody": "Hasta 110 km/h con topspin. Calibrado para bote de pista rápida.",
+    "pillarTenisBody": "Llega tras su propia calibración y homologación. El hardware de Tempo está diseñado para ello.",
     "pillarPadel": "Pádel",
-    "pillarPadelBody": "Trayectorias bajas y juego de pared. La especialidad de la casa.",
+    "pillarPadelBody": "Primero. Globo, bandeja, víbora y pared calibrados por bola, pista y unidad.",
     "pillarPickleball": "Pickleball",
-    "pillarPickleballBody": "Bola perforada, red baja, ritmo de dinking. Configuración dedicada.",
-    "academyNote": "Cada robot incluye 12 rutinas diseñadas por entrenadores. Sin cuotas."
+    "pillarPickleballBody": "Con hardware dedicado (Go): garganta, alimentador y ruedas para la bola perforada. Nunca por software.",
+    "academyNote": "Todas las funciones esenciales son físicas: sin cuenta, sin nube, sin suscripciones."
   },
   "nav": {
     "regionSelector": "País e idioma",
@@ -24,7 +24,7 @@
     "mainNav": "Navegación principal"
   },
   "footer": {
-    "tagline": "Robots de entrenamiento para tenis, pádel y pickleball. Diseñados en España.",
+    "tagline": "Robots de entrenamiento para pádel, tenis y pickleball. Diseñados en España.",
     "copyright": "© Courvia Sports. Todos los derechos reservados."
   },
   "notFound": {
@@ -41,7 +41,7 @@
   "catalog": {
     "eyebrow": "Robots de entrenamiento",
     "listTitle": "Robots lanzapelotas",
-    "listDescription": "Tres gamas, un criterio: que entrenes más y montes menos. Cada robot se configura por deporte — la bola manda sobre el hardware.",
+    "listDescription": "Tres líneas, un criterio: cumplir antes de prometer. Tempo para precisión, Go para llevar, Rally para clubes — y cada cifra publicada lleva su estado de verificación.",
     "empty": "Estamos preparando el catálogo. Vuelve en unos días.",
     "fromPrice": "Desde {price}",
     "sport": {
@@ -76,7 +76,16 @@
     "preorderTitle": "Reserva la tuya",
     "preorderSubmit": "Solicitar reserva",
     "leadInvalid": "Revisa el nombre y el email: algo no cuadra.",
-    "notSoldHere": "No disponible aquí"
+    "notSoldHere": "No disponible aquí",
+    "galleryTitle": "Galería",
+    "conceptRender": "Render conceptual",
+    "evidence": {
+      "target": "objetivo de diseño",
+      "factory_claim": "dato de fábrica",
+      "sample_tested": "medido en muestra",
+      "pilot_verified": "verificado en piloto"
+    },
+    "evidenceNote": "Las cifras marcadas son objetivos de diseño o datos de fábrica sin verificar. Solo publicamos un dato como verificado cuando la revisión exacta de hardware supera el protocolo de ensayo Courvia."
   },
   "compare": {
     "title": "Compara los robots",

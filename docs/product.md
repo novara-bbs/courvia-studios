@@ -12,11 +12,11 @@
 |---|---|
 | **Courvia Studios** | Matriz: design system, monorepo, I+D |
 | **Courvia Sports** | Entidad comercial (seller of record; cuentas de pago y registros fiscales). **Supuesto: sociedad española** |
-| **Courvia Drill** | Robots: **Drill One** (entrada) · **Drill Pro** (avanzado) · **Drill Club** (institucional) |
+| **Courvia Drill** | Robots. Líneas v0.4 (ADR-022): **Tempo** (accuracy-first; Tempo R1 = producto de lanzamiento, packs Ready/Coach/Court) · **Go** (carry-first; Go Pickleball) · **Rally** (duty-first B2B; Rally Station → Motion). "Drills" nombra la biblioteca de rutinas, no un SKU |
 | **Courvia Gear** | Palas, raquetas, paddles, bolas, accesorios |
 | **Courvia Club** | Futuro club + membresías **Tiza / Arcilla / Oro** |
 
-**Posicionamiento (ADR-10):** especialista de **robots de pádel** en ES/EAU; tenis para el mercado maduro; pickleball como crecimiento en UK/EAU. Naming por deporte: **Drill Pro T / P / PB** (variantes, ver §7).
+**Posicionamiento (ADR-10):** especialista de **robots de pádel** en ES/EAU; tenis para el mercado maduro; pickleball como crecimiento en UK/EAU. Naming por deporte: variantes por SKU (Tempo R1 → `TMP-R1-P`; Go → `GO-PB`); los códigos T/P/PB son internos y no se muestran en web (ver §7 y ADR-022).
 
 **Mercados:** España (base) · EAU/Dubái · Reino Unido. **Idiomas:** ES, EN (UK+EAU); AR en fase posterior (legal primero, §9.4).
 
@@ -40,7 +40,7 @@ Dark-first (volt) · **bento grids** en home y specs · tipografía variable exp
 
 **Benchmark:** Lobster (líneas por deporte; Lobster Padel ~1.429 $; Pickle 1.139–2.199 $; garantía 2 años, batería/ruedas 6 m), Spinshot (Player ~1.600 $; Pickleball Player dedicada; 2 años, devolución 30 días), Sports Tutor (Multi-Twist multideporte), Tennibot Partner (premium AI), Erne/Titan/Proton (pickleball ~1.000-2.300 $). **Tenis = maduro/comoditizado; pádel = incipiente → océano azul Courvia a 900-1.400 €.**
 
-**Decisión (ADR-04):** un chasis por gama con **`sport` como atributo de la variante** (`Drill Pro` → variantes T/P/PB; kits hopper/ruedas como componentes de variante). Rechazados: robot universal mediocre y productos independientes sin familia (rompen comparador/analítica). **Gear** facetado por `sport`; bolas de tenis/pádel (presurizadas) y de pickleball (plástico) son consumibles de categorías distintas.
+**Decisión (ADR-04, ejemplos v0.4):** un chasis por línea con **`sport` como atributo de la variante** (Tempo R1 → pádel hoy, tenis tras homologación; el QuickDock cambia capacidad, el cassette deportivo cambia deporte y se hace en hub/fábrica). Límite duro: **pickleball nunca por software** — Go Pickleball es hardware dedicado (garganta, alimentador y ruedas propios). Rechazados: robot universal mediocre y productos independientes sin familia (rompen comparador/analítica). **Gear** facetado por `sport`; bolas de tenis/pádel (presurizadas) y de pickleball (plástico) son consumibles de categorías distintas.
 
 ---
 

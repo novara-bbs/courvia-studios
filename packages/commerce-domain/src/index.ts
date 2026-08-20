@@ -17,6 +17,7 @@ export type {
   ProductImage,
   ProductSummary,
   Spec,
+  SpecEvidence,
   ReturnInput,
   ReturnRequest,
   ReturnStatus,
@@ -24,7 +25,7 @@ export type {
   Variant,
   VariantOffer,
 } from "./types";
-export { LAUNCH_STATUSES, ORDER_STATUSES } from "./types";
+export { LAUNCH_STATUSES, ORDER_STATUSES, SPEC_EVIDENCE_LEVELS } from "./types";
 export type { CommerceService } from "./commerce-service";
 export { CheckoutError, NotImplementedError } from "./errors";
 export type { CheckoutErrorCode } from "./errors";

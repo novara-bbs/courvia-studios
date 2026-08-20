@@ -97,11 +97,15 @@ export default async function ComparePage({ params }: PageArgs) {
                           : lowest,
                     null,
                   );
+                  // A waitlist product has no price BY DESIGN — "not sold
+                  // here" would misread a launch state as a market gap.
                   return (
                     <td key={detail.product.id}>
-                      {fromPrice === null
-                        ? tCatalog("notSoldHere")
-                        : tCatalog("fromPrice", { price: format(fromPrice, def.hreflang) })}
+                      {detail.product.launchStatus === "waitlist"
+                        ? tCatalog("status.waitlist")
+                        : fromPrice === null
+                          ? tCatalog("notSoldHere")
+                          : tCatalog("fromPrice", { price: format(fromPrice, def.hreflang) })}
                     </td>
                   );
                 })}
@@ -124,6 +128,9 @@ export default async function ComparePage({ params }: PageArgs) {
                         {spec === undefined
                           ? "—"
                           : `${spec.value}${spec.unit === undefined ? "" : ` ${spec.unit}`}`}
+                        {spec?.evidence !== undefined && spec.evidence !== "published" ? (
+                          <span className="spec-evidence">{tCatalog(`evidence.${spec.evidence}`)}</span>
+                        ) : null}
                       </td>
                     );
                   })}

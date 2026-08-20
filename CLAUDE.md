@@ -179,7 +179,7 @@ Las decisiones 01–14 están resumidas abajo y desarrolladas en `docs/`. Las de
 | 01 | Commerce fino: Fase 1 Stripe+Supabase, sin Medusa (gate en `docs/roadmap.md`) |
 | 02 | Un dominio con subrutas por locale (no ccTLDs) |
 | 03 | `next-intl` para i18n App Router |
-| 04 | `sport` como atributo de variante (Drill Pro T/P/PB), no entidad |
+| 04 | `sport` como atributo de variante (Tempo R1 → P/T; Go → PB), no entidad |
 | 05 | Precios fijos por moneda con `Price` objects (Adaptive solo respaldo) |
 | 06 | Tabby/Tamara por API directa (no existen en Stripe) |
 | 07 | Facturación ES vía proveedor homologado VeriFactu, no motor propio |
@@ -190,7 +190,7 @@ Las decisiones 01–14 están resumidas abajo y desarrolladas en `docs/`. Las de
 | 12 | Tokens: JSON DTCG tipado + script propio; Style Dictionary solo con más plataformas |
 | 13 | Puerto `PaymentProvider` con eventos normalizados; idempotencia `(provider, provider_event_id)` |
 | 14 | Multi-gateway por mercado en `MarketSettings.paymentProviders[]`; el cliente elige |
-| **15–21** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL · commerce en el CMS |
+| **15–22** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL · commerce en el CMS · catálogo real Tempo/Go/Rally con régimen de evidencia |
 
 ---
 

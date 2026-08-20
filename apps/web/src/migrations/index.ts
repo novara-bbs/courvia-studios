@@ -8,6 +8,7 @@ import * as migration_20260820_073808_nav_and_product_media from './20260820_073
 import * as migration_20260820_075636_leads_funnel_outbox from './20260820_075636_leads_funnel_outbox';
 import * as migration_20260820_092450_cms_commerce_and_methods from './20260820_092450_cms_commerce_and_methods';
 import * as migration_20260820_094933_nav_pro_hero_level from './20260820_094933_nav_pro_hero_level';
+import * as migration_20260820_104736_media_governance_spec_evidence from './20260820_104736_media_governance_spec_evidence';
 
 export const migrations = [
   {
@@ -58,6 +59,11 @@ export const migrations = [
   {
     up: migration_20260820_094933_nav_pro_hero_level.up,
     down: migration_20260820_094933_nav_pro_hero_level.down,
-    name: '20260820_094933_nav_pro_hero_level'
+    name: '20260820_094933_nav_pro_hero_level',
+  },
+  {
+    up: migration_20260820_104736_media_governance_spec_evidence.up,
+    down: migration_20260820_104736_media_governance_spec_evidence.down,
+    name: '20260820_104736_media_governance_spec_evidence'
   },
 ];

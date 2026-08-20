@@ -187,6 +187,36 @@ export interface User {
 export interface Media {
   id: number;
   alt: string;
+  /**
+   * Pie visible bajo la imagen en la galería de producto (opcional).
+   */
+  caption?: string | null;
+  /**
+   * Rol del asset en la galería canónica. El orden de PDP es: hero → detail/gallery → schematic → action; el resto es material interno o de secciones.
+   */
+  kind?:
+    | (
+        | 'hero'
+        | 'gallery'
+        | 'detail'
+        | 'action'
+        | 'lineup'
+        | 'in-the-box'
+        | 'service'
+        | 'packaging'
+        | 'schematic'
+        | 'ecosystem'
+        | 'contact-sheet'
+      )
+    | null;
+  /**
+   * Código de trazabilidad del evidence register (A-002…) o del board V0.4.
+   */
+  assetCode?: string | null;
+  /**
+   * concept = render CGI, se muestra SIEMPRE con etiqueta de render conceptual · blocked = jamás en PDP/campaña/RFQ (el storefront lo excluye aunque se adjunte) · published = fotografía real de muestra final.
+   */
+  evidenceStatus: 'concept' | 'blocked' | 'published';
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -539,6 +569,10 @@ export interface Product {
         label: string;
         value: string;
         unit?: string | null;
+        /**
+         * Estado de verificación (register CV-DATA): target = objetivo de diseño · factory_claim = dato OEM sin verificar · sample_tested/pilot_verified = medido · published = verificado y aprobado. La PDP etiqueta todo lo no-published.
+         */
+        evidence: 'target' | 'factory_claim' | 'sample_tested' | 'pilot_verified' | 'published';
         id?: string | null;
       }[]
     | null;
@@ -981,6 +1015,10 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  caption?: T;
+  kind?: T;
+  assetCode?: T;
+  evidenceStatus?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -1272,6 +1310,7 @@ export interface ProductsSelect<T extends boolean = true> {
         label?: T;
         value?: T;
         unit?: T;
+        evidence?: T;
         id?: T;
       };
   warrantyMonths?: T;

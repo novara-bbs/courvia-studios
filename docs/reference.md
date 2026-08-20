@@ -12,7 +12,7 @@
 | 01 | Commerce fino: Fase 1 Stripe+Supabase, sin Medusa (gate §18) |
 | 02 | Un dominio con subrutas por locale (no ccTLDs) |
 | 03 | `next-intl` para i18n App Router |
-| 04 | `sport` como atributo de variante (Drill Pro T/P/PB), no entidad |
+| 04 | `sport` como atributo de variante (Tempo R1 → P/T; Go → PB), no entidad |
 | 05 | Precios fijos por moneda con `Price` objects (Adaptive solo respaldo) |
 | 06 | Tabby/Tamara por API directa (no existen en Stripe) |
 | 07 | Facturación ES vía proveedor homologado VeriFactu, no motor propio |

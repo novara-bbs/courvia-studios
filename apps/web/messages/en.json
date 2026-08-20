@@ -1,22 +1,22 @@
 {
   "meta": {
-    "title": "Courvia — Ball machines for tennis, padel and pickleball",
+    "title": "Courvia — Ball machines for padel, tennis and pickleball",
     "description": "Training robots with programmable drills, gear and academy content. Designed in Spain for courts everywhere."
   },
   "home": {
     "eyebrow": "Training robots",
-    "heading": "Your backhand improves this week",
-    "lead": "Programmable drills, 140 balls per hopper and up to 6 hours per charge. A sparring partner that never tires: you set the shot, the tempo and the spin.",
+    "heading": "Your bandeja improves this week",
+    "lead": "Tempo R1 opens the range: the accuracy-first padel robot, with lob, bandeja, víbora and wall play calibrated per ball and court. No account, no cloud: the remote rules.",
     "ctaPrimary": "Choose your robot",
     "ctaSecondary": "Compare models",
-    "pillarsTitle": "One system, three sports",
+    "pillarsTitle": "Three tempos. One direction.",
     "pillarTenis": "Tennis",
-    "pillarTenisBody": "Up to 110 km/h with topspin. Calibrated for fast-court bounce.",
+    "pillarTenisBody": "Arrives after its own calibration and homologation. Tempo's hardware is designed for it.",
     "pillarPadel": "Padel",
-    "pillarPadelBody": "Low trajectories and wall play. The house specialty.",
+    "pillarPadelBody": "First. Lob, bandeja, víbora and wall play calibrated per ball, court and unit.",
     "pillarPickleball": "Pickleball",
-    "pillarPickleballBody": "Perforated ball, low net, dinking tempo. A dedicated setup.",
-    "academyNote": "Every robot ships with 12 coach-designed drills. No subscription."
+    "pillarPickleballBody": "On dedicated hardware (Go): throat, feeder and wheels for the perforated ball. Never via software.",
+    "academyNote": "Everything essential is physical: no account, no cloud, no subscriptions."
   },
   "nav": {
     "regionSelector": "Country & language",
@@ -24,7 +24,7 @@
     "mainNav": "Main navigation"
   },
   "footer": {
-    "tagline": "Training robots for tennis, padel and pickleball. Designed in Spain.",
+    "tagline": "Training robots for padel, tennis and pickleball. Designed in Spain.",
     "copyright": "© Courvia Sports. All rights reserved."
   },
   "notFound": {
@@ -41,7 +41,7 @@
   "catalog": {
     "eyebrow": "Training robots",
     "listTitle": "Ball machines",
-    "listDescription": "Three ranges, one rule: more drilling, less setup. Every robot is configured per sport — the ball dictates the hardware.",
+    "listDescription": "Three lines, one rule: deliver before you promise. Tempo for accuracy, Go for carrying, Rally for clubs — and every published figure carries its verification state.",
     "empty": "The catalogue is on its way. Check back in a few days.",
     "fromPrice": "From {price}",
     "sport": {
@@ -76,7 +76,16 @@
     "preorderTitle": "Reserve yours",
     "preorderSubmit": "Request a reservation",
     "leadInvalid": "Check the name and email — something doesn't add up.",
-    "notSoldHere": "Not sold here"
+    "notSoldHere": "Not sold here",
+    "galleryTitle": "Gallery",
+    "conceptRender": "Concept render",
+    "evidence": {
+      "target": "design target",
+      "factory_claim": "factory claim",
+      "sample_tested": "sample-tested",
+      "pilot_verified": "pilot-verified"
+    },
+    "evidenceNote": "Marked figures are design targets or unverified factory claims. We only publish a number as verified once the exact hardware revision passes the Courvia test protocol."
   },
   "compare": {
     "title": "Compare the robots",

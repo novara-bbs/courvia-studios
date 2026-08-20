@@ -56,8 +56,8 @@ const FOOTER_GROUPS: NavGroupSeed[] = [
       { href: "/robots", label: { es: "Robots", en: "Ball machines", ar: "الروبوتات" } },
       { href: "/comparar", label: { es: "Comparar modelos", en: "Compare models", ar: "قارن الطرازات" } },
       {
-        href: "/drill-club-preventa",
-        label: { es: "Preventa Drill Club", en: "Drill Club preorder", ar: "حجز Drill Club" },
+        href: "/lanzamiento-tempo",
+        label: { es: "Lanzamiento Tempo R1", en: "Tempo R1 launch", ar: "إطلاق Tempo R1" },
       },
     ],
   },
@@ -339,195 +339,8 @@ function legalBody(page: LegalPage, locale: "es" | "en") {
   };
 }
 
-/* ---------------------------------------------------- brands & launches */
-// Multimarca (ADR-021): the demo catalog ships under the Drill brand, and
-// Drill Club runs as a PREORDER so the launch surfaces (chip, PreOrder
-// JSON-LD, intent) are exercised by real demo data.
-const existingBrand = await payload.find({
-  collection: "brands",
-  where: { slug: { equals: "drill" } },
-  limit: 1,
-  overrideAccess: true,
-});
-if (existingBrand.totalDocs > 0) {
-  console.log("brands/drill already exists — skipped.");
-} else {
-  const drill = await payload.create({
-    collection: "brands",
-    locale: "es",
-    overrideAccess: true,
-    data: {
-      name: "Courvia Drill",
-      slug: "drill",
-      description: "Los robots lanzapelotas de la casa: calibrados por deporte, reparables por diseño.",
-    },
-  });
-  await payload.update({
-    collection: "brands",
-    id: drill.id,
-    locale: "en",
-    overrideAccess: true,
-    data: { description: "The house ball machines: calibrated per sport, repairable by design." },
-  });
-
-  const products = await payload.find({
-    collection: "products",
-    limit: 50,
-    depth: 0,
-    overrideAccess: true,
-  });
-  for (const product of products.docs) {
-    await payload.update({
-      collection: "products",
-      id: product.id,
-      draft: false,
-      overrideAccess: true,
-      data: {
-        brand: drill.id,
-        ...(product.slug === "drill-club" ? { launchStatus: "preorder" as const } : {}),
-        _status: "published",
-      },
-    });
-  }
-  console.log("brands/drill seeded and assigned; drill-club set to preorder.");
-}
-
-/* ------------------------------------------------------- launch landing */
-// A composed launch page (hero + featureGrid + waitlist + faq): the
-// Kickstarter-style pattern from ADR-021, as living demo content.
-const landingExists = await payload.count({
-  collection: "pages",
-  where: { slug: { equals: "drill-club-preventa" } },
-  overrideAccess: true,
-});
-if (landingExists.totalDocs > 0) {
-  console.log("pages/drill-club-preventa already exists — skipped.");
-} else {
-  const clubProduct = await payload.find({
-    collection: "products",
-    where: { slug: { equals: "drill-club" } },
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-  });
-  const clubId = clubProduct.docs[0]?.id;
-  const landing = await payload.create({
-    collection: "pages",
-    locale: "es",
-    draft: false,
-    overrideAccess: true,
-    data: {
-      title: "Preventa Drill Club",
-      slug: "drill-club-preventa",
-      blocks: [
-        {
-          blockType: "hero",
-          eyebrow: "Preventa",
-          heading: "Drill Club llega a tu pista",
-          lead: "Chasis reforzado, tolva de 200 pelotas con alimentación continua y panel de reservas por franjas. Para pistas que no paran.",
-          appearance: { background: "inverse" },
-        },
-        {
-          blockType: "featureGrid",
-          heading: "Hecho para clubes",
-          items: [
-            { title: "200 pelotas", body: "Tolva con alimentación continua desde red o batería." },
-            { title: "36 meses", body: "Garantía con revisión anual y ruedas de recambio incluidas." },
-            { title: "Panel de reservas", body: "El robot se reserva por franjas, como una pista más." },
-          ],
-        },
-        {
-          blockType: "waitlist",
-          heading: "Reserva la primera serie",
-          body: "Unidades limitadas de la primera producción. Sin pago hoy: confirmamos contigo antes de fabricar.",
-          intent: "preorder",
-          ...(clubId === undefined ? {} : { product: [clubId] }),
-        },
-        {
-          blockType: "faq",
-          heading: "Preguntas frecuentes",
-          items: [
-            {
-              question: "¿Cuándo se entrega?",
-              answer: richTextP("La primera serie sale de taller este otoño; confirmamos fecha exacta antes de cobrar nada."),
-            },
-            {
-              question: "¿Puedo cancelar la reserva?",
-              answer: richTextP("Sí, sin coste, en cualquier momento antes de la confirmación de fabricación."),
-            },
-          ],
-        },
-      ],
-      _status: "published",
-    },
-  });
-  // EN locale: same layout. EVERY row needs its id — the blocks AND the
-  // rows of nested arrays — or Payload recreates them and the Spanish
-  // subfield values vanish (same rule as product specs).
-  const esBlocks = (landing.blocks ?? []) as Array<{
-    id?: string | null;
-    items?: Array<{ id?: string | null }> | null;
-  }>;
-  const itemId = (blockIndex: number, rowIndex: number) =>
-    esBlocks[blockIndex]?.items?.[rowIndex]?.id;
-  await payload.update({
-    collection: "pages",
-    id: landing.id,
-    locale: "en",
-    draft: false,
-    overrideAccess: true,
-    data: {
-      title: "Drill Club preorder",
-      blocks: [
-        {
-          id: esBlocks[0]?.id,
-          blockType: "hero",
-          eyebrow: "Preorder",
-          heading: "Drill Club reaches your court",
-          lead: "Reinforced chassis, a 200-ball continuous-feed hopper and a slot-based booking panel. For courts that never stop.",
-          appearance: { background: "inverse" },
-        },
-        {
-          id: esBlocks[1]?.id,
-          blockType: "featureGrid",
-          heading: "Built for clubs",
-          items: [
-            { id: itemId(1, 0), title: "200 balls", body: "Continuous-feed hopper, mains or battery." },
-            { id: itemId(1, 1), title: "36 months", body: "Warranty with annual service and spare wheels included." },
-            { id: itemId(1, 2), title: "Booking panel", body: "The robot books by time slot, like one more court." },
-          ],
-        },
-        {
-          id: esBlocks[2]?.id,
-          blockType: "waitlist",
-          heading: "Reserve the first run",
-          body: "Limited units from the first production run. No payment today: we confirm with you before manufacturing.",
-          intent: "preorder",
-          ...(clubId === undefined ? {} : { product: [clubId] }),
-        },
-        {
-          id: esBlocks[3]?.id,
-          blockType: "faq",
-          heading: "Frequently asked questions",
-          items: [
-            {
-              id: itemId(3, 0),
-              question: "When does it ship?",
-              answer: richTextP("The first run leaves the workshop this autumn; we confirm the exact date before charging anything."),
-            },
-            {
-              id: itemId(3, 1),
-              question: "Can I cancel the reservation?",
-              answer: richTextP("Yes, free of charge, any time before the manufacturing confirmation."),
-            },
-          ],
-        },
-      ],
-      _status: "published",
-    },
-  });
-  console.log("pages/drill-club-preventa seeded (es/en).");
-}
+// Las líneas (brands Tempo/Go/Rally) las siembra seed-catalog junto a sus
+// productos: son datos de catálogo, no de chrome.
 
 for (const page of PAGES) {
   const existing = await payload.count({
@@ -637,7 +450,7 @@ async function seedComposedPage(
 }
 
 const productIds = new Map<string, number>();
-for (const slug of ["drill-one", "drill-pro", "drill-club"]) {
+for (const slug of ["tempo-r1", "go-pickleball", "rally-station"]) {
   const doc = (
     await payload.find({
       collection: "products",
@@ -660,32 +473,32 @@ await seedComposedPage(
       blockType: "hero",
       level: "h1",
       eyebrow: "Robots de entrenamiento",
-      heading: "Tu revés mejora esta semana",
-      lead: "Rutinas programables, 140 pelotas por carga y hasta 6 horas de sesión. El sparring que no se cansa: tú decides el golpe, la frecuencia y el efecto.",
+      heading: "Tu bandeja mejora esta semana",
+      lead: "Tempo R1 abre la gama: el robot de pádel accuracy-first, con globo, bandeja, víbora y pared calibrados por bola y pista. Sin cuenta, sin nube: el mando manda.",
       ctas: [
-        { label: "Elige tu robot", href: "/robots" },
-        { label: "Compara modelos", href: "/comparar" },
+        { label: "Conoce Tempo R1", href: "/robots/tempo-r1" },
+        { label: "Ver la gama", href: "/robots" },
       ],
       appearance: { spaceBlockStart: "xl", spaceBlockEnd: "xl" },
     },
     {
       blockType: "productShowcase",
-      heading: "Tres gamas, un criterio",
+      heading: "Tres ritmos. Una dirección.",
       products: allProducts,
       appearance: { background: "surface" },
     },
     {
       blockType: "featureGrid",
-      heading: "Datos, no humo",
+      heading: "Compromisos, no promesas",
       items: [
-        { title: "3 deportes", body: "Pádel, tenis y pickleball. La bola manda sobre el hardware: cada variante se calibra para su bote." },
-        { title: "12 rutinas", body: "Diseñadas por entrenadores e incluidas de serie. Sin cuotas ni suscripciones." },
-        { title: "24-36 meses", body: "De garantía según gama, con repuestos y soporte desde España." },
+        { title: "Físico primero", body: "Arrancar, pausar, velocidad, efecto y frecuencia funcionan sin cuenta ni teléfono. La app mejora la sesión; nunca la autoriza." },
+        { title: "Reparable por diseño", body: "Tolva, collar, tapa y batería los cambia el propio cliente. Se abre por módulos; no se desecha por averías." },
+        { title: "Se mide o no se afirma", body: "Cada cifra publicada lleva su estado: objetivo de diseño, dato de fábrica o verificado en banco. Sin humo." },
       ],
     },
     {
       blockType: "quote",
-      quote: "Un robot no te regala el partido: te quita las excusas.",
+      quote: "Cumplir antes de prometer.",
       author: "Equipo Courvia",
       appearance: { background: "surface", align: "center" },
     },
@@ -694,24 +507,24 @@ await seedComposedPage(
       heading: "Antes de preguntar",
       items: [
         {
-          question: "¿Sirven las pelotas normales?",
-          answer: richTextP("Sí: bola estándar de pádel, tenis o pickleball. Sin consumibles propios."),
+          question: "¿Cuándo se puede comprar?",
+          answer: richTextP("Cuando el robot supere sus fases de validación (DVT, PVT y piloto). Hasta entonces, lista de lanzamiento sin pago ni compromiso — y los primeros de la lista van primero."),
         },
         {
-          question: "¿Cuánto dura la batería?",
-          answer: richTextP("De 3 a 6 horas de sesión según la gama; el dato exacto está en la ficha de cada robot."),
+          question: "¿Qué deportes cubre?",
+          answer: richTextP("Pádel primero. El tenis llega tras su propia calibración y homologación, y el pickleball con hardware dedicado (Go) — nunca como conversión por software."),
         },
         {
-          question: "¿Puedo probarlo antes de comprar?",
-          answer: richTextP("Sí. Pide una demo y te escribimos en menos de un día laborable para organizarla."),
+          question: "¿Por qué no hay precios?",
+          answer: richTextP("Porque todavía no serían honestos. Publicamos precio cuando el coste real esté cerrado, sin descuentos teatrales sobre cifras infladas."),
         },
       ],
     },
     {
       blockType: "ctaBand",
-      heading: "Pide una demo",
-      body: "Te escribimos en menos de un día laborable. Una persona, no un autorespondedor.",
-      cta: [{ label: "Pide una demo", href: "/contacto" }],
+      heading: "Únete a la lista de lanzamiento",
+      body: "Sin pago y sin compromiso. Te contamos los hitos de validación según se cumplen.",
+      cta: [{ label: "Ir al lanzamiento", href: "/lanzamiento-tempo" }],
       appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
     },
   ],
@@ -720,32 +533,32 @@ await seedComposedPage(
       blockType: "hero",
       level: "h1",
       eyebrow: "Training robots",
-      heading: "Your backhand improves this week",
-      lead: "Programmable drills, 140 balls per hopper and up to 6 hours per charge. A sparring partner that never tires: you set the shot, the tempo and the spin.",
+      heading: "Your bandeja improves this week",
+      lead: "Tempo R1 opens the range: the accuracy-first padel robot, with lob, bandeja, víbora and wall play calibrated per ball and court. No account, no cloud: the remote rules.",
       ctas: [
-        { label: "Choose your robot", href: "/robots" },
-        { label: "Compare models", href: "/comparar" },
+        { label: "Meet Tempo R1", href: "/robots/tempo-r1" },
+        { label: "Browse the range", href: "/robots" },
       ],
       appearance: { spaceBlockStart: "xl", spaceBlockEnd: "xl" },
     },
     {
       blockType: "productShowcase",
-      heading: "Three ranges, one rule",
+      heading: "Three tempos. One direction.",
       products: allProducts,
       appearance: { background: "surface" },
     },
     {
       blockType: "featureGrid",
-      heading: "Data, not hype",
+      heading: "Commitments, not promises",
       items: [
-        { title: "3 sports", body: "Padel, tennis and pickleball. The ball dictates the hardware: each variant is calibrated for its bounce." },
-        { title: "12 drills", body: "Coach-designed and included out of the box. No fees, no subscriptions." },
-        { title: "24-36 months", body: "Of warranty depending on range, with spare parts and support from Spain." },
+        { title: "Physical first", body: "Start, pause, speed, spin and interval work without an account or a phone. The app improves the session; it never authorises it." },
+        { title: "Repairable by design", body: "Hopper, collar, lid and battery are customer-replaceable. It opens by modules; it is never thrown away over a fault." },
+        { title: "Measured or not claimed", body: "Every published figure carries its state: design target, factory claim or bench-verified. No hype." },
       ],
     },
     {
       blockType: "quote",
-      quote: "A robot doesn't win you the match: it takes away your excuses.",
+      quote: "Deliver before you promise.",
       author: "Team Courvia",
       appearance: { background: "surface", align: "center" },
     },
@@ -754,24 +567,24 @@ await seedComposedPage(
       heading: "Before you ask",
       items: [
         {
-          question: "Do regular balls work?",
-          answer: richTextP("Yes: standard padel, tennis or pickleball balls. No proprietary consumables."),
+          question: "When can I buy one?",
+          answer: richTextP("Once the robot passes its validation gates (DVT, PVT and pilot). Until then, a launch list with no payment and no commitment — and the list goes first."),
         },
         {
-          question: "How long does the battery last?",
-          answer: richTextP("Between 3 and 6 hours per session depending on the range; the exact figure is on each robot's page."),
+          question: "Which sports does it cover?",
+          answer: richTextP("Padel first. Tennis follows after its own calibration and homologation, and pickleball ships on dedicated hardware (Go) — never as a software conversion."),
         },
         {
-          question: "Can I try one before buying?",
-          answer: richTextP("Yes. Book a demo and we'll write back within one working day to arrange it."),
+          question: "Why are there no prices?",
+          answer: richTextP("Because they wouldn't be honest yet. We publish prices once real costs are closed — no theatrical discounts on inflated figures."),
         },
       ],
     },
     {
       blockType: "ctaBand",
-      heading: "Book a demo",
-      body: "We write back within one working day. A person, not an autoresponder.",
-      cta: [{ label: "Book a demo", href: "/contacto" }],
+      heading: "Join the launch list",
+      body: "No payment, no commitment. We report validation milestones as they are met.",
+      cta: [{ label: "Go to the launch", href: "/lanzamiento-tempo" }],
       appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
     },
   ],
@@ -805,7 +618,7 @@ await seedComposedPage(
         },
         {
           question: "¿Qué incluye la garantía?",
-          answer: richTextP("De 24 a 36 meses según gama, con repuestos y soporte desde España. El detalle está en cada ficha."),
+          answer: richTextP("En España respondemos con la garantía legal de tres años; el detalle de servicio por línea se publica con el lanzamiento."),
         },
         {
           question: "¿Cómo tratáis mis datos?",
@@ -839,7 +652,7 @@ await seedComposedPage(
         },
         {
           question: "What does the warranty include?",
-          answer: richTextP("24 to 36 months depending on range, with spare parts and support from Spain. Details on each product page."),
+          answer: richTextP("In Spain we answer with the three-year statutory warranty; per-line service details are published at launch."),
         },
         {
           question: "How do you handle my data?",
@@ -919,6 +732,103 @@ await seedComposedPage(
       body: "Three ranges for three ways of training.",
       cta: [{ label: "Browse the catalogue", href: "/robots" }],
       appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+);
+
+/* --- lanzamiento-tempo --------------------------------------------------- */
+// La landing de lanzamiento estilo Kickstarter (ADR-021): waitlist + relato
+// de validación. Sin fechas, sin precios, sin promesas — backer-first.
+const tempoId = productIds.get("tempo-r1");
+await seedComposedPage(
+  "lanzamiento-tempo",
+  { es: "Lanzamiento Tempo R1", en: "Tempo R1 launch" },
+  [
+    {
+      blockType: "hero",
+      level: "h1",
+      eyebrow: "Lista de lanzamiento",
+      heading: "Tempo R1: el pádel, primero",
+      lead: "Un robot accuracy-first que se valida antes de venderse: EVT, DVT, PVT y un piloto real preceden a cualquier preventa. La lista va primero y no cuesta nada.",
+      appearance: { background: "inverse" },
+    },
+    {
+      blockType: "featureGrid",
+      heading: "Lo que estamos construyendo",
+      items: [
+        { title: "QuickDock", body: "Tolva Daily rígida para el día a día y Coach Collar plegable para sesiones largas: la capacidad cambia, el robot no." },
+        { title: "Base plantada", body: "El objetivo de estabilidad se mide: zona de impacto estable tras 500 bolas, sin deriva con el retroceso." },
+        { title: "Packs Ready · Coach · Court", body: "El mismo robot con distinta intensidad de uso. Contenido y precio se publican cuando el coste real esté cerrado." },
+      ],
+    },
+    {
+      blockType: "waitlist",
+      heading: "Únete a la lista de lanzamiento",
+      body: "Sin pago y sin compromiso. Te contamos los hitos de validación según se cumplen, y la lista compra antes que nadie.",
+      intent: "waitlist",
+      ...(tempoId === undefined ? {} : { product: [tempoId] }),
+    },
+    {
+      blockType: "faq",
+      heading: "Preguntas frecuentes",
+      items: [
+        {
+          question: "¿Cuándo abre la preventa?",
+          answer: richTextP("Cuando Tempo R1 cruce DVT, PVT y un piloto con sus claims congelados. No damos fecha que no podamos cumplir."),
+        },
+        {
+          question: "¿Por qué no hay precio?",
+          answer: richTextP("Publicar un precio antes de cerrar el coste real sería teatro. Cuando exista, será honesto y sin descuentos ficticios."),
+        },
+        {
+          question: "¿Qué pasa con el tenis?",
+          answer: richTextP("Tempo lanzará su perfil de tenis cuando su calibración y homologación estén validadas; el hardware está diseñado para ello."),
+        },
+      ],
+    },
+  ],
+  [
+    {
+      blockType: "hero",
+      level: "h1",
+      eyebrow: "Launch list",
+      heading: "Tempo R1: padel first",
+      lead: "An accuracy-first robot validated before it is sold: EVT, DVT, PVT and a real pilot precede any preorder. The list goes first and costs nothing.",
+      appearance: { background: "inverse" },
+    },
+    {
+      blockType: "featureGrid",
+      heading: "What we are building",
+      items: [
+        { title: "QuickDock", body: "A rigid Daily hopper for every day and a folding Coach Collar for long sessions: capacity changes, the robot doesn't." },
+        { title: "Planted base", body: "Stability is a measured goal: a stable impact zone after 500 balls, no recoil drift." },
+        { title: "Ready · Coach · Court packs", body: "The same robot at different intensities of use. Contents and price are published once real costs are closed." },
+      ],
+    },
+    {
+      blockType: "waitlist",
+      heading: "Join the launch list",
+      body: "No payment, no commitment. We report validation milestones as they are met, and the list buys before anyone else.",
+      intent: "waitlist",
+      ...(tempoId === undefined ? {} : { product: [tempoId] }),
+    },
+    {
+      blockType: "faq",
+      heading: "Frequently asked questions",
+      items: [
+        {
+          question: "When does the preorder open?",
+          answer: richTextP("Once Tempo R1 crosses DVT, PVT and a pilot with its claims frozen. We don't give dates we can't keep."),
+        },
+        {
+          question: "Why is there no price?",
+          answer: richTextP("Publishing a price before closing real costs would be theatre. When it exists it will be honest, with no fake discounts."),
+        },
+        {
+          question: "What about tennis?",
+          answer: richTextP("Tempo launches its tennis profile once its calibration and homologation are validated; the hardware is designed for it."),
+        },
+      ],
     },
   ],
 );

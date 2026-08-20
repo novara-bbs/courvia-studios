@@ -1,0 +1,132 @@
+{
+  "$comment": "Renders CGI entregados · Visual System V0.4 (20 ago 2026). Estados según CV-DATA P2 (evidence register): concept = publicable SOLO con etiqueta de render conceptual; blocked = uso interno, nunca en PDP/campaña/RFQ. Ningún render deriva de golden sample (E-028).",
+  "assets": [
+    {
+      "file": "tempo-r1-hero-a002.webp",
+      "registerId": "A-002",
+      "product": "tempo-r1",
+      "kind": "hero",
+      "status": "concept",
+      "alt": {
+        "es": "Robot de entrenamiento Courvia Tempo R1, render conceptual: tolva llena, asa telescópica y cuerpo azul marino",
+        "en": "Courvia Tempo R1 training robot, concept render: full hopper, telescopic handle, deep navy body",
+        "ar": "روبوت التدريب كورفيا تيمبو R1، تصور مفاهيمي: خزان ممتلئ ومقبض تلسكوبي وهيكل كحلي"
+      }
+    },
+    {
+      "file": "tempo-quickdock-system.webp",
+      "registerId": null,
+      "product": "tempo-r1",
+      "kind": "detail",
+      "status": "concept",
+      "alt": {
+        "es": "Sistema QuickDock de Tempo, render conceptual: tolva Daily, Coach Collar plegable y anillo de acoplamiento con conector",
+        "en": "Tempo QuickDock system, concept render: Daily hopper, folding Coach Collar and docking ring with connector",
+        "ar": "نظام QuickDock من تيمبو، تصور مفاهيمي: خزان يومي وطوق المدرب القابل للطي وحلقة الإرساء"
+      }
+    },
+    {
+      "file": "go-pickleball-hero.webp",
+      "registerId": null,
+      "product": "go-pickleball",
+      "kind": "hero",
+      "status": "concept",
+      "alt": {
+        "es": "Courvia Go Pickleball, render conceptual: máquina compacta con tolva abierta de pickleballs y asa de carro",
+        "en": "Courvia Go Pickleball, concept render: compact machine with open pickleball hopper and trolley handle",
+        "ar": "كورفيا غو بيكلبول، تصور مفاهيمي: جهاز مدمج بخزان مفتوح ومقبض عربة"
+      }
+    },
+    {
+      "file": "family-lineup-internal.webp",
+      "registerId": null,
+      "product": null,
+      "kind": "lineup",
+      "status": "blocked",
+      "blockedReason": "Muestra una tolva de tenis de mesa; el tenis de mesa está fuera de la arquitectura V0.4 (Portfolio §17D; asset 12 retirado). Solo trazabilidad interna.",
+      "alt": {
+        "es": "Lineup interno de plataforma con tolvas por deporte (incluye tenis de mesa, fuera de arquitectura)",
+        "en": "Internal platform lineup with per-sport hoppers (includes table tennis, out of architecture)",
+        "ar": "تشكيلة داخلية للمنصة بخزانات لكل رياضة"
+      }
+    },
+    {
+      "file": "addon-ecosystem-internal.webp",
+      "registerId": null,
+      "product": null,
+      "kind": "ecosystem",
+      "status": "blocked",
+      "blockedReason": "Piezas no aprobadas y dos diseños de mando incompatibles (E-009, CV-REMOTE BLOCKED). Solo uso interno.",
+      "alt": {
+        "es": "Ecosistema de add-ons (interno): baterías, dock doble, paneles de tolva, kit de ruedas",
+        "en": "Add-on ecosystem (internal): batteries, dual dock, hopper panels, wheel kit",
+        "ar": "منظومة الإضافات (داخلي)"
+      }
+    },
+    {
+      "file": "tempo-inbox-internal-a004.webp",
+      "registerId": "A-004",
+      "product": null,
+      "kind": "in-the-box",
+      "status": "blocked",
+      "blockedReason": "BOM comercial sin congelar: no publicar listas de caja (E-008, E-030). Solo uso interno.",
+      "alt": {
+        "es": "Contenido de caja de Tempo (interno, BOM sin congelar)",
+        "en": "Tempo box contents (internal, BOM not frozen)",
+        "ar": "محتويات صندوق تيمبو (داخلي)"
+      }
+    },
+    {
+      "file": "tempo-service-internal-a003.webp",
+      "registerId": "A-003",
+      "product": null,
+      "kind": "service",
+      "status": "blocked",
+      "blockedReason": "Insegura como instrucción de servicio (E-007: bolas cargadas, posible cable, sin lockout). Solo uso interno.",
+      "alt": {
+        "es": "Servicio de batería de Tempo en banco (interno, no usar como instrucción)",
+        "en": "Tempo battery service at bench (internal, not an instruction)",
+        "ar": "خدمة بطارية تيمبو (داخلي)"
+      }
+    },
+    {
+      "file": "tempo-packaging-internal-a007.webp",
+      "registerId": "A-007",
+      "product": null,
+      "kind": "packaging",
+      "status": "blocked",
+      "blockedReason": "Sin dieline ni validación UN 38.3 / drop test (E-010). Solo uso interno.",
+      "alt": {
+        "es": "Packaging de Tempo con pulpa moldeada (interno, sin validar)",
+        "en": "Tempo packaging with moulded pulp (internal, not validated)",
+        "ar": "تغليف تيمبو (داخلي)"
+      }
+    },
+    {
+      "file": "tempo-accessories-internal-a006.webp",
+      "registerId": "A-006",
+      "product": null,
+      "kind": "ecosystem",
+      "status": "blocked",
+      "blockedReason": "Accesorios no aprobados y contradicción de mandos (E-009). Solo uso interno.",
+      "alt": {
+        "es": "Bodegón de accesorios de Tempo (interno, piezas sin aprobar)",
+        "en": "Tempo accessories still life (internal, parts not approved)",
+        "ar": "إكسسوارات تيمبو (داخلي)"
+      }
+    },
+    {
+      "file": "contact-sheet-v04.webp",
+      "registerId": null,
+      "product": null,
+      "kind": "contact-sheet",
+      "status": "blocked",
+      "blockedReason": "Hoja de contactos interna del Visual System V0.4. El asset 12 (tenis de mesa) está retirado: solo trazabilidad histórica.",
+      "alt": {
+        "es": "Hoja de contactos del Visual System V0.4 (interna)",
+        "en": "Visual System V0.4 contact sheet (internal)",
+        "ar": "ورقة اتصال النظام البصري V0.4 (داخلي)"
+      }
+    }
+  ]
+}

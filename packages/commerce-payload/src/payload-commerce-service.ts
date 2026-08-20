@@ -16,6 +16,7 @@ import { MARKET_DEFINITIONS } from "@courvia/platform";
 import type { LocaleId, MarketId, Sport } from "@courvia/platform";
 import {
   CheckoutError,
+  SPEC_EVIDENCE_LEVELS,
   compare,
   money,
   multiply,
@@ -41,6 +42,7 @@ import type {
   ReturnInput,
   ReturnRequest,
   Spec,
+  SpecEvidence,
   Variant,
 } from "@courvia/commerce-domain";
 import type { PaymentProviderId } from "@courvia/platform";
@@ -62,7 +64,13 @@ interface ProductDoc {
   images?: Array<number | string | { id: number | string }> | null;
   brand?: number | string | { id: number | string } | null;
   launchStatus?: string | null;
-  specs?: Array<{ key: string; label?: string | null; value: string; unit?: string | null }> | null;
+  specs?: Array<{
+    key: string;
+    label?: string | null;
+    value: string;
+    unit?: string | null;
+    evidence?: string | null;
+  }> | null;
   warrantyMonths?: number | null;
 }
 
@@ -78,6 +86,8 @@ interface MediaDoc {
   alt?: string | null;
   width?: number | null;
   height?: number | null;
+  caption?: string | null;
+  evidenceStatus?: string | null;
 }
 
 interface VariantDoc {
@@ -105,6 +115,8 @@ function relationId(value: number | string | { id: number | string }): string {
   return typeof value === "object" ? String(value.id) : String(value);
 }
 
+const SPEC_EVIDENCE_VALUES = new Set<string>(SPEC_EVIDENCE_LEVELS);
+
 function toSpecs(docSpecs: ProductDoc["specs"]): Spec[] {
   return (docSpecs ?? []).map((spec) => ({
     key: spec.key,
@@ -113,6 +125,9 @@ function toSpecs(docSpecs: ProductDoc["specs"]): Spec[] {
     label: spec.label ?? spec.key,
     value: spec.value,
     ...(spec.unit ? { unit: spec.unit } : {}),
+    ...(spec.evidence && SPEC_EVIDENCE_VALUES.has(spec.evidence)
+      ? { evidence: spec.evidence as SpecEvidence }
+      : {}),
   }));
 }
 
@@ -235,11 +250,18 @@ export class PayloadCommerceService implements CommerceService {
     const images = new Map<string, ProductImage>();
     for (const doc of result.docs as unknown as MediaDoc[]) {
       if (typeof doc.url !== "string" || doc.url === "") continue;
+      // A blocked asset (evidence register: not for PDP/campaign/RFQ) never
+      // reaches the storefront, even if an editor attaches it by mistake.
+      if (doc.evidenceStatus === "blocked") continue;
       images.set(String(doc.id), {
         url: doc.url,
         alt: doc.alt ?? "",
         ...(typeof doc.width === "number" ? { width: doc.width } : {}),
         ...(typeof doc.height === "number" ? { height: doc.height } : {}),
+        ...(doc.caption ? { caption: doc.caption } : {}),
+        // Anything not yet real product photography renders with the
+        // mandatory "render conceptual" label (E-028).
+        ...(doc.evidenceStatus === "published" ? {} : { concept: true }),
       });
     }
     return images;
