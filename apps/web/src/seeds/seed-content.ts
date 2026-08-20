@@ -528,17 +528,23 @@ await seedComposedPage(
       products: allProducts,
       appearance: { reveal: "rise" },
     },
-    {
-      blockType: "mediaText",
-      heading: "Se abre por módulos. No se desecha por averías.",
-      body: richTextP(
-        "Tolva, collar, tapa y batería los cambia el propio cliente; el hub sustituye alimentador, lanzador y electrónica. Tornillería cautiva, conectores ciegos y enclavamientos: cada pieza que se desgasta tiene número y recambio.",
-      ),
-      ...(mediaIds.has("tempo-r1-hero-a002.webp")
-        ? { image: mediaIds.get("tempo-r1-hero-a002.webp") }
-        : {}),
-      appearance: { mediaPosition: "end", reveal: "rise" },
-    },
+    // A mediaText without its image is INVALID content (the field is
+    // required), so a media-less database drops the whole block instead of
+    // failing the page. Seeds must survive an empty media library — CI
+    // proved it by failing on exactly this.
+    ...(mediaIds.has("tempo-r1-hero-a002.webp")
+      ? [
+          {
+            blockType: "mediaText",
+            heading: "Se abre por módulos. No se desecha por averías.",
+            body: richTextP(
+              "Tolva, collar, tapa y batería los cambia el propio cliente; el hub sustituye alimentador, lanzador y electrónica. Tornillería cautiva, conectores ciegos y enclavamientos: cada pieza que se desgasta tiene número y recambio.",
+            ),
+            image: mediaIds.get("tempo-r1-hero-a002.webp"),
+            appearance: { mediaPosition: "end", reveal: "rise" },
+          },
+        ]
+      : []),
     {
       blockType: "timeline",
       heading: "Cómo se gana el derecho a venderlo",
@@ -668,17 +674,23 @@ await seedComposedPage(
       products: allProducts,
       appearance: { reveal: "rise" },
     },
-    {
-      blockType: "mediaText",
-      heading: "It opens by modules. It is never scrapped over a fault.",
-      body: richTextP(
-        "Hopper, collar, lid and battery are customer-replaceable; the hub swaps feeder, launcher and electronics. Captive fasteners, blind connectors and interlocks: every wearing part has a number and a spare.",
-      ),
-      ...(mediaIds.has("tempo-r1-hero-a002.webp")
-        ? { image: mediaIds.get("tempo-r1-hero-a002.webp") }
-        : {}),
-      appearance: { mediaPosition: "end", reveal: "rise" },
-    },
+    // A mediaText without its image is INVALID content (the field is
+    // required), so a media-less database drops the whole block instead of
+    // failing the page. Seeds must survive an empty media library — CI
+    // proved it by failing on exactly this.
+    ...(mediaIds.has("tempo-r1-hero-a002.webp")
+      ? [
+          {
+            blockType: "mediaText",
+            heading: "It opens by modules. It is never scrapped over a fault.",
+            body: richTextP(
+              "Hopper, collar, lid and battery are customer-replaceable; the hub swaps feeder, launcher and electronics. Captive fasteners, blind connectors and interlocks: every wearing part has a number and a spare.",
+            ),
+            image: mediaIds.get("tempo-r1-hero-a002.webp"),
+            appearance: { mediaPosition: "end", reveal: "rise" },
+          },
+        ]
+      : []),
     {
       blockType: "timeline",
       heading: "How the right to sell it is earned",
@@ -954,37 +966,43 @@ await seedComposedPage(
         { title: "Packs Ready · Coach · Court", body: "El mismo robot con distinta intensidad de uso. Contenido y precio se publican cuando el coste real esté cerrado." },
       ],
     },
-    {
-      blockType: "gallery",
-      heading: "El sistema, pieza a pieza",
-      items: [
-        ...(mediaIds.has("tempo-quickdock-system.webp")
-          ? [
-              {
-                image: mediaIds.get("tempo-quickdock-system.webp"),
-                caption: "QuickDock: la tolva Daily y el Coach Collar sobre la misma base rígida.",
-              },
-            ]
-          : []),
-        ...(mediaIds.has("tempo-r1-hero-a002.webp")
-          ? [
-              {
-                image: mediaIds.get("tempo-r1-hero-a002.webp"),
-                caption: "Base plantada, asa telescópica y batería en cassette.",
-              },
-            ]
-          : []),
-        ...(mediaIds.has("tempo-r1-schematic.webp")
-          ? [
-              {
-                image: mediaIds.get("tempo-r1-schematic.webp"),
-                caption: "Los objetivos de diseño, acotados. Ninguna cifra está verificada todavía.",
-              },
-            ]
-          : []),
-      ],
-      appearance: { columns: "3", background: "surface", reveal: "rise" },
-    },
+    // Same rule: a gallery needs at least two rows to be valid content, so
+    // without the render pack the block does not exist at all.
+    ...(mediaIds.size >= 2
+      ? [
+          {
+            blockType: "gallery",
+            heading: "El sistema, pieza a pieza",
+            items: [
+              ...(mediaIds.has("tempo-quickdock-system.webp")
+                ? [
+                    {
+                      image: mediaIds.get("tempo-quickdock-system.webp"),
+                      caption: "QuickDock: la tolva Daily y el Coach Collar sobre la misma base rígida.",
+                    },
+                  ]
+                : []),
+              ...(mediaIds.has("tempo-r1-hero-a002.webp")
+                ? [
+                    {
+                      image: mediaIds.get("tempo-r1-hero-a002.webp"),
+                      caption: "Base plantada, asa telescópica y batería en cassette.",
+                    },
+                  ]
+                : []),
+              ...(mediaIds.has("tempo-r1-schematic.webp")
+                ? [
+                    {
+                      image: mediaIds.get("tempo-r1-schematic.webp"),
+                      caption: "Los objetivos de diseño, acotados. Ninguna cifra está verificada todavía.",
+                    },
+                  ]
+                : []),
+            ],
+            appearance: { columns: "3", background: "surface", reveal: "rise" },
+          },
+        ]
+      : []),
     {
       blockType: "waitlist",
       heading: "Únete a la lista de lanzamiento",
@@ -1040,37 +1058,43 @@ await seedComposedPage(
         { title: "Ready · Coach · Court packs", body: "The same robot at different intensities of use. Contents and price are published once real costs are closed." },
       ],
     },
-    {
-      blockType: "gallery",
-      heading: "The system, part by part",
-      items: [
-        ...(mediaIds.has("tempo-quickdock-system.webp")
-          ? [
-              {
-                image: mediaIds.get("tempo-quickdock-system.webp"),
-                caption: "QuickDock: the Daily hopper and the Coach Collar on one rigid base.",
-              },
-            ]
-          : []),
-        ...(mediaIds.has("tempo-r1-hero-a002.webp")
-          ? [
-              {
-                image: mediaIds.get("tempo-r1-hero-a002.webp"),
-                caption: "Planted base, telescopic handle and a cassette battery.",
-              },
-            ]
-          : []),
-        ...(mediaIds.has("tempo-r1-schematic.webp")
-          ? [
-              {
-                image: mediaIds.get("tempo-r1-schematic.webp"),
-                caption: "The design targets, dimensioned. Not one figure is verified yet.",
-              },
-            ]
-          : []),
-      ],
-      appearance: { columns: "3", background: "surface", reveal: "rise" },
-    },
+    // Same rule: a gallery needs at least two rows to be valid content, so
+    // without the render pack the block does not exist at all.
+    ...(mediaIds.size >= 2
+      ? [
+          {
+            blockType: "gallery",
+            heading: "The system, part by part",
+            items: [
+              ...(mediaIds.has("tempo-quickdock-system.webp")
+                ? [
+                    {
+                      image: mediaIds.get("tempo-quickdock-system.webp"),
+                      caption: "QuickDock: the Daily hopper and the Coach Collar on one rigid base.",
+                    },
+                  ]
+                : []),
+              ...(mediaIds.has("tempo-r1-hero-a002.webp")
+                ? [
+                    {
+                      image: mediaIds.get("tempo-r1-hero-a002.webp"),
+                      caption: "Planted base, telescopic handle and a cassette battery.",
+                    },
+                  ]
+                : []),
+              ...(mediaIds.has("tempo-r1-schematic.webp")
+                ? [
+                    {
+                      image: mediaIds.get("tempo-r1-schematic.webp"),
+                      caption: "The design targets, dimensioned. Not one figure is verified yet.",
+                    },
+                  ]
+                : []),
+            ],
+            appearance: { columns: "3", background: "surface", reveal: "rise" },
+          },
+        ]
+      : []),
     {
       blockType: "waitlist",
       heading: "Join the launch list",

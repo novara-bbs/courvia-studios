@@ -16,7 +16,7 @@
     "arch": "depcruise --config .dependency-cruiser.cjs apps packages",
     "verify": "turbo run build typecheck lint test && pnpm stylelint && pnpm arch",
     "migrate:new": "node scripts/migrate-new.mjs",
-    "seed": "pnpm --filter @courvia/web seed:catalog && pnpm --filter @courvia/web seed:markets && pnpm --filter @courvia/web seed:content",
+    "seed": "pnpm --filter @courvia/web seed:catalog && pnpm --filter @courvia/web seed:media && pnpm --filter @courvia/web seed:markets && pnpm --filter @courvia/web seed:content",
     "dev:db": "bash scripts/dev-db.sh"
   },
   "devDependencies": {
