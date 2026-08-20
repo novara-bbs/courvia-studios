@@ -1,4 +1,4 @@
-import { resolveAppearance } from "@courvia/appearance";
+import { appearanceAttributes, parseAppearance } from "@courvia/appearance";
 import type { ReactNode } from "react";
 
 import { SECTIONS } from "../registry";
@@ -35,7 +35,18 @@ export function anchorId(label: string): string | undefined {
  * types and invalid content render nothing in production and a loud
  * diagnostic in preview, so editors see the problem and customers never do.
  */
-export function SectionRenderer({ raw, ctx }: { raw: unknown; ctx: RenderContext }): ReactNode {
+export function SectionRenderer({
+  raw,
+  ctx,
+  index = 0,
+}: {
+  raw: unknown;
+  ctx: RenderContext;
+  /** Position on the page, from SectionList. Defaults to 0 because a
+   *  section rendered on its own — a single-block preview, a story — IS the
+   *  first thing on screen. */
+  index?: number;
+}): ReactNode {
   const block = (typeof raw === "object" && raw !== null ? raw : {}) as RawBlock;
   const type = typeof block.blockType === "string" ? block.blockType : undefined;
   const definition = type !== undefined ? SECTIONS[type] : undefined;
@@ -57,7 +68,13 @@ export function SectionRenderer({ raw, ctx }: { raw: unknown; ctx: RenderContext
     ) : null;
   }
 
-  const body = definition.render(parsed.data as Record<string, unknown>, ctx);
+  // Parsed once and used twice: as the wrapper's data attributes, and as
+  // the layout information the section needs to size its images.
+  const appearance = parseAppearance(block.appearance);
+  const body = definition.render(parsed.data as Record<string, unknown>, ctx, {
+    appearance,
+    index,
+  });
   // A section that decides it has nothing to show (hotspots whose image the
   // media governance withheld, a linked section with no injected renderer)
   // must not leave its WRAPPER behind: the wrapper carries the background
@@ -65,7 +82,7 @@ export function SectionRenderer({ raw, ctx }: { raw: unknown; ctx: RenderContext
   // page — the failure mode looks like a design bug, not missing content.
   if (body === null || body === undefined || body === false) return null;
 
-  const attrs = resolveAppearance(block.appearance, definition.appearance);
+  const attrs = appearanceAttributes(appearance, definition.appearance);
   const id = typeof block.blockName === "string" ? anchorId(block.blockName) : undefined;
   return (
     <section data-cv-section={definition.type} {...(id === undefined ? {} : { id })} {...attrs}>
@@ -77,6 +94,11 @@ export function SectionRenderer({ raw, ctx }: { raw: unknown; ctx: RenderContext
 export function SectionList({ blocks, ctx }: { blocks: unknown; ctx: RenderContext }): ReactNode {
   if (!Array.isArray(blocks)) return null;
   return blocks.map((block, index) => (
-    <SectionRenderer key={(block as { id?: string }).id ?? index} raw={block} ctx={ctx} />
+    <SectionRenderer
+      key={(block as { id?: string }).id ?? index}
+      raw={block}
+      ctx={ctx}
+      index={index}
+    />
   ));
 }

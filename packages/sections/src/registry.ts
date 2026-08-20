@@ -48,6 +48,12 @@ export const SECTIONS: Record<string, SectionDefinition> = Object.fromEntries(
   ].map((section) => [section.type, section]),
 );
 
-export type { RenderContext, SectionDefinition } from "./dsl/define-section";
+export type {
+  RenderContext,
+  SectionDefinition,
+  SectionPlacement,
+} from "./dsl/define-section";
 export { mediaValue, productSlugs } from "./dsl/fields";
 export type { FieldSpec, Fields, Link, MediaValue } from "./dsl/fields";
+export { imageAttrs } from "./dsl/image";
+export type { ImageAttributes, ImageFrame } from "./dsl/image";

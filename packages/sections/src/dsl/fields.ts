@@ -66,6 +66,61 @@ export interface MediaValue {
   /** True while the asset is not final product photography: the renderer
    *  MUST show the concept-render label (evidence register, E-028). */
   concept?: boolean;
+  /**
+   * Ready-to-use `srcset`, ascending by width, built from the derivatives
+   * Payload already generated for this asset. Absent when the upload has
+   * none: a vector, a video, or a file uploaded before the size existed.
+   */
+  srcSet?: string;
+}
+
+/**
+ * `srcset` candidates from the derivatives that travel INSIDE the document.
+ *
+ * The widths are read from the document, never listed here. That is the
+ * whole point: adding a size to the Media collection's `imageSizes` shows up
+ * in every section's srcset with no code change, and an asset uploaded
+ * before a size existed simply offers fewer candidates instead of pointing
+ * at files that were never written. Sections may not import Payload, so the
+ * derivatives have to arrive with the content — and they do, at depth >= 1.
+ *
+ * The master stays in `src` and OUT of the candidate list on purpose. It is
+ * the archival original: any dimension, any format, no ceiling. The
+ * derivatives are the delivery formats, and the browser must not be able to
+ * reach past them because a 3x screen asked for a lot of pixels. Per the
+ * HTML candidate rules a `src` is not appended once any candidate carries a
+ * `w` descriptor, so the master serves exactly one audience: a browser with
+ * no `srcset` support at all.
+ */
+function srcSetFrom(value: unknown, mimeType: unknown): string | undefined {
+  // A vector needs no derivatives (it scales by itself, and sharp never
+  // resizes one) and a video is not an <img> to begin with. An unknown mime
+  // type falls through to whatever derivatives the document actually has.
+  const raster =
+    typeof mimeType !== "string" ||
+    (mimeType.startsWith("image/") && mimeType !== "image/svg+xml");
+  if (!raster) return undefined;
+  if (typeof value !== "object" || value === null) return undefined;
+
+  const byWidth = new Map<number, string>();
+  for (const derivative of Object.values(value as Record<string, unknown>)) {
+    if (typeof derivative !== "object" || derivative === null) continue;
+    const { url, width } = derivative as { url?: unknown; width?: unknown };
+    if (typeof url !== "string" || url === "") continue;
+    if (typeof width !== "number" || !Number.isFinite(width) || width <= 0) continue;
+    // `srcset` splits on commas and whitespace, so a filename carrying
+    // either would silently produce a candidate list that means something
+    // else. Dropping the candidate degrades to a smaller srcset; emitting it
+    // would corrupt the whole attribute.
+    if (/[\s,]/.test(url)) continue;
+    if (!byWidth.has(width)) byWidth.set(width, url);
+  }
+  if (byWidth.size === 0) return undefined;
+
+  return [...byWidth.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([width, url]) => `${url} ${String(width)}w`)
+    .join(", ");
 }
 
 /**
@@ -87,9 +142,12 @@ export function mediaValue(value: unknown): MediaValue | null {
     height?: unknown;
     caption?: unknown;
     evidenceStatus?: unknown;
+    mimeType?: unknown;
+    sizes?: unknown;
   };
   if (typeof doc.url !== "string" || doc.url === "") return null;
   if (doc.evidenceStatus === "blocked") return null;
+  const srcSet = srcSetFrom(doc.sizes, doc.mimeType);
   return {
     url: doc.url,
     alt: typeof doc.alt === "string" ? doc.alt : "",
@@ -97,6 +155,7 @@ export function mediaValue(value: unknown): MediaValue | null {
     ...(typeof doc.height === "number" ? { height: doc.height } : {}),
     ...(typeof doc.caption === "string" && doc.caption !== "" ? { caption: doc.caption } : {}),
     ...(doc.evidenceStatus === "published" ? {} : { concept: true }),
+    ...(srcSet === undefined ? {} : { srcSet }),
   };
 }
 

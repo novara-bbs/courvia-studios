@@ -1,5 +1,6 @@
 import { defineSection } from "../../dsl/define-section";
-import { intrinsicSize, mediaValue } from "../../dsl/fields";
+import { mediaValue } from "../../dsl/fields";
+import { imageAttrs } from "../../dsl/image";
 
 /** Twelve columns, eight rows: the coarse grid a pin is placed on. */
 const COLUMNS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
@@ -52,7 +53,7 @@ export const hotspots = defineSection({
     image: { url: "/media/tempo.webp", alt: "Tempo R1" },
     points: [{ col: "4", row: "2", title: "Tolva Daily", body: "Se cambia sin herramientas." }],
   },
-  render: (content, ctx) => {
+  render: (content, ctx, placement) => {
     const media = mediaValue(content.image);
     if (media === null) return null;
     const heading = content.heading as string | null | undefined;
@@ -66,7 +67,8 @@ export const hotspots = defineSection({
       <div className="cv-hotspots">
         {heading ? <h2 className="cv-hotspots-heading">{heading}</h2> : null}
         <figure className="cv-hotspots-figure">
-          <img src={media.url} alt={media.alt} {...intrinsicSize(media)} loading="lazy" />
+          {/* One figure across the section's measure: no frame overrides. */}
+          <img alt={media.alt} {...imageAttrs(media, placement)} />
           {media.concept === true && ctx.conceptLabel !== undefined ? (
             <span className="cv-asset-note">{ctx.conceptLabel}</span>
           ) : null}

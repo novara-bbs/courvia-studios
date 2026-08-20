@@ -1,5 +1,6 @@
 import { defineSection } from "../../dsl/define-section";
-import { intrinsicSize, mediaValue } from "../../dsl/fields";
+import { mediaValue } from "../../dsl/fields";
+import { imageAttrs } from "../../dsl/image";
 
 /**
  * A grid of images with captions. Governance rides on the asset itself
@@ -36,7 +37,7 @@ export const gallery = defineSection({
       { image: { url: "/media/b.webp", alt: "B" } },
     ],
   },
-  render: (content, ctx) => {
+  render: (content, ctx, placement) => {
     const heading = content.heading as string | null | undefined;
     const items = (content.items ?? []) as Array<{ image: unknown; caption?: string }>;
     // flatMap, not filter: a blocked asset (mediaValue -> null) drops its
@@ -50,13 +51,24 @@ export const gallery = defineSection({
       <div className="cv-gallery">
         {heading ? <h2 className="cv-gallery-heading">{heading}</h2> : null}
         <ul className="cv-gallery-grid">
-          {cells.map((cell) => {
+          {cells.map((cell, index) => {
             const caption = cell.caption ?? cell.media.caption;
             return (
               <li key={cell.media.url} className="cv-gallery-item">
                 <figure>
                   <div className="cv-gallery-frame">
-                    <img src={cell.media.url} alt={cell.media.alt} {...intrinsicSize(cell.media)} loading="lazy" />
+                    <img
+                      alt={cell.media.alt}
+                      {...imageAttrs(cell.media, placement, {
+                        // The grid is the `columns` control from `md` up
+                        // (sections.css); one cell is that fraction of the
+                        // measure, so the attribute follows the editor's
+                        // choice instead of assuming three.
+                        columns: Number(placement.appearance.columns),
+                        from: "md",
+                        item: index,
+                      })}
+                    />
                     {cell.media.concept === true && ctx.conceptLabel !== undefined ? (
                       <span className="cv-asset-note">{ctx.conceptLabel}</span>
                     ) : null}

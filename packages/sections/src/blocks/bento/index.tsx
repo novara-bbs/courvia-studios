@@ -1,5 +1,14 @@
 import { defineSection } from "../../dsl/define-section";
-import { intrinsicSize, mediaValue } from "../../dsl/fields";
+import { mediaValue } from "../../dsl/fields";
+import { imageAttrs } from "../../dsl/image";
+
+/**
+ * Tiles per row for each span, which is what a `sizes` attribute needs to
+ * know. The grid is six columns from `lg` and a tile spans 2, 3 or 6 of them
+ * (sections.css): three tiles share a row, or two, or the tile has the row
+ * to itself.
+ */
+const TILES_PER_ROW: Record<string, number> = { sm: 3, md: 2, lg: 1 };
 
 /**
  * The asymmetric mosaic the brand guide asks for by name ("bento grids en
@@ -44,7 +53,7 @@ export const bento = defineSection({
       { span: "md", title: "Base plantada" },
     ],
   },
-  render: (content, ctx) => {
+  render: (content, ctx, placement) => {
     const heading = content.heading as string | null | undefined;
     const items = (content.items ?? []) as Array<{
       span?: string;
@@ -59,15 +68,23 @@ export const bento = defineSection({
         <ul className="cv-bento-grid">
           {items.map((item, index) => {
             const media = mediaValue(item.image);
+            const span = item.span ?? "md";
             return (
               <li
                 key={`${index}-${item.title}`}
                 className="cv-bento-item"
-                data-span={item.span === undefined ? "md" : item.span}
+                data-span={span}
               >
                 {media === null ? null : (
                   <div className="cv-bento-media">
-                    <img src={media.url} alt={media.alt} {...intrinsicSize(media)} loading="lazy" />
+                    <img
+                      alt={media.alt}
+                      {...imageAttrs(media, placement, {
+                        columns: TILES_PER_ROW[span] ?? 2,
+                        from: "lg",
+                        item: index,
+                      })}
+                    />
                     {media.concept === true && ctx.conceptLabel !== undefined ? (
                       <span className="cv-asset-note">{ctx.conceptLabel}</span>
                     ) : null}

@@ -17,11 +17,12 @@ Plantilla canónica: `packages/sections/src/blocks/hero/index.tsx`. Léela antes
    - `fields`: campos en el **DSL neutral** de `dsl/fields.ts` (`text`, `textarea`, `richText`, `select`, `array`, `link`). Marca `localized: true` en todo texto visible y `required: true` en al menos un campo (el test lo exige). El DSL se proyecta dos veces: a Zod aquí y a config de Payload en la app.
    - `appearance`: array de `ControlName` de `@courvia/appearance`. La lista viva está en `packages/appearance/src/controls.ts` (hoy trece: los de ritmo `spaceBlockStart`/`spaceBlockEnd`, más `background`, `width`, `align`, `columns`, `mediaPosition`, `height`, `overlay`, `divider`, `reveal`, `hiddenOn`, `themeScope`). `spaceBlockStart` y `spaceBlockEnd` son obligatorios. Declara solo los que la sección sepa usar: un control que no cambia nada visible es peor que ausente, porque el editor lo prueba y concluye que el sistema está roto.
    - `fixture`: contenido de oro que satisface el propio contrato; lo parsean los tests y lo renderizan las previews.
-   - `render`: función pura de `(content, ctx)` → JSX con primitivas de `@courvia/ui` y clases `cv-*`. El rich text llega serializado por `ctx.renderRichText` (inyectado por la app); la sección nunca toca el formato del editor.
-2. **`packages/sections/src/sections.css`** — los estilos de la sección van en esta hoja centralizada (no hay CSS por sección). Solo tokens `--cv-*` y propiedades lógicas.
-3. **Regístrala en `packages/sections/src/registry.ts`** — importa la sección y añádela al array (`[hero, richText, ctaBand]`).
-4. **`packages/sections/src/registry.test.ts`** — añade el nuevo `type` a la lista esperada de tipos registrados. El resto del test es genérico: valida labels, fixture contra contrato y controles de ritmo de cada entrada.
-5. **Migración** — no hay nada que escribir en Payload (`blocks.ts` genera el bloque), pero un bloque nuevo crea tablas (`pages_blocks_<slug>…`) y el proyecto va con `push: false`. Desde la raíz: `pnpm migrate:new <nombre>`, luego `pnpm --filter @courvia/web migrate && pnpm --filter @courvia/web generate:types`. Commitea la migración (`.ts` y `.json`) y `src/migrations/index.ts`. A producción solo por CI (`.claude/rules/database.md`).
+   - `render`: función pura de `(content, ctx, placement)` → JSX con primitivas de `@courvia/ui` y clases `cv-*`. El rich text llega serializado por `ctx.renderRichText` (inyectado por la app); la sección nunca toca el formato del editor. `placement` trae la apariencia ya resuelta y la posición de la sección en la página: solo lo necesitan las secciones con imagen.
+2. **Si la sección muestra imágenes**, no escribas el `<img>` a mano: `imageAttrs(media, placement, frame)` (`dsl/image.ts`) emite `srcset` con las derivadas que Payload ya generó, el `sizes` que corresponde al layout, `width`/`height` y el par `loading`/`fetchpriority`. El `frame` describe la rejilla —cuántas celdas comparten fila (`columns`) y desde qué breakpoint (`from`)—, nunca una cadena de `sizes` copiada. Ninguna lista de anchos se escribe en el código: salen del propio documento, así que añadir un tamaño en la colección `Media` se refleja solo.
+3. **`packages/sections/src/sections.css`** — los estilos de la sección van en esta hoja centralizada (no hay CSS por sección). Solo tokens `--cv-*` y propiedades lógicas.
+4. **Regístrala en `packages/sections/src/registry.ts`** — importa la sección y añádela al array (`[hero, richText, ctaBand]`).
+5. **`packages/sections/src/registry.test.ts`** — añade el nuevo `type` a la lista esperada de tipos registrados. El resto del test es genérico: valida labels, fixture contra contrato y controles de ritmo de cada entrada.
+6. **Migración** — no hay nada que escribir en Payload (`blocks.ts` genera el bloque), pero un bloque nuevo crea tablas (`pages_blocks_<slug>…`) y el proyecto va con `push: false`. Desde la raíz: `pnpm migrate:new <nombre>`, luego `pnpm --filter @courvia/web migrate && pnpm --filter @courvia/web generate:types`. Commitea la migración (`.ts` y `.json`) y `src/migrations/index.ts`. A producción solo por CI (`.claude/rules/database.md`).
 
 El render en la tienda ya funciona sin más pasos: `SectionList` (`packages/sections/src/render`) lee el registro. Un bloque desconocido o con contenido inválido no tumba la página: no renderiza nada en producción y muestra un diagnóstico en preview.
 
@@ -31,6 +32,7 @@ El render en la tienda ya funciona sin más pasos: `SectionList` (`packages/sect
 - Aceptar `className` desde el contenido.
 - Cualquier import de `payload`, `next/headers`, `next/cache` o un adaptador: `pnpm arch` lo rechaza. Una sección es función pura de `(contenido, apariencia)`.
 - Texto visible en el componente.
+- Un `<img>` a pelo. Sin `srcset` el máster de 1600 px viaja entero a un móvil de 390 px, y sin `sizes` el navegador supone que la imagen ocupa la ventana y elige el candidato más grande igual.
 
 ## Verificar
 

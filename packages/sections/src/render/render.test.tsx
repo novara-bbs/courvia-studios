@@ -29,6 +29,10 @@ function render(raw: unknown, context: RenderContext = ctx): string {
   return renderToStaticMarkup(<SectionRenderer raw={raw} ctx={context} />);
 }
 
+function renderAt(raw: unknown, index: number): string {
+  return renderToStaticMarkup(<SectionRenderer raw={raw} ctx={ctx} index={index} />);
+}
+
 describe("every section renders from its own fixture", () => {
   for (const [type, section] of Object.entries(SECTIONS)) {
     it(`${type} produces markup tagged with its type`, () => {
@@ -108,5 +112,106 @@ describe("linked sections degrade instead of crashing", () => {
   it("passes the picked product slugs through to the injected renderer", () => {
     const html = render({ blockType: "specTable", ...SECTIONS.specTable?.fixture });
     expect(html).toContain('data-slugs="tempo-r1"');
+  });
+});
+
+describe("images negotiate size and format instead of shipping the master", () => {
+  /** A populated media doc as Payload hands it over at depth >= 1. */
+  const doc = {
+    url: "/api/media/file/tempo.jpg",
+    alt: "Tempo R1 en pista",
+    width: 2400,
+    height: 1350,
+    mimeType: "image/jpeg",
+    evidenceStatus: "published",
+    sizes: {
+      thumbnail: { url: "/api/media/file/tempo-480.webp", width: 480, height: 270 },
+      card: { url: "/api/media/file/tempo-860.webp", width: 860, height: 484 },
+      hero: { url: "/api/media/file/tempo-1600.webp", width: 1600, height: 900 },
+    },
+  };
+
+  /**
+   * The `<img>` tags only. React emits these attribute names in camelCase
+   * (`srcSet`, `fetchPriority`) and the browser reads them anyway — HTML
+   * attribute names are ASCII case-insensitive — so every assertion here is
+   * case-insensitive too, and none of them may match React's own hoisted
+   * `<link rel="preload">`.
+   */
+  function images(html: string): string[] {
+    return html.match(/<img[^>]*>/g) ?? [];
+  }
+
+  it("mediaText serves the derivatives with a sizes for its two columns", () => {
+    const [img] = images(
+      renderAt({ blockType: "mediaText", ...SECTIONS.mediaText?.fixture, image: doc }, 1),
+    );
+    const candidates =
+      "/api/media/file/tempo-480.webp 480w, " +
+      "/api/media/file/tempo-860.webp 860w, " +
+      "/api/media/file/tempo-1600.webp 1600w";
+    expect(img?.toLowerCase()).toContain(`srcset="${candidates}"`);
+    expect(img).toMatch(/sizes="\(min-width: 1180px\) 566px, \(min-width: 860px\) 50vw, 100vw"/i);
+    expect(img).toMatch(/width="2400"/);
+    expect(img).toMatch(/height="1350"/);
+    // Below the first section: deferred.
+    expect(img).toMatch(/loading="lazy"/);
+    expect(img).not.toMatch(/fetchpriority/i);
+  });
+
+  it("gallery sizes each cell by the columns the editor chose", () => {
+    const block = {
+      blockType: "gallery",
+      items: [{ image: doc }, { image: doc }],
+      appearance: { columns: "4" },
+    };
+    const [img] = images(renderAt(block, 1));
+    expect(img).toMatch(/sizes="\(min-width: 1180px\) 283px, \(min-width: 680px\) 25vw, 100vw"/i);
+    expect(img).toMatch(/srcset="\/api\/media\/file\/tempo-480\.webp 480w/i);
+    expect(img).toMatch(/width="2400"/);
+    expect(img).toMatch(/height="1350"/);
+
+    // The same gallery at three columns asks for a different candidate: the
+    // attribute follows the appearance control, it is not a fixed string.
+    const [threeUp] = images(renderAt({ ...block, appearance: { columns: "3" } }, 1));
+    expect(threeUp).toMatch(
+      /sizes="\(min-width: 1180px\) 377px, \(min-width: 680px\) 33vw, 100vw"/i,
+    );
+  });
+
+  it("gives the opening scene the LCP treatment and nothing else", () => {
+    const stage = { blockType: "stage", ...SECTIONS.stage?.fixture, media: doc };
+    const first = renderAt(stage, 0);
+    const [opening] = images(first);
+    expect(opening).toMatch(/fetchpriority="high"/i);
+    expect(opening).toMatch(/loading="eager"/);
+    // The eager/high pair is not decoration: React hoists a preload for it,
+    // so the LCP candidate is requested from the document head with the same
+    // candidate list the <img> would have chosen.
+    expect(first).toMatch(/<link rel="preload" as="image"[^>]*imagesrcset=/i);
+
+    const [later] = images(renderAt(stage, 3));
+    expect(later).toMatch(/loading="lazy"/);
+    expect(later).not.toMatch(/fetchpriority/i);
+  });
+
+  it("only the FIRST image of the first section is eager", () => {
+    const tags = images(
+      renderAt({ blockType: "gallery", items: [{ image: doc }, { image: doc }] }, 0),
+    );
+    expect(tags).toHaveLength(2);
+    expect(tags.filter((tag) => /loading="eager"/.test(tag))).toHaveLength(1);
+    expect(tags.filter((tag) => /fetchpriority="high"/i.test(tag))).toHaveLength(1);
+    expect(tags.filter((tag) => /loading="lazy"/.test(tag))).toHaveLength(1);
+  });
+
+  it("falls back to the master for an asset with no derivatives", () => {
+    const { sizes: _none, ...legacy } = doc;
+    const [img] = images(
+      renderAt({ blockType: "mediaText", ...SECTIONS.mediaText?.fixture, image: legacy }, 1),
+    );
+    expect(img).toMatch(/src="\/api\/media\/file\/tempo\.jpg"/);
+    expect(img).not.toMatch(/srcset/i);
+    expect(img).not.toMatch(/sizes=/i);
   });
 });

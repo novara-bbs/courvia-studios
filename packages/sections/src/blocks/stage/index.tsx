@@ -1,8 +1,14 @@
 import { Badge, Button } from "@courvia/ui";
 
 import { defineSection } from "../../dsl/define-section";
-import { intrinsicSize, mediaValue } from "../../dsl/fields";
+import { mediaValue } from "../../dsl/fields";
 import type { Link } from "../../dsl/fields";
+import { imageAttrs } from "../../dsl/image";
+import type { ImageFrame } from "../../dsl/image";
+
+/** The scene covers the wrapper's inline padding too (sections.css pulls it
+ *  out with a negative logical inset), so it is as wide as the measure. */
+const FRAME: ImageFrame = { bleed: true };
 
 /**
  * The full-bleed opening moment of a landing: media edge to edge, a scrim
@@ -52,7 +58,7 @@ export const stage = defineSection({
     lead: "El robot de pádel accuracy-first.",
     ctas: [{ label: "Conoce Tempo R1", href: "/robots/tempo-r1" }],
   },
-  render: (content, ctx) => {
+  render: (content, ctx, placement) => {
     const media = mediaValue(content.media);
     const eyebrow = content.eyebrow as string | null | undefined;
     const heading = content.heading as string;
@@ -64,7 +70,7 @@ export const stage = defineSection({
       <div className="cv-stage">
         {media === null ? null : (
           <div className="cv-stage-media">
-            <img src={media.url} alt="" {...intrinsicSize(media)} aria-hidden="true" />
+            <img alt="" aria-hidden="true" {...imageAttrs(media, placement, FRAME)} />
             <span className="cv-stage-scrim" aria-hidden="true" />
             {media.concept === true && ctx.conceptLabel !== undefined ? (
               <span className="cv-asset-note">{ctx.conceptLabel}</span>

@@ -1,4 +1,4 @@
-import type { ControlName } from "@courvia/appearance";
+import type { Appearance, ControlName } from "@courvia/appearance";
 import type { ReactNode } from "react";
 import type { z } from "zod";
 
@@ -46,6 +46,25 @@ export interface RenderContext {
   resolveHref?: (href: string) => string;
 }
 
+/**
+ * Where this instance sits and how it was styled — everything a renderer
+ * needs to size its images, and nothing else.
+ *
+ * It is a third argument rather than part of RenderContext because the
+ * context is built once per page at the composition root, while this differs
+ * per section instance.
+ */
+export interface SectionPlacement {
+  /** The resolved appearance, already narrowed by the section's controls. */
+  appearance: Appearance;
+  /**
+   * Position on the page; 0 is the first section. Its first image is the
+   * LCP candidate and is the ONE image that must not be lazy — everything
+   * below it is deferred.
+   */
+  index: number;
+}
+
 export interface SectionDefinition {
   /** Stored in every content document — renaming it later is a migration. */
   type: string;
@@ -60,7 +79,11 @@ export interface SectionDefinition {
   /** Which appearance controls this section exposes, narrowed per section. */
   appearance: readonly ControlName[];
   contract: z.ZodType;
-  render: (content: Record<string, unknown>, ctx: RenderContext) => ReactNode;
+  render: (
+    content: Record<string, unknown>,
+    ctx: RenderContext,
+    placement: SectionPlacement,
+  ) => ReactNode;
   /** Golden content: parsed by tests, rendered by previews and stories. */
   fixture: Record<string, unknown>;
 }

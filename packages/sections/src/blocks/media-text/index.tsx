@@ -1,5 +1,10 @@
 import { defineSection } from "../../dsl/define-section";
-import { intrinsicSize, mediaValue } from "../../dsl/fields";
+import { mediaValue } from "../../dsl/fields";
+import { imageAttrs } from "../../dsl/image";
+import type { ImageFrame } from "../../dsl/image";
+
+/** Two equal columns from `lg` (sections.css), one column below it. */
+const FRAME: ImageFrame = { columns: 2, from: "lg" };
 
 /**
  * Image beside text — the workhorse of product landings. The side the media
@@ -41,14 +46,14 @@ export const mediaText = defineSection({
       },
     },
   },
-  render: (content, ctx) => {
+  render: (content, ctx, placement) => {
     const image = mediaValue(content.image);
     const heading = content.heading as string | null | undefined;
     return (
       <div className="cv-media-text">
         {image === null ? null : (
           <figure className="cv-media-text-media">
-            <img src={image.url} alt={image.alt} {...intrinsicSize(image)} loading="lazy" />
+            <img alt={image.alt} {...imageAttrs(image, placement, FRAME)} />
             {image.concept === true && ctx.conceptLabel !== undefined ? (
               <span className="cv-asset-note">{ctx.conceptLabel}</span>
             ) : null}
