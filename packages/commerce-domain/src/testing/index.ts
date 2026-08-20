@@ -12,6 +12,9 @@ export {
 export type {
   CatalogFixtures,
   CommerceServiceFixtures,
+  ConnectedCapabilities,
   PaymentProviderFixtures,
+  WebhookAuthScheme,
+  WebhookDelivery,
 } from "./contracts";
 export * from "../fakes";

@@ -36,6 +36,55 @@ Reembolsos: Stripe reporta importes ACUMULADOS (`amount_refunded`); el
 adaptador marca el evento `cumulative` y el applier calcula el delta — los
 replays absorben a cero y el resto de un reembolso parcial sí aterriza.
 
+## La suite de contrato, y qué se le puede exigir a cada pasarela
+
+Los cuatro adaptadores (`stripe`, `adyen`, `tabby`, `tamara`) y el proveedor
+fake corren `describePaymentProviderContract` de
+`@courvia/commerce-domain/testing`. Que ninguno se escape lo vigila
+`packages/commerce-domain/src/testing/payment-adapter-coverage.test.ts`, que
+enumera `packages/payments-*` del disco: un adaptador nuevo que no corra la
+suite pone CI en rojo el día que se crea. Todo con secretos inventados en el
+propio test; ninguna prueba de este repo toca una credencial real.
+
+Cada fixture declara su `webhookAuth`, y ahí está la parte incómoda: **§4
+pide firma sobre el cuerpo crudo y tres de los cuatro proveedores no la
+ofrecen.**
+
+| Proveedor | Qué firma de verdad | Qué queda sin firmar |
+|---|---|---|
+| **stripe** — `raw-body-signature` | HMAC-SHA256 de `${timestamp}.${rawBody}` con `whsec_…`, más ventana anti-replay | nada: cambiar un byte invalida la entrega |
+| **adyen** — `signed-payload-fields` | HMAC sobre ocho campos del `NotificationRequestItem`: pspReference, originalReference, merchantAccountCode, merchantReference, amount.value, amount.currency, eventCode, success | el resto del cuerpo, `eventDate` incluido — y de `eventDate` sale el `occurredAt` del evento normalizado |
+| **tabby** — `shared-secret` | nada del cuerpo: el valor de cabecera registrado junto al endpoint autentica al EMISOR | el cuerpo entero |
+| **tamara** — `shared-secret` | nada del cuerpo: JWT HS256 firmado sobre su propia cabecera y payload | el cuerpo entero. El JWT tampoco lleva `exp`/`iat` que comprobar: un token capturado sirve hasta que se rote el Notification Token |
+
+La ruta sigue leyendo los bytes exactos antes de parsear —eso no se
+negocia—, pero conviene decirlo con precisión: en Adyen esa lectura conserva
+una integridad **parcial**, y en Tabby y Tamara conserva una integridad que
+la pasarela nunca dio.
+
+Ninguna de las tres fugas se disimula. El contrato las ancla con un test que
+afirma lo que el adaptador hace de verdad ("FUGA documentada: acepta un
+cuerpo alterado fuera de lo firmado"), así que el día que un proveedor
+empiece a firmar el cuerpo el test se pone rojo y alguien reclasifica el
+esquema. Declarar mal el `webhookAuth` no ahorra trabajo: invierte la
+aserción y revienta el paquete.
+
+**Lo que sostiene la integridad mientras tanto**, por orden de a quién le
+toca:
+
+1. TLS entre la pasarela y nosotros.
+2. La credencial es secreta y namespaced por proveedor (§15). Rotarla es la
+   única respuesta a una filtración.
+3. El applier compara importe y moneda contra el pedido antes de mover nada:
+   un `paid` que no cuadra queda como fila en `payments` + `alert_payment_conflict`
+   en el outbox, y el pedido no se mueve (`packages/commerce-payload/src/payment-events.ts`).
+   Los reembolsos calculan delta contra el total del pedido y rechazan la
+   moneda que no cuadra.
+
+Lo que **no** cubre: un evento con importes correctos y `occurredAt`
+falseado en Adyen, o un cuerpo entero fabricado por quien ya tenga el
+secreto de Tabby o Tamara. Contra eso solo hay rotación.
+
 ## Activar un proveedor (configuración, no código)
 
 1. **Registro por despliegue** — `apps/web/src/server/container.ts` lee env
@@ -75,15 +124,22 @@ Queda (requiere credenciales + aprobación humana):
    el pedido ya persistido, y los métodos de pago del mercado (Bizum/Klarna
    en ES, Clearpay en UK, Apple Pay en AE).
 3. Implementar `refund` (payment_intent + amount en unidades menores).
-4. Pasar `describePaymentProviderContract` completo (hoy lo pasa el fake;
-   el test de Stripe cubre la mitad sin credenciales).
+4. Cambiar `connected` a `{ createSession: true, refund: true }` en el
+   fixture de contrato: la misma suite deja de exigir `NotImplementedError`
+   y pasa a exigir una sesión y un reembolso de verdad. Hoy el adaptador
+   pasa la suite entera **declarándose no conectado**, que es lo honesto
+   —lanzar, nunca fingir— y lo que hace que ese cambio de una línea sea la
+   señal de que la integración está hecha.
 5. Registrar el webhook en el dashboard y probar con `stripe listen`.
 
 ## Añadir OTRO proveedor (Adyen, Tabby, Tamara…)
 
 1. Paquete `packages/payments-{proveedor}` que implemente `PaymentProvider`
    (un paquete por puerto, ADR-17 — mirar `payments-stripe` como plantilla).
-2. Pasar `describePaymentProviderContract`.
+2. Pasar `describePaymentProviderContract`, declarando el `webhookAuth` que
+   el proveedor da de verdad y `connected` solo para lo que llegue a la
+   pasarela. No es opcional ni se olvida: el guardián de commerce-domain
+   enumera `packages/payments-*` y falla por el paquete que no la corra.
 3. Un bloque más en `getPaymentProviders()` (container) + su header de firma
    en la ruta de webhooks.
 4. Activarlo en `MarketSettings`. Nada del dominio ni del frontend cambia.

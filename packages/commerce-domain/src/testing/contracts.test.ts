@@ -11,9 +11,11 @@ import {
   describeCommerceServiceContract,
   describePaymentProviderContract,
 } from "./contracts";
+import { money } from "../money";
 import { FakeCommerceService, makeFakeCatalog } from "../fakes/fake-commerce-service";
 import { FakePaymentProvider, signFakePayload } from "../fakes/fake-payment-provider";
 import type { FakeProviderPayload } from "../fakes/fake-payment-provider";
+import type { Order } from "../types";
 
 const SECRET = "whsec_test";
 
@@ -41,16 +43,39 @@ const pingBody = body({
   occurredAt: "2026-08-19T10:00:00.000Z",
 });
 
+/** Pedido mínimo pero completo: el fake sí abre sesión, así que el fixture
+ *  tiene que ser un pedido de verdad, no un `{} as never`. */
+const ORDER: Order = {
+  id: "order_1",
+  market: "es",
+  currency: "EUR",
+  status: "pending_payment",
+  lines: [
+    { variantId: "var_1", sku: "DRL-PRO-P", quantity: 1, unitAmount: money(129_000, "EUR") },
+  ],
+  total: money(129_000, "EUR"),
+  taxTotal: money(22_388, "EUR"),
+  refundedTotal: money(0, "EUR"),
+};
+
 describePaymentProviderContract(
   "FakePaymentProvider",
   () => new FakePaymentProvider({ secret: SECRET }),
   {
+    // El fake existe para demostrar que el puerto es implementable con
+    // mecánica real: HMAC sobre los bytes exactos, como hace Stripe.
+    webhookAuth: "raw-body-signature",
     valid: {
       rawBody: paidBody,
       signature: signFakePayload(SECRET, paidBody),
       expectedEventId: "evt_paid_1",
     },
     ignored: { rawBody: pingBody, signature: signFakePayload(SECRET, pingBody) },
+    forgedCredential: { rawBody: paidBody, signature: signFakePayload("otro-secreto", paidBody) },
+    session: { order: ORDER, market: "es" },
+    refund: { providerPaymentId: "pi_1", amount: money(50_000, "EUR") },
+    // El fake es el ÚNICO proveedor conectado de punta a punta hoy.
+    connected: { createSession: true, refund: true },
   },
 );
 

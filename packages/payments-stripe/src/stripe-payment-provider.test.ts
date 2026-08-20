@@ -1,12 +1,19 @@
 /**
- * Verifies the credential-free half of the Stripe adapter against synthetic
- * payloads signed with Stripe's real scheme. The full
- * describePaymentProviderContract suite (which also exercises refunds) gates
- * the credentialed integration task.
+ * Dos capas sobre el mismo adaptador:
+ *
+ *  1. `describePaymentProviderContract` — la suite común del puerto, la que
+ *     convierte "cambiar de pasarela sin tocar el dominio" en algo
+ *     verificado. Todo con secretos inventados aquí mismo: ninguna prueba de
+ *     este repo necesita una credencial real.
+ *  2. Los casos propios de Stripe que la suite no puede conocer: ventana
+ *     anti-replay, rotación del secreto de firma, `amount_refunded` como
+ *     total acumulado.
  */
 import { createHmac } from "node:crypto";
 
-import { NotImplementedError, WebhookSignatureError } from "@courvia/commerce-domain";
+import { NotImplementedError, WebhookSignatureError, money } from "@courvia/commerce-domain";
+import type { Order } from "@courvia/commerce-domain";
+import { describePaymentProviderContract } from "@courvia/commerce-domain/testing";
 import { describe, expect, it } from "vitest";
 
 import { StripePaymentProvider } from "./stripe-payment-provider";
@@ -37,6 +44,45 @@ const PAID_BODY = JSON.stringify({
       metadata: { orderId: "42" },
     },
   },
+});
+
+/** Evento nuestro (lleva metadata.orderId) pero sin significado de dominio. */
+const IGNORED_BODY = JSON.stringify({
+  id: "evt_ignored",
+  type: "customer.created",
+  created: Math.floor(NOW / 1000),
+  data: { object: { id: "cus_1", currency: "eur", metadata: { orderId: "42" } } },
+});
+
+const ORDER: Order = {
+  id: "42",
+  market: "es",
+  currency: "EUR",
+  status: "pending_payment",
+  lines: [
+    { variantId: "var_1", sku: "DRL-PRO-P", quantity: 1, unitAmount: money(129_000, "EUR") },
+  ],
+  total: money(129_000, "EUR"),
+  taxTotal: money(22_388, "EUR"),
+  refundedTotal: money(0, "EUR"),
+};
+
+describePaymentProviderContract("StripePaymentProvider", make, {
+  // Stripe firma `${timestamp}.${rawBody}`: los bytes exactos, sin parsear.
+  webhookAuth: "raw-body-signature",
+  valid: { rawBody: PAID_BODY, signature: sign(PAID_BODY), expectedEventId: "evt_1" },
+  ignored: { rawBody: IGNORED_BODY, signature: sign(IGNORED_BODY) },
+  // Cabecera bien formada, v1 que no es: el caso del atacante que conoce el
+  // formato y no el secreto. Misma longitud que una firma real, así que el
+  // rechazo pasa por la comparación en tiempo constante.
+  forgedCredential: {
+    rawBody: PAID_BODY,
+    signature: `t=${Math.floor(NOW / 1000)},v1=${"0".repeat(64)}`,
+  },
+  session: { order: ORDER, market: "es" },
+  refund: { providerPaymentId: "pi_1", amount: money(50_000, "EUR") },
+  // Nada conectado: sin STRIPE_SECRET_KEY no hay sesión ni reembolso, y el
+  // adaptador lo dice lanzando (docs/payments-runbook.md).
 });
 
 describe("StripePaymentProvider (prepared, not connected)", () => {

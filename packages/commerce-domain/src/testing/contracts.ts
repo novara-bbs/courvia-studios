@@ -1,29 +1,112 @@
 /**
- * Reusable port contract suites.
+ * Suites de contrato de los puertos, reutilizables.
  *
- * Every adapter — the in-memory fakes today, commerce-payload and
- * payments-stripe tomorrow, commerce-medusa if the Medusa gate (docs/roadmap.md) ever opens —
- * runs the identical suite. This is the mechanism that makes ADR-13's
- * "swap the gateway without touching the domain" true rather than
- * aspirational, and it is what makes an unimplementable port signature fail
- * immediately instead of in the sprint that first needs it.
+ * Todo adaptador —los fakes en memoria, los cuatro `payments-*`,
+ * commerce-payload, y commerce-medusa si el gate de Medusa (docs/roadmap.md)
+ * llega a abrirse— corre la misma suite. Es el mecanismo que hace cierto el
+ * "cambiar de pasarela sin tocar el dominio" de ADR-13 en vez de
+ * aspiracional, y lo que hace que una firma de puerto imposible falle ya, no
+ * en el sprint que la necesite.
  *
- * Imported by test files only; `vitest` is a devDependency of the consumer.
+ * Que ningún paquete se quede fuera lo vigila
+ * `payment-adapter-coverage.test.ts`, que enumera `packages/payments-*` del
+ * disco: la lista de adaptadores se descubre, no se escribe a mano.
+ *
+ * Solo lo importan ficheros de test; `vitest` es devDependency del consumidor.
  */
 import { describe, expect, it } from "vitest";
 
 import type { MarketId } from "@courvia/platform";
 
-import { WebhookSignatureError } from "../payment";
+import { NotImplementedError } from "../errors";
+import { PAYMENT_EVENT_TYPES, WebhookSignatureError } from "../payment";
 import type { PaymentProvider } from "../payment";
+import type { Money } from "../money";
 import type { CommerceService } from "../commerce-service";
-import type { CheckoutInput } from "../types";
+import type { CheckoutInput, Order } from "../types";
+
+/**
+ * Cómo autentica cada pasarela la entrega de un webhook. No es folclore del
+ * proveedor: decide qué integridad puede EXIGIR el contrato, y las tres
+ * variantes no valen lo mismo.
+ *
+ * - `raw-body-signature`: la firma se calcula sobre los bytes exactos
+ *   (Stripe). Cambiar un byte invalida la entrega.
+ * - `signed-payload-fields`: HMAC sobre un puñado de campos ya parseados
+ *   (Adyen). Lo que queda fuera de esos campos viaja sin proteger.
+ * - `shared-secret`: credencial portadora en cabecera o token (Tabby,
+ *   Tamara). Autentica al EMISOR, nunca al cuerpo.
+ *
+ * Las dos últimas son fugas del puerto: §4 pide firma sobre el cuerpo crudo
+ * y el proveedor no la ofrece. Declararlas aquí no las tapa —el contrato
+ * ancla cada fuga en un test que afirma lo que el adaptador hace de verdad—,
+ * y por eso declarar mal el esquema no ahorra trabajo: invierte la
+ * aserción y pone el paquete en rojo. Detalle en docs/payments-runbook.md.
+ */
+export type WebhookAuthScheme =
+  | "raw-body-signature"
+  | "signed-payload-fields"
+  | "shared-secret";
+
+/** Una entrega tal y como llega a la ruta: bytes exactos + credencial. */
+export interface WebhookDelivery {
+  rawBody: string;
+  /** Lo que la ruta lee de la cabecera. "" cuando la firma viaja dentro. */
+  signature: string;
+}
+
+/**
+ * Métodos que este ESTADIO del adaptador lleva de verdad hasta la pasarela.
+ * Lo que no se declare aquí tiene que rechazar con `NotImplementedError`:
+ * el puerto permite lanzar, nunca fingir (`.claude/rules/payments.md`), y
+ * el contrato comprueba las dos caras.
+ */
+export interface ConnectedCapabilities {
+  createSession?: boolean;
+  refund?: boolean;
+}
 
 export interface PaymentProviderFixtures {
-  /** A raw body the provider must accept, with its valid signature. */
-  valid: { rawBody: string; signature: string; expectedEventId: string };
-  /** Raw body whose normalized event the domain ignores (e.g. a ping). */
-  ignored: { rawBody: string; signature: string };
+  /** Cómo firma el proveedor. Ver WebhookAuthScheme. */
+  webhookAuth: WebhookAuthScheme;
+  /** Entrega genuina que el adaptador debe aceptar. */
+  valid: WebhookDelivery & { expectedEventId: string };
+  /** Entrega genuina cuyo evento normalizado el dominio ignora (un ping). */
+  ignored: WebhookDelivery;
+  /** Misma entrega con la credencial falsificada: siempre se rechaza. */
+  forgedCredential: WebhookDelivery;
+  /**
+   * Solo para `signed-payload-fields`: la misma entrega con un campo FIRMADO
+   * alterado (el importe, no la fecha). Debe rechazarse.
+   */
+  signedFieldTamper?: WebhookDelivery;
+  /** Pedido y mercado con los que abrir una sesión de pago. */
+  session: { order: Order; market: MarketId };
+  /** Identificador de pago sobre el que pedir el reembolso. */
+  refund: { providerPaymentId: string; amount?: Money };
+  /** Qué está conectado hoy. Ausente = nada: todo debe lanzar. */
+  connected?: ConnectedCapabilities;
+}
+
+/**
+ * Un `throw` síncrono escapa antes de que exista la promesa, así que quien
+ * use `.catch()` no lo ve nunca. El puerto lo exige por escrito
+ * (payment.ts); esto es lo que lo comprueba.
+ */
+async function rejectsWithoutSyncThrow<T>(
+  label: string,
+  call: () => Promise<T>,
+  expected: new (...args: never[]) => Error,
+): Promise<void> {
+  let promise: Promise<T>;
+  try {
+    promise = call();
+  } catch (error) {
+    throw new Error(
+      `${label} lanzó de forma síncrona (${String(error)}); un .catch() del llamante nunca lo vería`,
+    );
+  }
+  await expect(promise).rejects.toBeInstanceOf(expected);
 }
 
 export function describePaymentProviderContract(
@@ -31,58 +114,201 @@ export function describePaymentProviderContract(
   make: () => PaymentProvider,
   fixtures: PaymentProviderFixtures,
 ): void {
+  const connected = fixtures.connected ?? {};
+  const coversRawBytes = fixtures.webhookAuth === "raw-body-signature";
+
   describe(`PaymentProvider contract: ${name}`, () => {
-    it("verifies a genuine signature and surfaces the provider event id", async () => {
-      const provider = make();
-      const event = await provider.verifyWebhook(
-        fixtures.valid.rawBody,
-        fixtures.valid.signature,
-      );
-      expect(event.provider).toBe(provider.id);
-      expect(event.providerEventId).toBe(fixtures.valid.expectedEventId);
+    describe("verifyWebhook", () => {
+      it("verifica una entrega genuina y expone el id de evento del proveedor", async () => {
+        const provider = make();
+        const event = await provider.verifyWebhook(
+          fixtures.valid.rawBody,
+          fixtures.valid.signature,
+        );
+        expect(event.provider).toBe(provider.id);
+        expect(event.providerEventId).toBe(fixtures.valid.expectedEventId);
+        expect(event.providerEventId).not.toBe("");
+      });
+
+      it("deriva el mismo providerEventId para la misma entrega", async () => {
+        // La idempotencia es (provider, provider_event_id) UNIQUE: si el id
+        // bailara entre reintentos, el reenvío de la pasarela se aplicaría
+        // dos veces en lugar de reventar contra el índice.
+        const provider = make();
+        const first = await provider.verifyWebhook(
+          fixtures.valid.rawBody,
+          fixtures.valid.signature,
+        );
+        const second = await provider.verifyWebhook(
+          fixtures.valid.rawBody,
+          fixtures.valid.signature,
+        );
+        expect(second.providerEventId).toBe(first.providerEventId);
+      });
+
+      it("rechaza una credencial falsificada", async () => {
+        const provider = make();
+        await rejectsWithoutSyncThrow(
+          "verifyWebhook",
+          () =>
+            provider.verifyWebhook(
+              fixtures.forgedCredential.rawBody,
+              fixtures.forgedCredential.signature,
+            ),
+          WebhookSignatureError,
+        );
+      });
+
+      if (coversRawBytes) {
+        it("rechaza el cuerpo alterado en un solo byte", async () => {
+          const provider = make();
+          await rejectsWithoutSyncThrow(
+            "verifyWebhook",
+            () => provider.verifyWebhook(`${fixtures.valid.rawBody} `, fixtures.valid.signature),
+            WebhookSignatureError,
+          );
+        });
+
+        it("no declara campos firmados aparte: aquí la firma lo cubre todo", () => {
+          // Si alguien añade el fixture es que el esquema declarado ya no es
+          // el real, y conviene enterarse aquí y no en producción.
+          expect(
+            fixtures.signedFieldTamper,
+            "signedFieldTamper solo tiene sentido cuando la firma NO cubre los bytes exactos",
+          ).toBeUndefined();
+        });
+      } else {
+        it("FUGA documentada: acepta un cuerpo alterado fuera de lo firmado", async () => {
+          // No es un permiso, es un ancla. Este proveedor no firma los
+          // bytes exactos —la tabla de "qué se le puede exigir a cada
+          // pasarela" en docs/payments-runbook.md dice qué firma cada uno—,
+          // así que la integridad del cuerpo la sostienen TLS y la
+          // comprobación de importe/moneda del applier, no la pasarela. El
+          // día que el proveedor firme el cuerpo, este test se pone rojo y
+          // alguien reclasifica el esquema.
+          const provider = make();
+          const event = await provider.verifyWebhook(
+            `${fixtures.valid.rawBody} `,
+            fixtures.valid.signature,
+          );
+          expect(event.providerEventId).toBe(fixtures.valid.expectedEventId);
+        });
+      }
+
+      if (fixtures.webhookAuth === "signed-payload-fields") {
+        it("rechaza la alteración de un campo firmado", async () => {
+          const tamper = fixtures.signedFieldTamper;
+          expect(
+            tamper,
+            "un esquema de campos firmados debe demostrar QUÉ campos protege",
+          ).toBeDefined();
+          if (tamper === undefined) return;
+          const provider = make();
+          await rejectsWithoutSyncThrow(
+            "verifyWebhook",
+            () => provider.verifyWebhook(tamper.rawBody, tamper.signature),
+            WebhookSignatureError,
+          );
+        });
+      }
     });
 
-    it("rejects a tampered body with the same signature", async () => {
-      const provider = make();
-      await expect(
-        provider.verifyWebhook(`${fixtures.valid.rawBody} `, fixtures.valid.signature),
-      ).rejects.toBeInstanceOf(WebhookSignatureError);
+    describe("normalizeEvent", () => {
+      it("normaliza el evento verificado a la forma del dominio", async () => {
+        const provider = make();
+        const raw = await provider.verifyWebhook(
+          fixtures.valid.rawBody,
+          fixtures.valid.signature,
+        );
+        const normalized = provider.normalizeEvent(raw);
+        expect(normalized).not.toBeNull();
+        if (normalized === null) return;
+
+        expect([...PAYMENT_EVENT_TYPES]).toContain(normalized.type);
+        expect(normalized.provider).toBe(provider.id);
+        expect(normalized.providerEventId).toBe(raw.providerEventId);
+        expect(normalized.providerPaymentId).not.toBe("");
+        expect(normalized.orderId).not.toBe("");
+        // Unidades menores enteras: un importe con decimales flotantes es
+        // dinero que ya no se puede conciliar.
+        expect(Number.isSafeInteger(normalized.amount.amount)).toBe(true);
+        expect(normalized.amount.amount).toBeGreaterThanOrEqual(0);
+        // occurredAt es ISO-8601 y sobrevive al viaje de ida y vuelta.
+        expect(new Date(normalized.occurredAt).toISOString()).toBe(normalized.occurredAt);
+      });
+
+      it("es puro: normalizar dos veces devuelve lo mismo", async () => {
+        const provider = make();
+        const raw = await provider.verifyWebhook(
+          fixtures.valid.rawBody,
+          fixtures.valid.signature,
+        );
+        expect(provider.normalizeEvent(raw)).toEqual(provider.normalizeEvent(raw));
+      });
+
+      it("devuelve null —nunca lanza— para eventos sin significado de dominio", async () => {
+        const provider = make();
+        const raw = await provider.verifyWebhook(
+          fixtures.ignored.rawBody,
+          fixtures.ignored.signature,
+        );
+        expect(provider.normalizeEvent(raw)).toBeNull();
+      });
     });
 
-    it("rejects a tampered signature", async () => {
-      const provider = make();
-      await expect(
-        provider.verifyWebhook(fixtures.valid.rawBody, "0".repeat(64)),
-      ).rejects.toBeInstanceOf(WebhookSignatureError);
+    describe("createSession", () => {
+      if (connected.createSession === true) {
+        it("abre una sesión de pago para el pedido y el mercado", async () => {
+          const provider = make();
+          const session = await provider.createSession(
+            fixtures.session.order,
+            fixtures.session.market,
+          );
+          expect(session.provider).toBe(provider.id);
+          expect(session.providerPaymentId).not.toBe("");
+          expect(
+            session.url ?? session.clientSecret,
+            "una sesión sin url ni clientSecret no lleva a ninguna parte",
+          ).toBeDefined();
+        });
+      } else {
+        it("lanza NotImplementedError mientras no esté conectado", async () => {
+          // El puerto permite lanzar; lo que no permite es devolver una
+          // sesión inventada que el checkout pintaría como buena.
+          const provider = make();
+          await rejectsWithoutSyncThrow(
+            "createSession",
+            () => provider.createSession(fixtures.session.order, fixtures.session.market),
+            NotImplementedError,
+          );
+        });
+      }
     });
 
-    it("normalizes a verified event into the domain shape", async () => {
-      const provider = make();
-      const raw = await provider.verifyWebhook(
-        fixtures.valid.rawBody,
-        fixtures.valid.signature,
-      );
-      const normalized = provider.normalizeEvent(raw);
-      expect(normalized).not.toBeNull();
-      expect(normalized?.providerEventId).toBe(raw.providerEventId);
-      expect(normalized?.amount.amount).toBeTypeOf("number");
-      expect(Number.isSafeInteger(normalized?.amount.amount)).toBe(true);
-    });
-
-    it("returns null — never throws — for events the domain ignores", async () => {
-      const provider = make();
-      const raw = await provider.verifyWebhook(
-        fixtures.ignored.rawBody,
-        fixtures.ignored.signature,
-      );
-      expect(provider.normalizeEvent(raw)).toBeNull();
-    });
-
-    it("refunds through the provider and reports an outcome", async () => {
-      const provider = make();
-      const result = await provider.refund("pi_test");
-      expect(["succeeded", "pending", "failed"]).toContain(result.status);
-      expect(result.provider).toBe(provider.id);
+    describe("refund", () => {
+      if (connected.refund === true) {
+        it("reembolsa a través de la pasarela e informa del resultado", async () => {
+          const provider = make();
+          const result = await provider.refund(
+            fixtures.refund.providerPaymentId,
+            fixtures.refund.amount,
+          );
+          expect(result.provider).toBe(provider.id);
+          expect(result.providerRefundId).not.toBe("");
+          expect(["succeeded", "pending", "failed"]).toContain(result.status);
+          expect(Number.isSafeInteger(result.amount.amount)).toBe(true);
+        });
+      } else {
+        it("lanza NotImplementedError mientras no esté conectado", async () => {
+          const provider = make();
+          await rejectsWithoutSyncThrow(
+            "refund",
+            () =>
+              provider.refund(fixtures.refund.providerPaymentId, fixtures.refund.amount),
+            NotImplementedError,
+          );
+        });
+      }
     });
   });
 }

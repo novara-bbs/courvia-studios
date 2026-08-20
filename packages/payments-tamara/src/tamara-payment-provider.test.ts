@@ -1,6 +1,20 @@
+/**
+ * Dos capas sobre el mismo adaptador:
+ *
+ *  1. `describePaymentProviderContract` — la suite común del puerto. Tamara
+ *     entra declarándose `shared-secret`: el JWT se firma sobre su propia
+ *     cabecera y payload, nunca sobre el cuerpo de la notificación, así que
+ *     la suite fija esa fuga en un test (docs/payments-runbook.md).
+ *  2. Los casos propios de Tamara: downgrade de algoritmo, prefijo Bearer,
+ *     reembolso con id propio.
+ *
+ * El token de abajo es inventado para este fichero.
+ */
 import { createHmac } from "node:crypto";
 
-import { NotImplementedError, WebhookSignatureError } from "@courvia/commerce-domain";
+import { NotImplementedError, WebhookSignatureError, money } from "@courvia/commerce-domain";
+import type { Order } from "@courvia/commerce-domain";
+import { describePaymentProviderContract } from "@courvia/commerce-domain/testing";
 import { describe, expect, it } from "vitest";
 
 import { TamaraPaymentProvider } from "./tamara-payment-provider";
@@ -27,6 +41,44 @@ const AUTHORISED = JSON.stringify({
 function make(): TamaraPaymentProvider {
   return new TamaraPaymentProvider({ notificationToken: TOKEN });
 }
+
+/** Aprobado: el comprador terminó el flujo, el dinero aún no está reservado. */
+const APPROVED = JSON.stringify({
+  order_id: "tmr_01",
+  order_reference_id: "42",
+  event_type: "order_approved",
+  created_at: "2026-08-20T12:00:00Z",
+  data: { total_amount: { amount: "5599.00", currency: "AED" } },
+});
+
+const ORDER: Order = {
+  id: "42",
+  market: "ae",
+  currency: "AED",
+  status: "pending_payment",
+  lines: [
+    { variantId: "var_1", sku: "DRL-PRO-P", quantity: 1, unitAmount: money(559_900, "AED") },
+  ],
+  total: money(559_900, "AED"),
+  taxTotal: money(26_662, "AED"),
+  refundedTotal: money(0, "AED"),
+};
+
+describePaymentProviderContract("TamaraPaymentProvider", make, {
+  // JWT HS256 en Authorization: firma su propia cabecera y payload, no el
+  // cuerpo de la notificación.
+  webhookAuth: "shared-secret",
+  valid: {
+    rawBody: AUTHORISED,
+    signature: `Bearer ${jwt()}`,
+    expectedEventId: "tmr_01:order_authorised",
+  },
+  ignored: { rawBody: APPROVED, signature: `Bearer ${jwt()}` },
+  forgedCredential: { rawBody: AUTHORISED, signature: `Bearer ${jwt("otro-token")}` },
+  session: { order: ORDER, market: "ae" },
+  refund: { providerPaymentId: "tmr_01", amount: money(100_000, "AED") },
+  // Sin credenciales de Tamara no hay sesión de checkout ni reembolso.
+});
 
 describe("TamaraPaymentProvider (prepared, not connected)", () => {
   it("verifies a genuine HS256 token (with or without the Bearer prefix)", async () => {

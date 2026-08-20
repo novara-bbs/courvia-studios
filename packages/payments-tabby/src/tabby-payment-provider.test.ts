@@ -1,4 +1,19 @@
-import { NotImplementedError, WebhookSignatureError } from "@courvia/commerce-domain";
+/**
+ * Dos capas sobre el mismo adaptador:
+ *
+ *  1. `describePaymentProviderContract` — la suite común del puerto. Tabby
+ *     entra declarándose `shared-secret`: su credencial autentica al emisor
+ *     y no toca el cuerpo, así que la suite fija esa fuga en un test
+ *     (docs/payments-runbook.md) en lugar de fingir una integridad que la
+ *     pasarela no da.
+ *  2. Los casos propios de Tabby: importes en cadena decimal, reembolsos
+ *     como total acumulado, id de evento derivado del estado.
+ *
+ * El secreto de abajo es inventado para este fichero.
+ */
+import { NotImplementedError, WebhookSignatureError, money } from "@courvia/commerce-domain";
+import type { Order } from "@courvia/commerce-domain";
+import { describePaymentProviderContract } from "@courvia/commerce-domain/testing";
 import { describe, expect, it } from "vitest";
 
 import { TabbyPaymentProvider, decimalToMinor } from "./tabby-payment-provider";
@@ -16,6 +31,42 @@ const AUTHORIZED = JSON.stringify({
   currency: "AED",
   created_at: "2026-08-20T12:00:00Z",
   order: { reference_id: "42" },
+});
+
+/** Pago creado: entrega legítima, todavía sin nada que decidir. */
+const CREATED = JSON.stringify({
+  id: "pay_03",
+  status: "created",
+  amount: "5599.00",
+  currency: "AED",
+  created_at: "2026-08-20T12:00:00Z",
+  order: { reference_id: "42" },
+});
+
+const ORDER: Order = {
+  id: "42",
+  market: "ae",
+  currency: "AED",
+  status: "pending_payment",
+  lines: [
+    { variantId: "var_1", sku: "DRL-PRO-P", quantity: 1, unitAmount: money(559_900, "AED") },
+  ],
+  total: money(559_900, "AED"),
+  taxTotal: money(26_662, "AED"),
+  refundedTotal: money(0, "AED"),
+};
+
+describePaymentProviderContract("TabbyPaymentProvider", make, {
+  // Valor de cabecera registrado con el endpoint: autentica al emisor.
+  webhookAuth: "shared-secret",
+  valid: { rawBody: AUTHORIZED, signature: SECRET, expectedEventId: "pay_01:authorized:0" },
+  ignored: { rawBody: CREATED, signature: SECRET },
+  // Misma longitud que el valor registrado, distinto contenido: el rechazo
+  // pasa por la comparación en tiempo constante.
+  forgedCredential: { rawBody: AUTHORIZED, signature: "tabby-webhook-shared-SECRET" },
+  session: { order: ORDER, market: "ae" },
+  refund: { providerPaymentId: "pay_01", amount: money(100_000, "AED") },
+  // Sin credenciales de Tabby no hay sesión de checkout ni reembolso.
 });
 
 describe("decimalToMinor", () => {

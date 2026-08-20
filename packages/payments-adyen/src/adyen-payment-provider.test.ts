@@ -1,12 +1,22 @@
 /**
- * Verifies the credential-free half of the Adyen adapter with payloads
- * signed exactly as the official adyen-node-api-library hmacValidator does:
- * HMAC-SHA256 over eight ":"-joined NotificationRequestItem fields, hex key,
- * base64 digest, signature inside additionalData.
+ * Dos capas sobre el mismo adaptador:
+ *
+ *  1. `describePaymentProviderContract` — la suite común del puerto. Adyen
+ *     entra en ella declarándose `signed-payload-fields`: su HMAC cubre ocho
+ *     campos ya parseados, no los bytes, y la suite ancla esa fuga en un
+ *     test en vez de dejarla en la memoria de alguien.
+ *  2. Los casos propios de Adyen: lotes rechazados, REFUND como delta,
+ *     REFUND_FAILED.
+ *
+ * La clave HMAC de abajo es inventada para este fichero (hex de 32 bytes con
+ * la forma que emite el Customer Area). Ninguna prueba usa credenciales
+ * reales.
  */
 import { createHmac } from "node:crypto";
 
-import { NotImplementedError, WebhookSignatureError } from "@courvia/commerce-domain";
+import { NotImplementedError, WebhookSignatureError, money } from "@courvia/commerce-domain";
+import type { Order } from "@courvia/commerce-domain";
+import { describePaymentProviderContract } from "@courvia/commerce-domain/testing";
 import { describe, expect, it } from "vitest";
 
 import { AdyenPaymentProvider } from "./adyen-payment-provider";
@@ -59,6 +69,58 @@ const AUTHORISED: Item = {
 function make(): AdyenPaymentProvider {
   return new AdyenPaymentProvider({ hmacKey: HMAC_KEY });
 }
+
+/** CAPTURE: firmado y legítimo, sin transición que provocar. */
+const CAPTURE: Item = {
+  ...AUTHORISED,
+  eventCode: "CAPTURE",
+  pspReference: "9910000000000001",
+};
+
+const ORDER: Order = {
+  id: "42",
+  market: "es",
+  currency: "EUR",
+  status: "pending_payment",
+  lines: [
+    { variantId: "var_1", sku: "DRL-PRO-P", quantity: 1, unitAmount: money(129_000, "EUR") },
+  ],
+  total: money(129_000, "EUR"),
+  taxTotal: money(22_388, "EUR"),
+  refundedTotal: money(0, "EUR"),
+};
+
+describePaymentProviderContract("AdyenPaymentProvider", make, {
+  // La firma va DENTRO del payload y cubre ocho campos, no los bytes.
+  webhookAuth: "signed-payload-fields",
+  valid: {
+    rawBody: webhookBody(sign(AUTHORISED)),
+    // La ruta no encuentra cabecera para Adyen y pasa "": el adaptador
+    // verifica contra el cuerpo. Que el contrato lo ejercite así es la
+    // prueba de que ese "" no es un descuido.
+    signature: "",
+    expectedEventId: "8837544667789012:AUTHORISATION",
+  },
+  ignored: { rawBody: webhookBody(sign(CAPTURE)), signature: "" },
+  forgedCredential: {
+    rawBody: webhookBody({
+      ...AUTHORISED,
+      // Misma forma que una firma real (base64 de 32 bytes), otro valor: así
+      // el rechazo pasa por la comparación en tiempo constante, no por una
+      // diferencia de longitud.
+      additionalData: { hmacSignature: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
+    }),
+    signature: "",
+  },
+  // El importe SÍ está entre los ocho campos firmados: tocarlo revienta.
+  signedFieldTamper: {
+    rawBody: webhookBody({ ...sign(AUTHORISED), amount: { value: 1, currency: "EUR" } }),
+    signature: "",
+  },
+  session: { order: ORDER, market: "es" },
+  refund: { providerPaymentId: "8837544667789012", amount: money(50_000, "EUR") },
+  // Sin credenciales del Customer Area no hay sesión ni reembolso.
+});
 
 describe("AdyenPaymentProvider (prepared, not connected)", () => {
   it("verifies a genuine payload and derives a composite event id", async () => {
