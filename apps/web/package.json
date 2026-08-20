@@ -14,10 +14,12 @@
     "generate:types": "payload generate:types",
     "migrate": "payload migrate",
     "migrate:create": "payload migrate:create",
-    "seed:admin": "tsx src/payload/seed-admin.ts",
-    "seed:catalog": "tsx src/payload/seed-catalog.ts",
-    "test": "vitest run --passWithNoTests",
-    "seed:markets": "tsx src/payload/seed-markets.ts"
+    "seed:admin": "tsx src/seeds/seed-admin.ts",
+    "seed:catalog": "tsx src/seeds/seed-catalog.ts",
+    "seed:markets": "tsx src/seeds/seed-markets.ts",
+    "seed:content": "tsx src/seeds/seed-content.ts",
+    "sweep:checkouts": "tsx src/scripts/expire-checkouts.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@courvia/appearance": "workspace:*",

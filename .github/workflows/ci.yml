@@ -59,11 +59,10 @@ jobs:
       - name: Migrate CI database
         run: pnpm --filter @courvia/web migrate
 
-      - name: Seed demo catalog
-        run: pnpm --filter @courvia/web seed:catalog
-
-      - name: Seed market settings
-        run: pnpm --filter @courvia/web seed:markets
+      # Same entry point as local bootstrap (catalog → markets → content):
+      # one place defines the seeding order.
+      - name: Seed demo data
+        run: pnpm seed
 
       # Runs the same entry point a contributor runs locally, so a broken
       # root script cannot ship green.
@@ -77,4 +76,4 @@ jobs:
         run: pnpm arch
 
       # Playwright E2E, axe and visual regression join this workflow when the
-      # first route and section land (roadmap WP16, CLAUDE.md §13).
+      # first route and section land (roadmap WP16, docs/operations.md §13).

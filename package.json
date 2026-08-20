@@ -14,7 +14,10 @@
     "dev": "turbo run dev",
     "stylelint": "stylelint \"packages/*/src/**/*.css\" \"apps/web/app/**/*.css\"",
     "arch": "depcruise --config .dependency-cruiser.cjs apps packages",
-    "verify": "pnpm build && pnpm typecheck && pnpm lint && pnpm stylelint && pnpm arch && pnpm test"
+    "verify": "turbo run build typecheck lint test && pnpm stylelint && pnpm arch",
+    "migrate:new": "node scripts/migrate-new.mjs",
+    "seed": "pnpm --filter @courvia/web seed:catalog && pnpm --filter @courvia/web seed:markets && pnpm --filter @courvia/web seed:content",
+    "dev:db": "bash scripts/dev-db.sh"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "16.3.1",
