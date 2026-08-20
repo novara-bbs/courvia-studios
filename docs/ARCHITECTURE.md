@@ -14,7 +14,7 @@ Cada capa solo conoce las de abajo. La dirección de dependencias **la verifica 
 |---|---|---|---|
 | **L0 Tokens** | `@courvia/design-tokens` | Valores de diseño (DTCG) → variables `--cv-*`. Temas como ámbitos `[data-theme]` anidables. | Depender de ningún paquete del repo (debe seguir siendo portable a Figma o a una app nativa). |
 | **L1 Primitivas** | `@courvia/ui` | Semántica DOM y accesibilidad de los átomos. | Conocer el framework, el CMS, el dominio ni recibir `className`/`style`. |
-| **L2 Secciones** | `@courvia/sections` *(WP7)* | Las unidades editables: contenido + apariencia + render. | Hacer E/S. Una sección es función pura de `(contenido, apariencia)`. |
+| **L2 Secciones** | `@courvia/sections` + `@courvia/appearance` | Las unidades editables: contenido + apariencia + render. `appearance` posee el vocabulario de controles (enums ligados a tokens, ADR-016), su schema Zod y la hoja CSS generada. | Hacer E/S. Una sección es función pura de `(contenido, apariencia)`. |
 | **L3 Plantillas** | Payload `templates` *(WP13)* | Layout de PDP / listado editado una vez para todos los productos. | — |
 | **L4 Documentos** | Payload collections *(WP6+)* | Persistencia, campos localizados, borradores y versiones. | Importar componentes de tienda al bundle del admin. |
 | **L5 Ajustes** | Payload globals | `ThemeSettings`, `SiteSettings`, `Navigation`, `MarketSettings`. | — |
@@ -25,7 +25,8 @@ Dominio y adaptadores:
 
 ```
 apps/web ──→ sections ──→ ui ──→ design-tokens
-    │            └───────────────→ platform
+    │            └──→ appearance ──→ design-tokens
+    ├──→ platform         (también lo importan dominio y adaptadores)
     ├──→ commerce-domain  ←── payments-stripe      (puerto PaymentProvider)
     └──→ container.ts     ←── commerce-payload     (puerto CommerceService)
 ```
@@ -82,42 +83,38 @@ Referencias reales: **Shopify OS 2.0** (secciones + plantillas JSON), **WordPres
 
 ### Registro de secciones (WP7)
 
-Un módulo por sección produce cuatro caras desde **una** declaración, evitando el triple mantenimiento:
+Un archivo por sección produce las cuatro caras desde **una** declaración, evitando el triple mantenimiento:
 
 ```
-packages/sections/src/hero/
-  block.ts        # config de bloque Payload  ← fuente de verdad de los CAMPOS
-  Hero.tsx        # React Server Component
-  appearance.ts   # controles permitidos para esta sección
-  Hero.stories.tsx
-  fixtures.ts     # contenido de oro, usado por tests Y por stories
-  index.ts        # defineSection({ slug, block, Component, appearance, variants })
+packages/sections/src/
+  blocks/<slug>/index.tsx  # defineSection({ type, labels, fields, appearance, fixture, render })
+  dsl/                     # DSL neutral de campos + proyección a Zod
+  render/                  # SectionRenderer / SectionList (la resiliencia vive aquí)
+  registry.ts              # SECTIONS — el registro que consumen tienda y admin
+  sections.css             # estilos de sección centralizados (solo tokens y propiedades lógicas)
 ```
 
-Decisión deliberada: **la config de bloque de Payload es la fuente de los campos**, no Zod. Es más rica (relaciones, uploads, `localized`, condiciones de admin) y Payload ya genera los tipos TS; generar campos Payload desde Zod sería un codegen frágil. Zod se reserva para `appearance` y para los overrides de tema. Un test de biyección exige que todo bloque registrado tenga componente, story y fixture.
+Decisión deliberada: **el DSL neutral de campos del registro es la fuente**, y de él se proyecta todo lo demás. Las secciones no pueden importar Payload (la frontera las mantiene funciones puras de `(contenido, apariencia)`), así que los campos se declaran una vez en ese vocabulario y se proyectan dos veces: al contrato Zod que valida el render y, en `apps/web/src/payload/blocks.ts`, a la config de bloque de Payload que ve el editor. Esa config **nunca se escribe a mano**: es una proyección, no una fuente. El test del registro (`packages/sections/src/registry.test.ts`) mantiene honestas las proyecciones: labels en los tres idiomas del admin, fixture de oro que satisface su propio contrato, controles de ritmo declarados y rechazo de contenido sin sus campos requeridos.
 
 ### Controles de apariencia atados a tokens
 
-Cada instancia recibe el mismo grupo `appearance`. **Todo control es un enum ligado a un token; ninguno acepta un número, un color o un string libre.**
+El vocabulario vive en `packages/appearance/src/controls.ts` y cada sección declara qué controles expone. **Todo control es un enum ligado a un token; ninguno acepta un número, un color o un string libre.** Implementados hoy:
 
 | Control | Valores | Mapea a |
 |---|---|---|
-| `spaceBlockStart` / `spaceBlockEnd` | `none · xs · sm · md · lg · xl` | `--cv-space-*` |
-| `gap` | `tight · normal · loose` | `--cv-space-*` |
-| `background` | `page · surface · raised · inverse · accent` | roles semánticos |
-| `width` | `prose · content · wide · full` | `--cv-breakpoint-*` |
-| `align` · `columns` · `mediaPosition` | enums lógicos (`start`/`end`, nunca `left`/`right`) | layout, RTL-seguro |
+| `spaceBlockStart` / `spaceBlockEnd` | `none · sm · md · lg · xl` | `--cv-space-*` (`padding-block`) |
+| `background` | `none · surface · raised · inverse · accent` | roles semánticos; `inverse` y `accent` reasignan también texto y borde |
+| `width` | `prose · content · full` | `--cv-section-measure` |
+| `align` | `start · center` (lógico, nunca `left`/`right`) | `text-align`, RTL-seguro |
 | `themeScope` | `inherit · volt · carbon · club` | `data-theme` anidado |
-| `accentUse` | `none · heading · underline · badge` | énfasis |
-| `radius` · `elevation` | enums | `--cv-radius-*`, `--cv-elevation-*` |
-| `reveal` | `none · fade · rise` | respeta `prefers-reduced-motion` |
-| `hiddenOn` | `mobile · tablet · desktop` | visibilidad |
+
+Previstos, **no implementados** (cada uno entrará como una entrada más en esa tabla con su CSS, nunca como valor libre): `gap` · `columns` · `mediaPosition` · `accentUse` · `radius` · `elevation` · `reveal` · `hiddenOn`.
 
 **Deliberadamente ausentes** — y esta lista *es* el diseño: selectores de color, hex, familias tipográficas, tamaños en px, padding libre, `className`, `style`, CSS a medida, z-index, opacidad.
 
 **Cómo se renderiza.** Como atributos `data-*` en el envoltorio de la sección, con una hoja CSS generada desde la misma tabla de enums. Tres consecuencias que lo hacen seguro para siempre:
 
-1. La superficie CSS es **acotada y conocida en build** (~120 reglas), independiente del número de páginas o instancias. Sin estilos inline, sin CSS-in-JS.
+1. La superficie CSS es **acotada y conocida en build** (una veintena de reglas hoy; crece solo al añadir un control, nunca con el contenido). Sin estilos inline, sin CSS-in-JS.
 2. **No existe camino desde el contenido hasta un valor CSS**: el contenido solo elige un valor de atributo dentro de un conjunto cerrado, y la hoja se compiló desde ese mismo conjunto.
 3. Un valor desconocido cae al default de Zod (`.catch()`), y una clave desconocida se descarta (`.strip()`). Reducir un enum degrada con elegancia en vez de romper páginas publicadas.
 

@@ -2,7 +2,7 @@
 
 > **Se lee entero en cada sesión.** Por eso contiene solo lo que aplica siempre: identidad, reglas duras, puertos y flujo de trabajo. Arquitectura, mercados, modelo de datos y roadmap viven en `docs/` y se leen cuando la tarea los toca.
 > Para otras herramientas (Codex, ChatGPT): `AGENTS.md` es un symlink de este archivo.
-> Última revisión: 19 ago 2026.
+> Última revisión: 20 ago 2026.
 
 ## Índice de documentación
 
@@ -14,6 +14,9 @@
 | [`docs/data-model.md`](docs/data-model.md) | Entidades, máquina de estados, colecciones y bloques de Payload. |
 | [`docs/roadmap.md`](docs/roadmap.md) | Sprints, riesgos, gate de Medusa. |
 | [`docs/operations.md`](docs/operations.md) | Testing y CI, variables de entorno, setup de MCP. |
+| [`docs/orders-state-machine.md`](docs/orders-state-machine.md) | Al tocar pedidos. La máquina y sus replays. |
+| [`docs/payments-runbook.md`](docs/payments-runbook.md) | Al tocar pagos u operar webhooks. Circuito completo y activación de proveedores. |
+| [`docs/deployment.md`](docs/deployment.md) | Antes de desplegar. Vercel, dominios, env vars. |
 | [`docs/reference.md`](docs/reference.md) | Glosario, activos de marca, vigencia de los datos. |
 | [`docs/adr/`](docs/adr/) | Decisiones estructurales y su porqué. |
 | [`docs/recipes/`](docs/recipes/) | Recetas paso a paso para tareas repetidas. |
@@ -73,6 +76,7 @@ apps/
 packages/
   platform/                   # vocabulario transversal: deportes, locales, mercados, monedas, regiones
   design-tokens/              # DTCG + contrato semántico + build a CSS vars
+  appearance/                 # controles de apariencia ligados a tokens (ADR-016)
   ui/                         # primitivas; solo tokens semánticos, sin className/style
   sections/                   # (WP7) unidades editables: bloque Payload + RSC + apariencia
   commerce-domain/            # puertos + PaymentEvent + máquina de estados (puro)
@@ -87,37 +91,35 @@ brand/ # activos entregados, congelados
 **Un paquete por puerto, nunca por proveedor** (ADR-017). Las fronteras entre capas las verifica `pnpm arch`, no la confianza: ver `docs/ARCHITECTURE.md` §1.
 
 ### 3.1 Puerto de commerce — `CommerceService`
-El frontend consume SOLO esta interfaz:
-```ts
-interface CommerceService {
-  getProductBySlug(slug: string): Promise<Product | null>   // todas las rutas son por slug
-  listProducts(filter: ProductFilter): Promise<Product[]>   // facetas y comparador
-  getAvailability(skus: readonly string[]): Promise<Availability[]>  // en lote, nunca N+1
-  createCheckout(input: CheckoutInput): Promise<Checkout>
-  getOrder(id: string): Promise<Order | null>
-  requestReturn(input: ReturnInput): Promise<ReturnRequest>
-}
-```
+El frontend consume SOLO esta interfaz. Métodos:
+
+- `getProductDetail(slug, market)` — todo lo que renderiza una PDP, en una sola llamada consciente del mercado (las rutas son por slug).
+- `listProducts(filter)` — resúmenes (`ProductSummary[]`) para facetas y comparador.
+- `getAvailability(skus)` — disponibilidad en lote, nunca N+1.
+- `createCheckout(input)` — abre el flujo de pedido; el importe se calcula en servidor.
+- `getOrder(id)` — consulta de un pedido.
+- `requestReturn(input)` — solicitud de devolución.
+
+Firma exacta: `packages/commerce-domain/src/commerce-service.ts` (la fuente de verdad es el código; no se duplica aquí).
+
 Si algún día llega Medusa: se añade `commerce-medusa` y se cambia el adaptador. No abstraer más casos de uso de los que la tienda usa.
 
 ### 3.2 Puerto de pagos — `PaymentProvider` (intercambiable como los temas)
-```ts
-interface PaymentProvider {
-  id: PaymentProviderId
-  createSession(order: Order, market: MarketId): Promise<PaymentSession>
-  refund(providerPaymentId: string, amount?: Money): Promise<RefundResult>
-  // Firma sobre los bytes exactos recibidos: toda pasarela firma el cuerpo sin
-  // parsear, y leerlo exige await. Las implementaciones deben ser `async`.
-  verifyWebhook(rawBody: string, signature: string): Promise<ProviderEvent>
-  normalizeEvent(e: ProviderEvent): PaymentEvent | null  // null = evento sin significado de dominio
-}
-```
+Métodos:
+
+- `id` — identificador del proveedor (`PaymentProviderId`).
+- `createSession(order, market)` — crea la sesión de pago de un pedido para un mercado.
+- `refund(providerPaymentId, amount?)` — reembolso total o parcial.
+- `verifyWebhook(rawBody, signature)` — verifica la firma sobre los bytes exactos recibidos; `async` obligatorio (toda pasarela firma el cuerpo sin parsear, y leerlo exige `await`).
+- `normalizeEvent(event)` — traduce el evento del proveedor a `PaymentEvent`; `null` = evento sin significado de dominio.
+
+Firma exacta: `packages/commerce-domain/src/payment.ts` (la fuente de verdad es el código; no se duplica aquí).
 
 **Todo adaptador debe pasar las suites de contrato** de `@courvia/commerce-domain/testing`. Son las que convierten "cambiar de pasarela sin tocar el dominio" en algo verificado.
 - **La máquina de estados de Order consume solo `PaymentEvent` normalizados**: el dominio no sabe qué pasarela hay detrás.
 - **Multi-gateway por mercado (estilo WooCommerce):** `MarketSettings.paymentProviders[]` define qué proveedores se ofrecen y en qué orden; **el checkout los pinta y el cliente elige**. Ej.: ES → stripe (card+Bizum+Klarna/seQura) · UK → stripe (card+Klarna/Clearpay) · EAU → stripe (card+Apple Pay) + tabby + tamara.
 - **Cambiar de proveedor** (p. ej. Stripe→Adyen): escribir `payments-adyen` contra el puerto + activarlo en MarketSettings. Nada del dominio ni del frontend cambia.
-- **Cambiar de cuenta** (otra cuenta Stripe/Adyen): rotar env vars + re-registrar webhooks + drenar pagos en vuelo → runbook en `docs/payments-runbook.md` (crear en S2).
+- **Cambiar de cuenta** (otra cuenta Stripe/Adyen): rotar env vars + re-registrar webhooks + drenar pagos en vuelo → runbook en `docs/payments-runbook.md`.
 - **Anti-sobre-ingeniería:** Fase 1 implementa solo `stripe`; en S4 entran `tabby`/`tamara`, que **ya validan el puerto con proveedores reales**. `adyen` solo si un mercado lo exige (tarifas/entidad local). No construir UI de "gestor de pasarelas" genérico: es un array de config en un Global.
 
 ---
@@ -188,7 +190,7 @@ Las decisiones 01–14 están resumidas abajo y desarrolladas en `docs/`. Las de
 | 12 | Tokens: JSON DTCG tipado + script propio; Style Dictionary solo con más plataformas |
 | 13 | Puerto `PaymentProvider` con eventos normalizados; idempotencia `(provider, provider_event_id)` |
 | 14 | Multi-gateway por mercado en `MarketSettings.paymentProviders[]`; el cliente elige |
-| **15–19** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` |
+| **15–20** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL |
 
 ---
 

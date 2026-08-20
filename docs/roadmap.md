@@ -2,15 +2,17 @@
 
 > Sprints, definición de hecho, riesgos con mitigación y los disparadores que reabrirían la decisión sobre Medusa.
 
+**Estado vivo de ejecución → [`docs/ARCHITECTURE.md` §8](ARCHITECTURE.md).**
+
 ---
 
 ## 16. Roadmap (sprints de 2 semanas; revisión + actualizar este MD al cierre)
 
 | Sprint | Objetivo | DoD | Riesgo |
 |---|---|---|---|
-| **S0** Fundaciones | Monorepo, tokens, CI, MCP, **locales es/en/ar y markets es/uk/ae desde el día 1**, esqueleto `CommerceService` + `PaymentProvider`, ADRs | 3 temas conmutan sin FOUC; CI verde; admin logueable | Refactor i18n tardío |
-| **S1** Sitio público Volt (solo ES) | Landings deporte (pádel ★), PDP Drill Pro P, comparador, LeadForm, Academy | Editor publica sin código; CWV/AA verdes | Alcance comparador |
-| **S2** Checkout EUR + emails | Adaptador `stripe` del puerto (cards+Bizum+Klarna/seQura), Stripe Tax ES, máquina estados, **VeriFactu**, RGPD, **payments-runbook** | E2E compra real + factura homologada | VeriFactu |
+| **S0** Fundaciones ✅ | Monorepo, tokens, CI, MCP, **locales es/en/ar y markets es/uk/ae desde el día 1**, esqueleto `CommerceService` + `PaymentProvider`, ADRs | 3 temas conmutan sin FOUC; CI verde; admin logueable | Refactor i18n tardío |
+| **S1** Sitio público Volt (solo ES) | Landings deporte (pádel ★), PDP Drill Pro P ✅, comparador ✅, LeadForm ✅, Academy | Editor publica sin código; CWV/AA verdes | Alcance comparador |
+| **S2** Checkout EUR + emails | Adaptador `stripe` del puerto (cards+Bizum+Klarna/seQura), Stripe Tax ES, máquina estados ✅, **VeriFactu**, RGPD, **payments-runbook** ✅ | E2E compra real + factura homologada | VeriFactu |
 | **S3** Temas | carbon/club, overrides Zod, **variantes de sección por tema**, preview/versiones | Admin cambia tema/acento/fuente sin romper default | Deriva tokens |
 | **S4** UK + EAU | `en-gb`/`en-ae`, precios GBP/AED, Klarna/Clearpay, **adaptadores tabby/tamara (validan el puerto)**, selector de método en checkout por MarketSettings, DDP + VAT UK/EORI, hreflang | E2E por mercado y proveedor verdes | Aduanas/VAT |
 | **S5** CRM/marketing + AR legal | Segments, cupones, abandoned cart, flujos, consent por market, **T&C/privacidad AR** | Welcome+abandoned activos con métricas; AR legal live | RTL/Payload |
@@ -19,7 +21,24 @@
 | **S8** Club piloto | Membresías (Stripe subscriptions), tema club | Piloto medible | Alcance |
 
 **Primeras 15 tareas (tamaño móvil, una por sesión):**
-1. Monorepo pnpm+Turborepo + `config`. 2. Verificar/pinear versiones → `ADR-000-versions`. 3. Copiar `brand/`; `design-tokens`: JSON+tipos+`build-css.ts`. 4. `@courvia/ui` (Button/Card/Badge) + Storybook con switcher. 5. Payload embebido + Supabase (schema `payload`). 6. **`localization` (es/en/ar,rtl) + Global `MarketSettings` (es/uk/ae, paymentProviders[]) vacíos.** 7. `data-theme` + `dir` server-side, fuentes `next/font`. 8. MCP Supabase (comandos §19). 9. CI: lint+types+Vitest+Playwright smoke+migraciones dry-run. 10. `products`+`variants` con `sport`. 11. `prices` (currency, market) solo-servidor. 12. `commerce-domain`: `CommerceService` + **puerto `PaymentProvider` + tipos `PaymentEvent`** + máquina de estados (doc+tests). 13. Bloques Hero/RichText/CTABand + Home editable con live preview. 14. Landing `/es/padel` (Hero+Bento). 15. PDP Drill Pro P (SpecsTable+WarrantyBlock) + LeadForm→`leads`.
+
+1. ✅ Monorepo pnpm+Turborepo + `config`.
+2. ✅ Verificar/pinear versiones → `ADR-000-versions`.
+3. ✅ Copiar `brand/`; `design-tokens`: JSON+tipos+`build-css.ts`.
+4. ✅ `@courvia/ui` (Button/Card/Badge) — queda el Storybook con switcher.
+5. ✅ Payload embebido + Supabase (schema `payload`).
+6. ✅ **`localization` (es/en/ar,rtl) + Global `MarketSettings` (es/uk/ae, paymentProviders[]) vacíos.**
+7. ✅ `data-theme` + `dir` server-side, fuentes `next/font`.
+8. ✅ MCP Supabase (comandos §19).
+9. ✅ CI: lint+types+Vitest+migraciones y seed contra Postgres real — queda el smoke de Playwright (WP 16).
+10. ✅ `products`+`variants` con `sport`.
+11. ✅ `prices` (currency, market) solo-servidor.
+12. ✅ `commerce-domain`: `CommerceService` + **puerto `PaymentProvider` + tipos `PaymentEvent`** + máquina de estados (doc+tests).
+13. ✅ Bloques Hero/RichText/CTABand + Home editable con live preview.
+14. Landing `/es/padel` (Hero+Bento).
+15. ✅ PDP Drill Pro P (specs+garantía) + LeadForm→`leads` — como ruta; la PDP editable como plantilla queda en WP 13 de ARCHITECTURE §8.
+
+Entregado además de este plan (verificable en el repo): chrome global (header, footer, selector de región) · comparador `/comparar` · navegación y páginas legales seed · SEO (sitemap, hreflang, JSON-LD, `llms.txt`) · fontanería de pagos completa (orders/payments/outbox, webhook `/next/webhooks/[provider]`) con adaptador Stripe verify+normalize — la conexión del SDK (createSession/refund) queda en WP 15b.
 
 ---
 

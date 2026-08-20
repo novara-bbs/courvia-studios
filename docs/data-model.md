@@ -29,19 +29,22 @@ Globals: ThemeSettings · MarketSettings · Navigation (por locale)
 ### 10.2 Máquina de estados de Order (consume `PaymentEvent` normalizados)
 | De → A | Disparador (`PaymentEvent` / acción) | Side-effects |
 |---|---|---|
-| draft → pending_payment | Checkout creado (session del provider elegido) | Reserva temporal (sin descontar stock) |
-| pending_payment → **paid** | `paid` (ej. Stripe `payment_intent.succeeded` / Tabby captured) | **Commit stock** (transaccional) · email · CRM · `issue_tax_invoice` (outbox) |
-| pending_payment → cancelled | `failed` / expiración | Sin stock; email opcional |
-| paid → preparing | Backoffice | Picking |
-| preparing → shipped | Alta Shipment | Email tracking |
-| shipped → delivered | Webhook courier / manual | Email posventa · abre ventana desistimiento |
-| paid/preparing → refund_requested | Cliente/soporte | Aprobación humana |
-| refund_requested → refunded / partially_refunded | `refunded` (total/parcial, **con importe**) | Email · nota de crédito · stock si aplica. Sin `execute_provider_refund`: soporte ya reembolsó en el proveedor |
-| delivered → return_requested | Cliente (14 días ES/UK) | Genera RMA + instrucciones |
-| return_requested → return_received → refunded | Recepción → **`refund.approved`** (aprobación humana, con importe) | `execute_provider_refund` → `provider.refund()` · reingreso stock |
-| return_received / refund_requested → refund_failed | `refund_failed` del proveedor | `alert_refund_failure`; `refund.retried` reintenta |
+| draft → pending_payment | `checkout.created` (session del provider elegido) | `reserve_stock_temporarily` (transaccional, sin descontar stock) |
+| pending_payment → **paid** | `paid` (ej. Stripe `payment_intent.succeeded` / Tabby captured) | **`commit_stock`** (transaccional) · email · CRM · `issue_tax_invoice` (outbox) |
+| pending_payment → cancelled | `failed` / `checkout.expired` | `release_reservation` (transaccional) |
+| paid → preparing | Backoffice | `start_picking` (transaccional) |
+| preparing → shipped | Alta Shipment | Email tracking (outbox) |
+| shipped → delivered | Webhook courier / manual | Email posventa · abre ventana desistimiento (outbox) |
+| paid/preparing → refund_requested | Cliente/soporte | `request_human_approval` (transaccional) |
+| refund_requested → refunded / partially_refunded | `refunded` (**con importe**; el applier resuelve el delta acumulado y el flag parcial) | Email · nota de crédito · `restock_if_applicable` (todo outbox). Sin `execute_provider_refund`: soporte ya reembolsó en el proveedor |
+| partially_refunded → refunded / partially_refunded | `refunded` (el resto del reembolso; delta > 0 sobre el total acumulado) | Email · nota de crédito · `restock_if_applicable` (outbox) |
+| delivered → return_requested | Cliente (14 días ES/UK) | `create_rma_with_instructions` (transaccional) |
+| return_requested → return_received | Recepción del paquete | `request_human_approval` (transaccional) |
+| return_received → refunded / partially_refunded | **`refund.approved`** (aprobación humana, con importe) | `execute_provider_refund` → `provider.refund()` · email · nota de crédito · `restock_if_applicable` (todo outbox) |
+| return_received / refund_requested / refunded / partially_refunded → refund_failed | `refund_failed` del proveedor (incluye el reembolso optimista que la pasarela rechaza después) | `alert_refund_failure` (outbox) |
+| refund_failed → refunded / partially_refunded | `refund.retried` (soporte, con importe) | Los mismos que `refund.approved` |
 
-Toda transición en transacción; idempotencia por `(provider, provider_event_id)` UNIQUE. Los efectos que salen al exterior van por **outbox**, no dentro de la transacción. Contratos completos y códigos de rechazo en [`orders-state-machine.md`](orders-state-machine.md).
+Estados terminales: solo `cancelled` y `refunded` (`partially_refunded` no lo es: acepta el resto del reembolso). Toda transición en transacción; idempotencia por `(provider, provider_event_id)` UNIQUE. Los efectos que salen al exterior — `restock_if_applicable` incluido: reponer stock es acción de almacén — van por **outbox**, no dentro de la transacción. Un `paid` sobre pedido cancelado o con importe/moneda que no cuadran no transiciona: es un **conflicto** (`alert_payment_conflict` en outbox, pedido intacto). Contratos completos, replays y códigos de rechazo en [`orders-state-machine.md`](orders-state-machine.md).
 
 ---
 

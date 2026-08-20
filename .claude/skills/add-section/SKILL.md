@@ -1,6 +1,6 @@
 ---
 name: add-section
-description: Add a new editable section (Payload block + RSC + appearance controls + story) to the Courvia sections registry. Use when adding a page section, block or layout unit.
+description: Add a new editable section (one defineSection() declaration driving the Zod contract, the generated Payload block, the appearance controls and the render) to the Courvia sections registry. Use when adding a page section, block or layout unit.
 ---
 
 Follow [`docs/recipes/add-section.md`](../../../docs/recipes/add-section.md) exactly.
