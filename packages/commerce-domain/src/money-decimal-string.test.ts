@@ -25,9 +25,19 @@ describe("toDecimalString", () => {
   });
 
   it("stays exact where float division would not", () => {
-    // 8_010_000_000_000_02 / 100 is not representable in binary floating
-    // point; the old `(amount / 100).toFixed(2)` loses the trailing cents.
-    expect(toDecimalString(money(801_000_000_000_002, "EUR"))).toBe("8010000000000.02");
+    // The amount matters, and the one that used to be here did not: with
+    // 801_000_000_000_002 the discarded `(amount / 100).toFixed(2)` also
+    // returns "8010000000000.02", so the test passed under BOTH
+    // implementations and protected nothing.
+    //
+    // 7_036_874_417_766_401 is 2^46 · 100 + 1 — a safe integer, so `money()`
+    // accepts it — and it is the smallest kind of case where the two really
+    // part ways: the exact answer is …664.01, while dividing by 100 lands on
+    // a double whose nearest representable value rounds to …664.02. One cent
+    // invented out of nothing, which is exactly the failure mode this
+    // function exists to make impossible.
+    expect((7_036_874_417_766_401 / 100).toFixed(2)).toBe("70368744177664.02");
+    expect(toDecimalString(money(7_036_874_417_766_401, "EUR"))).toBe("70368744177664.01");
   });
 
   it("gives every currency exactly its own number of decimals", () => {

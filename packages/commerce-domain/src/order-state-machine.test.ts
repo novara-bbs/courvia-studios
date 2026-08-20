@@ -87,6 +87,140 @@ describe("happy path (docs/data-model.md §10.2)", () => {
   });
 });
 
+describe("fulfilment: the way out of paid", () => {
+  it("picking, shipping and delivery each emit their own effects", () => {
+    const picking = expectOk("paid", { type: "fulfilment.picking_started" }, "preparing");
+    expect(picking.ok && picking.sideEffects).toEqual(["start_picking"]);
+
+    const shipment = expectOk("preparing", { type: "fulfilment.shipment_created" }, "shipped");
+    expect(shipment.ok && shipment.sideEffects).toEqual(["send_tracking_email"]);
+
+    const delivery = expectOk("shipped", { type: "fulfilment.delivered" }, "delivered");
+    expect(delivery.ok && delivery.sideEffects).toEqual([
+      "send_post_sale_email",
+      "open_withdrawal_window",
+    ]);
+  });
+
+  it("never asks for a transactional effect: fulfilment only reaches outwards", () => {
+    // This is what lets the adapter enqueue and never execute inside the
+    // transaction. If a fulfilment step ever needs to touch a row of ours,
+    // this test is where that decision has to be made explicitly.
+    for (const [from, trigger] of [
+      ["paid", "fulfilment.picking_started"],
+      ["preparing", "fulfilment.shipment_created"],
+      ["shipped", "fulfilment.delivered"],
+    ] as const) {
+      const result = transition(from, { type: trigger });
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      for (const effect of result.sideEffects) {
+        expect(SIDE_EFFECT_EXECUTION[effect], `${trigger} → ${effect}`).toBe("outbox");
+      }
+    }
+  });
+
+  it("refuses the order of operations that would give a robot away", () => {
+    // Delivered before shipped.
+    for (const from of ["paid", "preparing"] as const) {
+      const early = transition(from, { type: "fulfilment.delivered" });
+      expect(early.ok).toBe(false);
+      if (!early.ok) expect(early.rejection).toBe("invalid_for_status");
+    }
+    // Shipped before the pick even opened.
+    const unpicked = transition("paid", { type: "fulfilment.shipment_created" });
+    expect(unpicked.ok).toBe(false);
+    if (!unpicked.ok) expect(unpicked.rejection).toBe("invalid_for_status");
+    // Nothing may be fulfilled before it is paid for.
+    for (const from of ["draft", "pending_payment"] as const) {
+      expect(transition(from, { type: "fulfilment.picking_started" }).ok).toBe(false);
+    }
+  });
+
+  it("refuses to fulfil a cancelled order", () => {
+    for (const trigger of [
+      "fulfilment.picking_started",
+      "fulfilment.shipment_created",
+      "fulfilment.delivered",
+    ] as const) {
+      const result = transition("cancelled", { type: trigger });
+      expect(result.ok, trigger).toBe(false);
+      // `terminal_status`, not `already_applied`: the webhook applier may
+      // treat a terminal order as a replay, but a person about to hand a
+      // cancelled order to a courier is making a mistake, and the fulfilment
+      // applier refuses on both codes.
+      if (!result.ok) expect(result.rejection).toBe("terminal_status");
+    }
+  });
+
+  it("treats the same fulfilment step twice as a replay, not a fault", () => {
+    type FulfilmentTrigger = Extract<OrderTrigger, { type: `fulfilment.${string}` }>;
+    const replays: Array<[OrderStatus, FulfilmentTrigger["type"]]> = [
+      ["preparing", "fulfilment.picking_started"],
+      ["shipped", "fulfilment.picking_started"],
+      ["delivered", "fulfilment.picking_started"],
+      ["shipped", "fulfilment.shipment_created"],
+      ["delivered", "fulfilment.shipment_created"],
+      ["return_requested", "fulfilment.shipment_created"],
+      ["delivered", "fulfilment.delivered"],
+      ["return_received", "fulfilment.delivered"],
+    ];
+    for (const [status, type] of replays) {
+      const result = transition(status, { type });
+      expect(result.ok, `${status} ${type}`).toBe(false);
+      if (!result.ok) expect(result.rejection, `${status} ${type}`).toBe("already_applied");
+    }
+  });
+
+  it("freezes fulfilment while a refund is on the table", () => {
+    // Not a replay: an order waiting on a refund decision must not slip out
+    // of the warehouse because someone re-saved a shipment.
+    for (const status of ["refund_requested", "refund_failed", "partially_refunded"] as const) {
+      for (const type of [
+        "fulfilment.picking_started",
+        "fulfilment.shipment_created",
+        "fulfilment.delivered",
+      ] as const) {
+        const result = transition(status, { type });
+        expect(result.ok, `${status} ${type}`).toBe(false);
+        if (!result.ok) expect(result.rejection, `${status} ${type}`).toBe("invalid_for_status");
+      }
+    }
+  });
+});
+
+describe("cancelling after payment", () => {
+  it("is a refund, never the cancelled status", () => {
+    // `cancelled` means "never paid": the applier treats a paid webhook on a
+    // cancelled order as a CONFLICT precisely because money and status must
+    // not disagree. Undoing a paid order is therefore the refund path.
+    for (const from of ["paid", "preparing", "shipped", "delivered"] as const) {
+      expect(transition(from, { type: "payment.failed" }).ok).toBe(false);
+    }
+    expectOk("paid", { type: "refund.requested" }, "refund_requested");
+  });
+
+  it("countermands the pick when the refund lands mid-preparation", () => {
+    const fromPaid = expectOk("paid", { type: "refund.requested" }, "refund_requested");
+    expect(fromPaid.ok && fromPaid.sideEffects).not.toContain("stop_picking");
+
+    const fromPreparing = expectOk("preparing", { type: "refund.requested" }, "refund_requested");
+    expect(fromPreparing.ok && fromPreparing.sideEffects).toContain("stop_picking");
+    expect(SIDE_EFFECT_EXECUTION.stop_picking).toBe("outbox");
+  });
+
+  it("cannot be requested once the goods are in a courier's hands", () => {
+    // From `shipped` and `delivered` the route is a RETURN: refunding
+    // without the robot coming back is a gift, not a refund.
+    for (const from of ["shipped", "delivered"] as const) {
+      const result = transition(from, { type: "refund.requested" });
+      expect(result.ok, from).toBe(false);
+      if (!result.ok) expect(result.rejection).toBe("invalid_for_status");
+    }
+    expectOk("delivered", { type: "return.requested" }, "return_requested");
+  });
+});
+
 describe("refunds", () => {
   it("paid and preparing can request a refund (human approval)", () => {
     for (const from of ["paid", "preparing"] as const) {

@@ -27,6 +27,8 @@ export type {
 } from "./types";
 export { LAUNCH_STATUSES, ORDER_STATUSES, SPEC_EVIDENCE_LEVELS } from "./types";
 export type { CommerceService } from "./commerce-service";
+export { TRACKING_PLACEHOLDER, buildTrackingUrl, checkTrackingUrlTemplate } from "./fulfilment";
+export type { TrackingTemplateProblem } from "./fulfilment";
 export { CheckoutError, NotImplementedError } from "./errors";
 export type { CheckoutErrorCode } from "./errors";
 export {

@@ -24,7 +24,10 @@ export type OrderTrigger =
   | { type: "payment.failed" }
   | { type: "payment.refunded"; amount: Money; partial: boolean }
   | { type: "payment.refund_failed" }
-  /* fulfilment (backoffice / carriers) */
+  /* fulfilment — a PERSON in the backoffice, never a gateway webhook.
+   * Each one is the act of writing shipment data down: opening the shipment
+   * (picking), filling in carrier + tracking (shipment_created) and dating
+   * the delivery (delivered). See docs/orders-state-machine.md. */
   | { type: "fulfilment.picking_started" }
   | { type: "fulfilment.shipment_created" }
   | { type: "fulfilment.delivered" }
@@ -47,6 +50,11 @@ export type SideEffect =
   | "notify_crm"
   | "issue_tax_invoice"
   | "start_picking"
+  /** Counter-order to `start_picking`: the warehouse must NOT ship this
+   *  order after all (a refund was requested while it was being picked).
+   *  Without it the pick list still says "ship", and the goods leave with
+   *  the money already on its way back. */
+  | "stop_picking"
   | "send_tracking_email"
   | "send_post_sale_email"
   | "open_withdrawal_window"
@@ -80,7 +88,14 @@ export const SIDE_EFFECT_EXECUTION: Record<SideEffect, "transactional" | "outbox
   restock_if_applicable: "outbox",
   request_human_approval: "transactional",
   create_rma_with_instructions: "transactional",
-  start_picking: "transactional",
+  // Telling the warehouse to pick — or to stop — is the same kind of act as
+  // restocking: a task for people with a trolley, not a row we own. It used
+  // to be classified transactional, which was wrong for the same reason
+  // `restock_if_applicable` is not: there is nothing of ours to roll back,
+  // and the moment it becomes a real message (WMS call, picking email) a
+  // rollback could not unsend it.
+  start_picking: "outbox",
+  stop_picking: "outbox",
   send_confirmation_email: "outbox",
   notify_crm: "outbox",
   issue_tax_invoice: "outbox",
@@ -151,7 +166,12 @@ const TRANSITIONS: Partial<Record<OrderStatus, Partial<Record<TriggerType, Rule>
   },
   preparing: {
     "fulfilment.shipment_created": { next: "shipped", sideEffects: ["send_tracking_email"] },
-    "refund.requested": { next: "refund_requested", sideEffects: ["request_human_approval"] },
+    // The pick is already under way here, so the refund request must also
+    // countermand it — otherwise the robot ships while the money goes back.
+    "refund.requested": {
+      next: "refund_requested",
+      sideEffects: ["request_human_approval", "stop_picking"],
+    },
   },
   shipped: {
     "fulfilment.delivered": {
@@ -224,6 +244,56 @@ const DOWNSTREAM_OF_PAID: readonly OrderStatus[] = [
   "partially_refunded",
 ];
 
+/**
+ * The same idea for the fulfilment chain: the statuses an order can only be
+ * in because the step ALREADY happened.
+ *
+ * The refund statuses are deliberately NOT here. `refund_requested` is
+ * reachable both from `paid` (nothing was picked) and from `preparing` (the
+ * pick started), so it cannot answer "did this already happen?" — and an
+ * order waiting on a refund is precisely the one that must not quietly
+ * accept a shipment. From there a fulfilment trigger is a real fault.
+ */
+const DOWNSTREAM_OF_PICKING: readonly OrderStatus[] = [
+  "preparing",
+  "shipped",
+  "delivered",
+  "return_requested",
+  "return_received",
+];
+
+const DOWNSTREAM_OF_SHIPMENT: readonly OrderStatus[] = [
+  "shipped",
+  "delivered",
+  "return_requested",
+  "return_received",
+];
+
+const DOWNSTREAM_OF_DELIVERY: readonly OrderStatus[] = [
+  "delivered",
+  "return_requested",
+  "return_received",
+];
+
+/**
+ * Where a trigger means "already done" instead of "not allowed".
+ *
+ * Payment triggers get here through a retried webhook; fulfilment triggers
+ * through a second save in the admin or a re-imported courier file. Both are
+ * replays and neither is an error — which is exactly the distinction the
+ * caller needs to tell a duplicate apart from a mistake.
+ *
+ * Terminal statuses are absent on purpose: they are classified below, and
+ * `cancelled` is where "ship this" has to be a hard NO.
+ */
+const REPLAY_AFTER: Partial<Record<TriggerType, readonly OrderStatus[]>> = {
+  "payment.paid": DOWNSTREAM_OF_PAID,
+  "payment.failed": DOWNSTREAM_OF_PAID,
+  "fulfilment.picking_started": DOWNSTREAM_OF_PICKING,
+  "fulfilment.shipment_created": DOWNSTREAM_OF_SHIPMENT,
+  "fulfilment.delivered": DOWNSTREAM_OF_DELIVERY,
+};
+
 export function transition(current: OrderStatus, trigger: OrderTrigger): TransitionResult {
   // A failed provider refund parks the order wherever it was awaiting one —
   // including AFTER it was optimistically marked refunded: gateways emit the
@@ -246,12 +316,9 @@ export function transition(current: OrderStatus, trigger: OrderTrigger): Transit
 
   const rule = TRANSITIONS[current]?.[trigger.type];
   if (rule === undefined) {
-    // A repeated `paid` — or a STALE `failed` from an earlier attempt — on an
-    // order that is already past payment is a replay, not a fault.
-    if (
-      (trigger.type === "payment.paid" || trigger.type === "payment.failed") &&
-      DOWNSTREAM_OF_PAID.includes(current)
-    ) {
+    // A repeated `paid` — or a STALE `failed`, or a second "mark shipped" —
+    // on an order already past that point is a replay, not a fault.
+    if (REPLAY_AFTER[trigger.type]?.includes(current) === true) {
       return {
         ok: false,
         rejection: "already_applied",

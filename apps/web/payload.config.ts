@@ -11,6 +11,7 @@ import { withAdminPasswordReset } from "./src/email/admin-password-reset";
 import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
 import { Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
 import { Media } from "./src/payload/media";
+import { Carriers, Shipments, withFulfilment } from "./src/payload/orders-fulfilment";
 import { Pages } from "./src/payload/pages";
 import { Redirects } from "./src/payload/redirects";
 import { storagePlugins } from "./src/payload/storage";
@@ -88,10 +89,15 @@ export default buildConfig({
     Prices,
     Inventory,
     Leads,
-    Orders,
+    // `withFulfilment` adds the fulfilment view of an order (read-only
+    // status, its shipment) without the commerce collections having to know
+    // about shipping — see src/payload/orders-fulfilment.ts.
+    withFulfilment(Orders),
     Payments,
     Outbox,
     Returns,
+    Carriers,
+    Shipments,
   ],
   globals: [ThemeSettings, MarketSettings, Navigation],
 

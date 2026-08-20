@@ -17,7 +17,9 @@ Variant ─1:N─ Price {currency, unit_amount, market}      ← precio por merc
 Product/Post/Page: campos localizados (title*, description*) por Locale
 Inventory {variant, qty_on_hand, qty_committed}          ← commit solo tras paid
 Order {market, currency, status, totals, tax_total}
-  ─1:N─ OrderLine · ─1:1─ Address(ship/bill) · ─1:N─ Shipment {carrier, tracking, incoterm DDP|DDU}
+  ─1:N─ OrderLine · ─1:1─ Address(ship/bill) · ─1:1─ Shipment {carrier→Carrier, tracking,
+                                                shipped_at, delivered_at, incoterm DDP|DDU, marked_by}
+Carrier {code, name, tracking_url_template ('…{tracking}…'), markets[], active}  ← config, no código
   ─1:N─ Payment {provider, provider_payment_id, provider_event_id, status, amount,
                  UNIQUE(provider, provider_event_id)}    ← agnóstico de pasarela
 ReturnRequest/RMA {order, reason, status, refund_amount}
@@ -32,10 +34,11 @@ Globals: ThemeSettings · MarketSettings · Navigation (por locale)
 | draft → pending_payment | `checkout.created` (session del provider elegido) | `reserve_stock_temporarily` (transaccional, sin descontar stock) |
 | pending_payment → **paid** | `paid` (ej. Stripe `payment_intent.succeeded` / Tabby captured) | **`commit_stock`** (transaccional) · email · CRM · `issue_tax_invoice` (outbox) |
 | pending_payment → cancelled | `failed` / `checkout.expired` | `release_reservation` (transaccional) |
-| paid → preparing | Backoffice | `start_picking` (transaccional) |
-| preparing → shipped | Alta Shipment | Email tracking (outbox) |
-| shipped → delivered | Webhook courier / manual | Email posventa · abre ventana desistimiento (outbox) |
-| paid/preparing → refund_requested | Cliente/soporte | `request_human_approval` (transaccional) |
+| paid → preparing | **Crear el envío en el admin** (`fulfilment.picking_started`) | `start_picking` (**outbox**: es un aviso al almacén, no una fila nuestra) |
+| preparing → shipped | **Transportista + nº de seguimiento en el envío** (`fulfilment.shipment_created`) | `send_tracking_email` (outbox) con carrier, número, URL derivada, fecha e incoterm |
+| shipped → delivered | **Fecha de entrega en el envío** (`fulfilment.delivered`; manual, no webhook) | `send_post_sale_email` · `open_withdrawal_window` (outbox, con `market`: el plazo es ley y varía) |
+| paid → refund_requested | Cliente/soporte | `request_human_approval` (transaccional) |
+| preparing → refund_requested | Cliente/soporte | `request_human_approval` (transaccional) · **`stop_picking`** (outbox): contraorden, o el robot sale igual |
 | refund_requested → refunded / partially_refunded | `refunded` (**con importe**; el applier resuelve el delta acumulado y el flag parcial) | Email · nota de crédito · `restock_if_applicable` (todo outbox). Sin `execute_provider_refund`: soporte ya reembolsó en el proveedor |
 | partially_refunded → refunded / partially_refunded | `refunded` (el resto del reembolso; delta > 0 sobre el total acumulado) | Email · nota de crédito · `restock_if_applicable` (outbox) |
 | delivered → return_requested | Cliente (14 días ES/UK) | `create_rma_with_instructions` (transaccional) |
@@ -44,7 +47,7 @@ Globals: ThemeSettings · MarketSettings · Navigation (por locale)
 | return_received / refund_requested / refunded / partially_refunded → refund_failed | `refund_failed` del proveedor (incluye el reembolso optimista que la pasarela rechaza después) | `alert_refund_failure` (outbox) |
 | refund_failed → refunded / partially_refunded | `refund.retried` (soporte, con importe) | Los mismos que `refund.approved` |
 
-Estados terminales: solo `cancelled` y `refunded` (`partially_refunded` no lo es: acepta el resto del reembolso). Toda transición en transacción; idempotencia por `(provider, provider_event_id)` UNIQUE. Los efectos que salen al exterior — `restock_if_applicable` incluido: reponer stock es acción de almacén — van por **outbox**, no dentro de la transacción. Un `paid` sobre pedido cancelado o con importe/moneda que no cuadran no transiciona: es un **conflicto** (`alert_payment_conflict` en outbox, pedido intacto). Contratos completos, replays y códigos de rechazo en [`orders-state-machine.md`](orders-state-machine.md).
+No hay `paid → cancelled`: `cancelled` significa «nunca se pagó», y deshacer un pedido pagado es el camino de reembolso (ADR-027). Desde `shipped`/`delivered` no se puede pedir un reembolso: el camino es la devolución. Estados terminales: solo `cancelled` y `refunded` (`partially_refunded` no lo es: acepta el resto del reembolso). Toda transición en transacción; idempotencia por `(provider, provider_event_id)` UNIQUE. Los efectos que salen al exterior — `restock_if_applicable` incluido: reponer stock es acción de almacén — van por **outbox**, no dentro de la transacción. Un `paid` sobre pedido cancelado o con importe/moneda que no cuadran no transiciona: es un **conflicto** (`alert_payment_conflict` en outbox, pedido intacto). Contratos completos, replays y códigos de rechazo en [`orders-state-machine.md`](orders-state-machine.md).
 
 ---
 
@@ -52,7 +55,7 @@ Estados terminales: solo `cancelled` y `refunded` (`partially_refunded` no lo es
 
 ## 11. Payload: colecciones · globals · bloques
 
-**Colecciones** (\*=localizado): `products` (title*, slug, sport, description*, specs jsonb, warranty — público read) · `variants` · `prices` (**solo servidor**) · `pages` (blocks[], seo) · `academyPosts` (sport, level) · `leads` (**servidor/CRM**) · `orders` / `payments` / `returns` / `shipments` (**solo servidor/RLS**) · `media` (Supabase Storage) · `redirects` · `users` (roles).
+**Colecciones** (\*=localizado): `products` (title*, slug, sport, description*, specs jsonb, warranty — público read) · `variants` · `prices` (**solo servidor**) · `pages` (blocks[], seo) · `academyPosts` (sport, level) · `leads` (**servidor/CRM**) · `orders` / `payments` / `returns` / `shipments` / `carriers` (**solo servidor/RLS**) · `media` (Supabase Storage) · `redirects` · `users` (roles).
 
 ### `pages.seo` y `redirects` (ADR-026)
 
@@ -84,6 +87,33 @@ Renombrar el slug de una página **publicada** crea la fila sola, en la misma
 transacción, y aplana cadenas: A→B→C deja `A→C` y `B→C`. El proxy las aplica
 antes de que la respuesta empiece a hacer streaming, que es lo único que
 permite emitir un 301 o un 404 de verdad bajo `cacheComponents`.
+
+### `shipments` y `carriers` (ADR-027)
+
+El envío **es** la transición: no hay botón de «marcar enviado» ni `status`
+editable. `orders.status` es de solo lectura en el admin y solo lo mueve la
+máquina de estados.
+
+| Campo de `shipments` | Regla |
+|---|---|
+| `order` | Relación obligatoria e inmutable. **Uno por pedido**: `shipped` es un único estado, y los envíos parciales pedirían fulfilment por línea. |
+| `carrier` + `trackingNumber` | Rellenarlos **a la vez** es lo que marca el pedido como enviado. Después no se pueden vaciar. |
+| `trackingUrl` | **Virtual**: se construye al leer con la plantilla del transportista, así que corregir la plantilla arregla los envíos antiguos. |
+| `shippedAt` | La pone la transición; solo lectura. |
+| `deliveredAt` | Fecharla cierra el pedido y abre el desistimiento. |
+| `incoterm` | Del mercado del pedido al crearlo (ADR-08: EAU sale DDP vía courier-broker). Se guarda porque es lo que dijo la etiqueta ese día. |
+| `markedBy` | Qué persona lo movió. Un envío lo marca alguien, no un webhook. |
+
+`carriers` es **configuración**: `code`, `name`, `trackingUrlTemplate` con
+hueco `{tracking}` (https obligatorio, validado con la misma función que
+construye la URL), `markets[]` (vacío = todos; un transportista que no opera
+en el mercado del pedido se rechaza al guardar) y `active` (retirar un
+courier es desmarcarlo, no borrar la fila: los envíos que lo usaron tienen
+que poder decir quién los llevó). Añadir Aramex es una fila, no un
+despliegue.
+
+Acceso: `read`/`create`/`update` solo admin; `shipments` no se puede borrar
+(es la evidencia detrás de `shipped`) y `carriers` tampoco.
 
 **Globals:** `ThemeSettings` (tema activo + overrides Zod) · `Navigation` por locale · `MarketSettings` por mercado (moneda, impuestos, envíos, incoterm, **paymentProviders[] con orden de presentación**).
 

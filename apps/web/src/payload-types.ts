@@ -1102,6 +1102,8 @@ export interface Outbox {
   id: number;
   effect:
     | 'restock_if_applicable'
+    | 'start_picking'
+    | 'stop_picking'
     | 'send_confirmation_email'
     | 'notify_crm'
     | 'issue_tax_invoice'
