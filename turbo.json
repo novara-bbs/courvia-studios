@@ -15,7 +15,9 @@
       "env": [
         "NODE_ENV",
         "NEXT_PUBLIC_*",
-        "VERCEL_ENV"
+        "VERCEL_ENV",
+        "VERCEL",
+        "CI"
       ],
       "outputs": [
         "dist/**",
@@ -23,15 +25,31 @@
         "!.next/cache/**"
       ]
     },
-    "typecheck": {
+    "dev": {
       "dependsOn": [
         "^build"
-      ]
+      ],
+      "cache": false,
+      "persistent": true
     },
     "lint": {},
     "test": {
       "dependsOn": [
         "^build"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "@courvia/commerce-domain#test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/payments-*/**"
       ]
     },
     "@courvia/design-tokens#test": {
@@ -44,13 +62,6 @@
         "$TURBO_ROOT$/packages/sections/src/**/*.css",
         "$TURBO_ROOT$/apps/web/app/**/*.css"
       ]
-    },
-    "dev": {
-      "dependsOn": [
-        "^build"
-      ],
-      "cache": false,
-      "persistent": true
     },
     "@courvia/web#test": {
       "dependsOn": [

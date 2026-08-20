@@ -62,7 +62,9 @@ Ningún merge sin CI verde; humano aprueba pagos/RLS.
 
 Credenciales de pago **namespaced por proveedor** — añadir una pasarela nueva = añadir su bloque, sin tocar el resto:
 ```
-NEXT_PUBLIC_SUPABASE_URL · NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_URL · SUPABASE_PUBLISHABLE_KEY   # sin prefijo NEXT_PUBLIC_: nada en el
+                                 # navegador habla con Supabase; la tienda llega a
+                                 # Postgres por Payload, en servidor
 SUPABASE_SECRET_KEY              # SOLO backend/CI; el agente jamás la pide, lee o usa
 SUPABASE_PROJECT_REF=xurdwzbefgxpfzgkbbkf · DATABASE_URL (CI)
 PAYLOAD_SECRET
@@ -70,7 +72,7 @@ PAYLOAD_SECRET
 # Proveedor de pago: stripe (Fase 1)
 STRIPE_SECRET_KEY · STRIPE_WEBHOOK_SECRET · NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY · STRIPE_TAX_ENABLED=true
 # Proveedores BNPL EAU (S4)
-TABBY_API_KEY · TABBY_WEBHOOK_SECRET · TAMARA_API_TOKEN · TAMARA_WEBHOOK_SECRET
+TABBY_API_KEY · TABBY_WEBHOOK_SECRET · TAMARA_API_TOKEN · TAMARA_NOTIFICATION_TOKEN
 # Futuro (solo si se activa el adaptador): ADYEN_API_KEY · ADYEN_HMAC_KEY · ADYEN_MERCHANT_ACCOUNT
 
 RESEND_API_KEY (o BREVO_API_KEY) · VERIFACTU_PROVIDER_API_KEY
@@ -84,6 +86,12 @@ NEXT_PUBLIC_SITE_URL · NEXT_PUBLIC_DEFAULT_LOCALE=es
 `.claude/rules/database.md` exige que el aislamiento (access control de Payload · schema no expuesto · RLS) lo demuestre un test, no la confianza. Ese test es `apps/web/src/server/data-api-exposure.test.ts`: conecta al Data API de Supabase con la clave **publicable** (pública por diseño; el archivo no contiene ningún secreto) y comprueba que las tablas sensibles (`orders`, `payments`, `outbox`, `leads`, `users`, `prices`) **no resuelven** — ni por el schema por defecto ni forzando `Accept-Profile: payload`. Cualquier cosa que no sea un status de error es una fuga.
 
 Se activa con `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` (ver `apps/web/.env.example`); sin ellas se marca como skipped (desarrollo local, CI sin base). Pasó en verde contra el proyecto real el 20 ago 2026.
+
+### 15.2 La plantilla de entorno no puede desviarse del código
+
+`apps/web/src/server/env-contract.test.ts` recorre las fuentes de `apps/web`, extrae toda lectura del entorno —`process.env.X`, `process.env["X"]` y el accesor `env("X")` de `storage.ts`/`build-env.ts`— y exige que cada nombre esté en `apps/web/.env.example`. La dirección contraria **también falla**: un nombre en la plantilla que ningún código lee es una instrucción para no hacer nada, y peor, anuncia una integración que no existe (la plantilla de la raíz pedía `TAMARA_WEBHOOK_SECRET` mientras el código leía `TAMARA_NOTIFICATION_TOKEN`).
+
+Dos ficheros, dos trabajos: `apps/web/.env.example` es la plantilla que alguien copia a `.env.local` y el test la mantiene exacta; el `.env.example` de la raíz es el inventario de plataforma —incluidas pasarelas y servicios que aún no existen (ADR-06/07)— y es un superconjunto a propósito. Las variables que inyecta la plataforma (`NODE_ENV`, `CI`, `NEXT_PHASE`, `VERCEL*`) están en una lista explícita del test: documentarlas invitaría a fijar a mano un valor que no es nuestro.
 
 ---
 

@@ -11,22 +11,8 @@ import type { ProductDetail, ProductSummary } from "@courvia/commerce-domain";
 import { REGION_DEFINITIONS, type RegionId } from "@courvia/platform";
 import { cacheLife, cacheTag } from "next/cache";
 
+import { isDatabaselessBuild } from "../server/build-env";
 import { getCommerce } from "../server/container";
-
-/**
- * Whether an error at build time should be swallowed (returning empty) or
- * rethrown to fail the build. A DB-less build (local, or a CI job with no
- * database) is intentional — the pages render on demand at runtime — so
- * empty is correct. But if a database IS configured and the query still
- * fails, that is a real fault: failing the build is far better than baking
- * an empty catalog into a max-life cache for up to a year.
- */
-function swallowAtBuild(): boolean {
-  return (
-    process.env.NEXT_PHASE === "phase-production-build" &&
-    (process.env.DATABASE_URL ?? "") === ""
-  );
-}
 
 export async function listRobots(region: RegionId): Promise<ProductSummary[]> {
   "use cache";
@@ -38,7 +24,7 @@ export async function listRobots(region: RegionId): Promise<ProductSummary[]> {
     return await commerce.listProducts({ market });
   } catch (error) {
     console.error(`catalog listing failed for region "${region}"`, error);
-    if (swallowAtBuild()) return [];
+    if (isDatabaselessBuild(`the "${region}" robot listing`, error)) return [];
     throw error;
   }
 }
@@ -57,7 +43,7 @@ export async function listRobotsInCategory(
     return await commerce.listProducts({ market, category: categoryId });
   } catch (error) {
     console.error(`category listing failed for "${categoryId}"`, error);
-    if (swallowAtBuild()) return [];
+    if (isDatabaselessBuild(`the listing of category "${categoryId}"`, error)) return [];
     throw error;
   }
 }
@@ -83,7 +69,7 @@ export async function listRobotsBySlugs(
     });
   } catch (error) {
     console.error(`product-block listing failed`, error);
-    if (swallowAtBuild()) return [];
+    if (isDatabaselessBuild(`a product block with ${String(slugs.length)} slug(s)`, error)) return [];
     throw error;
   }
 }
@@ -98,7 +84,7 @@ export async function getRobot(slug: string, region: RegionId): Promise<ProductD
     return await commerce.getProductDetail(slug, market);
   } catch (error) {
     console.error(`product read failed for "${slug}"`, error);
-    if (swallowAtBuild()) return null;
+    if (isDatabaselessBuild(`the "${slug}" product page`, error)) return null;
     throw error;
   }
 }

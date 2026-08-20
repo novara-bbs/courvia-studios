@@ -8,19 +8,14 @@ import type { LocaleId } from "@courvia/platform";
 import { cacheLife, cacheTag } from "next/cache";
 import { getPayload } from "payload";
 
+import { isDatabaselessBuild } from "../server/build-env";
+
 export interface CategoryView {
   id: string;
   slug: string;
   title: string;
   description?: string;
   image?: { url: string; alt: string; width?: number; height?: number };
-}
-
-function swallowAtBuild(): boolean {
-  return (
-    process.env.NEXT_PHASE === "phase-production-build" &&
-    (process.env.DATABASE_URL ?? "") === ""
-  );
 }
 
 export async function getCategory(slug: string, locale: LocaleId): Promise<CategoryView | null> {
@@ -60,12 +55,14 @@ export async function getCategory(slug: string, locale: LocaleId): Promise<Categ
     };
   } catch (error) {
     console.error(`category read failed for "${slug}"`, error);
-    if (swallowAtBuild()) return null;
+    if (isDatabaselessBuild(`the "${slug}" category page`, error)) return null;
     throw error;
   }
 }
 
-/** All category slugs, for the sitemap. Empty in DB-less builds. */
+/** All category slugs, for the sitemap. Empty only in a databaseless local
+ *  build: a bare `catch {}` here used to hide a failing query behind an
+ *  empty sitemap cached for a year. */
 export async function listCategorySlugs(): Promise<string[]> {
   "use cache";
   cacheLife("max");
@@ -80,7 +77,9 @@ export async function listCategorySlugs(): Promise<string[]> {
       select: { slug: true },
     });
     return result.docs.map((doc) => doc.slug);
-  } catch {
-    return [];
+  } catch (error) {
+    console.error("category slug listing failed", error);
+    if (isDatabaselessBuild("the category list for the sitemap", error)) return [];
+    throw error;
   }
 }

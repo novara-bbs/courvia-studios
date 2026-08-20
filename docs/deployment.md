@@ -90,12 +90,33 @@ Vercel NO ejecuta `payload migrate`. Flujo:
 - **Outbox**: el despacho es manual-asistido; el cron/worker (Vercel Cron)
   llega con la integración de pagos.
 
-### Por qué el build funciona sin base de datos y con ella
+### Por qué el build funciona sin base de datos, y cuándo deja de funcionar
 
-- Sin `DATABASE_URL`: el build prerenderiza con catálogo vacío y las páginas
-  se rellenan bajo demanda en runtime (que SÍ necesita la BD).
-- Con `DATABASE_URL` configurada y la BD caída: **el build falla a
-  propósito** en vez de hornear un catálogo vacío en caché de larga vida.
+- **En tu máquina, sin `DATABASE_URL`**: el build prerenderiza con catálogo
+  vacío y las páginas se rellenan bajo demanda en runtime (que SÍ necesita la
+  BD). Es la única tolerancia que queda, y existe para que alguien pueda
+  compilar antes de levantar Postgres.
+- **En Vercel o en CI, sin `DATABASE_URL`**: **el build falla**, y el mensaje
+  dice qué variable falta y dónde se pone. Antes salía verde y servía
+  `/es/robots` y el sitemap **vacíos** con `cacheLife("max")`: 30 días de
+  revalidación y un año de caducidad sobre una tienda sin productos. Se llega
+  con una variable de scope solo Production mientras compila un Preview —
+  por eso `DATABASE_URL` va en Production **y** en Preview.
+- **Con `DATABASE_URL` configurada y la BD caída**: el build falla en
+  cualquier entorno, también en local. «No hay configuración» y «la consulta
+  falló» son cosas distintas y solo la primera admite respuesta vacía.
+
+El gate vive en `apps/web/src/server/build-env.ts` —una implementación, no
+una copia por loader— y decide con `NEXT_PHASE` (lo pone `next build`),
+`VERCEL`, `VERCEL_ENV` y `CI`. Las cuatro están declaradas en `turbo.json`
+(`tasks.build.env`) porque turbo 2 corre en modo de entorno estricto: una
+variable no declarada no llega a `next build`, y un gate que lee lo que turbo
+filtra no sujeta nada. `apps/web/src/server/build-env.test.ts` comprueba las
+dos mitades: la decisión y que las variables lleguen.
+
+Límite conocido: un pipeline autohospedado (Docker + `next start`) no expone
+ninguna de esas señales, así que se trataría como un build local. Si algún día
+existe, su build tiene que correr con `DATABASE_URL` configurada.
 
 ## Netlify u otros
 
