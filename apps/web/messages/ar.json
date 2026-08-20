@@ -82,6 +82,7 @@
     "preorderTitle": "احجز جهازك",
     "preorderSubmit": "طلب حجز",
     "leadInvalid": "راجع الاسم والبريد الإلكتروني — ثمة خطأ ما.",
+    "leadThrottled": "محاولات كثيرة من هذا الاتصال. انتظر دقيقة ثم أعد المحاولة.",
     "notSoldHere": "غير متوفر هنا",
     "galleryTitle": "المعرض",
     "conceptRender": "تصور مفاهيمي",

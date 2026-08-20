@@ -61,6 +61,7 @@ export async function SectionLeadForm({
         privacy: t("leadPrivacy"),
         submit: submits[intent],
         invalid: t("leadInvalid"),
+        throttled: t("leadThrottled"),
         variant: t("leadVariant"),
         variantAny: t("leadVariantAny"),
       }}

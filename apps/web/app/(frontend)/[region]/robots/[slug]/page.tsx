@@ -219,6 +219,7 @@ export default async function RobotDetailPage({ params }: PageArgs) {
                   ? t("preorderSubmit")
                   : t("leadSubmit"),
             invalid: t("leadInvalid"),
+            throttled: t("leadThrottled"),
             variant: t("leadVariant"),
             variantAny: t("leadVariantAny"),
           }}

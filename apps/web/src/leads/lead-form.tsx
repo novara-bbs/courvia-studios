@@ -19,6 +19,7 @@ export interface LeadFormLabels {
   privacy: string;
   submit: string;
   invalid: string;
+  throttled: string;
   /** Label of the configuration select; only used when variants are passed. */
   variant?: string;
   /** The "no preference" option of the configuration select. */
@@ -129,9 +130,9 @@ export function LeadForm({
         </span>
       </label>
 
-      {state.status === "invalid" ? (
+      {state.status === "invalid" || state.status === "throttled" ? (
         <p className="lead-form-error" role="alert">
-          {labels.invalid}
+          {state.status === "throttled" ? labels.throttled : labels.invalid}
         </p>
       ) : null}
 

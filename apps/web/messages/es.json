@@ -82,6 +82,7 @@
     "preorderTitle": "Reserva la tuya",
     "preorderSubmit": "Solicitar reserva",
     "leadInvalid": "Revisa el nombre y el email: algo no cuadra.",
+    "leadThrottled": "Demasiados envíos desde esta conexión. Espera un minuto y vuelve a intentarlo.",
     "notSoldHere": "No disponible aquí",
     "galleryTitle": "Galería",
     "conceptRender": "Render conceptual",

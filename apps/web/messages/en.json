@@ -82,6 +82,7 @@
     "preorderTitle": "Reserve yours",
     "preorderSubmit": "Request a reservation",
     "leadInvalid": "Check the name and email — something doesn't add up.",
+    "leadThrottled": "Too many submissions from this connection. Wait a minute and try again.",
     "notSoldHere": "Not sold here",
     "galleryTitle": "Gallery",
     "conceptRender": "Concept render",
