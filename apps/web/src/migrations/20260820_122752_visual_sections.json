@@ -16617,7 +16617,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum_pages_blocks_stage_appearance_theme_scope": {
@@ -16828,7 +16828,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum_pages_blocks_stat_band_appearance_theme_scope": {
@@ -16949,7 +16949,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum_pages_blocks_timeline_appearance_theme_scope": {
@@ -17010,7 +17010,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum_pages_blocks_gallery_appearance_theme_scope": {
@@ -17130,7 +17130,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum_pages_blocks_embed_appearance_theme_scope": {
@@ -17448,7 +17448,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum__pages_v_blocks_stage_appearance_theme_scope": {
@@ -17659,7 +17659,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum__pages_v_blocks_stat_band_appearance_theme_scope": {
@@ -17780,7 +17780,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum__pages_v_blocks_timeline_appearance_theme_scope": {
@@ -17841,7 +17841,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum__pages_v_blocks_gallery_appearance_theme_scope": {
@@ -17961,7 +17961,7 @@
       "values": [
         "none",
         "rise",
-        "fade"
+        "settle"
       ]
     },
     "payload.enum__pages_v_blocks_embed_appearance_theme_scope": {
@@ -18510,6 +18510,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "6433fa08-6c49-4a0e-97dc-364c756998cd",
+  "id": "80f19430-2378-4337-9e3d-83a9072726f0",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }
