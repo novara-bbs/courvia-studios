@@ -109,5 +109,35 @@
     "title": "Got it",
     "body": "Your request is on the team's desk. We'll write back within one working day — a person, not an autoresponder.",
     "back": "Back to the robots"
+  },
+  "email": {
+    "lead": {
+      "subject": "Your request is logged",
+      "preheader": "Confirmation of receipt. The reply comes from a person.",
+      "greeting": "Hi {name}.",
+      "intro": "We have your request for {ask}. This email only confirms it arrived. The reply comes from someone on the team, within one working day.",
+      "ask": {
+        "demo": "a demo",
+        "waitlist": "a place on the waiting list",
+        "preorder": "a pre-order"
+      },
+      "configuration": "Configuration you picked: {sku}.",
+      "nextTitle": "What we will ask you",
+      "nextCourt": "Where you play. A robot is calibrated per court and per ball: a padel ball does not bounce like a tennis ball, and the setting does not carry over.",
+      "nextGoal": "Which shot you want to work on first. The drills come from that, not from the catalogue.",
+      "reply": "To get ahead of it, reply to this email with those two answers.",
+      "privacy": "We keep your name and email only to answer this. Ask us to delete them whenever you want: {privacyUrl}",
+      "signature": "The Courvia team"
+    },
+    "passwordReset": {
+      "subject": "Reset your admin password",
+      "preheader": "Single-use link for the Courvia panel.",
+      "greeting": "Hi {name}.",
+      "intro": "Someone asked to reset the password for {email} on the Courvia panel.",
+      "action": "Open this link to choose a new one: {url}",
+      "expiry": "It expires in {minutes} minutes and works once.",
+      "ignore": "If this was not you, ignore this message. The current password still works and nobody got in.",
+      "signature": "The Courvia team"
+    }
   }
 }

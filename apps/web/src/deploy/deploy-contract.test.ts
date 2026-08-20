@@ -17,10 +17,12 @@
  * not finished on green CI alone.
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+
+import { DISPATCH_BUDGET_MS, RETRY_DELAY_MINUTES } from "../server/outbox";
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const repoRoot = path.resolve(appDir, "../..");
@@ -32,6 +34,7 @@ const vercelJson = JSON.parse(read("apps/web/vercel.json")) as {
   framework?: string;
   buildCommand?: string;
   installCommand?: string;
+  crons?: Array<{ path?: string; schedule?: string }>;
 };
 
 describe("the deploy config is version-controlled", () => {
@@ -121,5 +124,60 @@ describe("the documentation matches the configuration", () => {
     // Until a storage adapter lands, this warning is the only thing standing
     // between an editor and silently losing every image they upload.
     expect(doc).toMatch(/efímero/);
+  });
+});
+
+/**
+ * The scheduled half of the deployment.
+ *
+ * Same failure mode as the Root Directory, one layer down: a `crons` entry
+ * is a string that Vercel resolves to a URL, and a string that resolves to
+ * nothing fails by doing nothing at all — no error, no log, an outbox that
+ * simply never drains. So the path is checked against the file that has to
+ * answer it, and the timings are checked against the constants the
+ * dispatcher actually uses.
+ */
+describe("the maintenance cron is wired and authenticated", () => {
+  const crons = vercelJson.crons ?? [];
+  const cron = crons.find((entry) => entry.path === "/next/cron");
+  const routeFile = "apps/web/app/(frontend)/next/cron/route.ts";
+
+  it("declares the tick", () => {
+    expect(cron).toBeDefined();
+    // Five fields, standard cron. Vercel Hobby only accepts a daily cadence;
+    // docs/deployment.md says so next to the plan it needs.
+    expect(cron?.schedule).toMatch(/^\S+ \S+ \S+ \S+ \S+$/);
+  });
+
+  it("points at a route that exists", () => {
+    expect(existsSync(path.join(repoRoot, routeFile))).toBe(true);
+  });
+
+  it("requires a credential, and refuses to run without one configured", () => {
+    const source = read(routeFile);
+    expect(source).toContain("CRON_SECRET");
+    // 401 for a caller with no credential, 503 for a deployment with no
+    // secret: never a public 200. The behaviour is tested for real in
+    // src/server/cron-route.test.ts; this is the tripwire against somebody
+    // deleting the gate while keeping the schedule.
+    expect(source).toContain("401");
+    expect(source).toContain("503");
+  });
+
+  it("gives the tick a deadline that fits between the budget and the lease", () => {
+    const declared = /export const maxDuration = (\d+)/.exec(read(routeFile))?.[1];
+    expect(declared).toBeDefined();
+    const maxDurationMs = Number(declared) * 1000;
+    // The dispatcher must stop claiming before the platform kills it...
+    expect(maxDurationMs).toBeGreaterThan(DISPATCH_BUDGET_MS);
+    // ...and the whole run must finish before a claimed row becomes visible
+    // again, or the next tick could pick up work still in flight.
+    expect(RETRY_DELAY_MINUTES[1] * 60_000).toBeGreaterThan(maxDurationMs);
+  });
+
+  it("is documented where an operator would look", () => {
+    const doc = read("docs/deployment.md");
+    expect(doc).toContain("/next/cron");
+    expect(doc).toContain("CRON_SECRET");
   });
 });

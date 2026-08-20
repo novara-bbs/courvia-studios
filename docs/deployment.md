@@ -57,6 +57,45 @@ realidad era otra, y nada estaba mirando. De ahí las tres medidas:
 | `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Production/Preview | Bucket de medios. **Sin ellas, en Vercel las subidas quedan DESACTIVADAS** (ver abajo). Las tres van juntas. |
 | `S3_ENDPOINT` | si no es AWS | Supabase: `https://<project-ref>.storage.supabase.co/storage/v1/s3`. |
 | `S3_REGION` | opcional | Por defecto `auto`; los proveedores compatibles la ignoran. |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Production/Preview | Correo saliente. **Sin ellas, en un despliegue cada envío FALLA en voz alta** (la fila del outbox se pone en rojo) en vez de tragarse el mensaje. Las dos van juntas. `EMAIL_FROM` es un remitente de un dominio verificado en Resend: `Courvia <hola@dominio>`. |
+| `CRON_SECRET` | Production (y Preview si se quiere el tick allí) | Autentica `GET /next/cron`. Vercel lo envía solo, como `Authorization: Bearer`. **Sin ella la ruta responde 503 y no ejecuta nada.** |
+
+### Cron de mantenimiento: `GET /next/cron`
+
+Un único tick programado en `apps/web/vercel.json` hace dos trabajos:
+
+1. **Despacha el outbox** — saca de la tabla los efectos que la máquina de
+   estados encoló dentro de su transacción y los ejecuta fuera de ella
+   (`apps/web/src/server/outbox.ts` explica por qué una fila no se puede
+   entregar dos veces).
+2. **Caduca los checkouts abandonados** — los pedidos `pending_payment` de
+   más de una hora pasan a `cancelled` y sueltan su reserva de stock, por la
+   misma máquina de estados que cualquier evento de pago.
+
+| Cosa | Valor | Dónde |
+|---|---|---|
+| Ruta | `/next/cron` | `apps/web/app/(frontend)/next/cron/route.ts` |
+| Cadencia | `*/5 * * * *` | `apps/web/vercel.json` (`crons`) |
+| Autenticación | `Authorization: Bearer $CRON_SECRET` | la pone Vercel; sin `CRON_SECRET` la ruta responde **503** |
+| Techo de función | `maxDuration = 60` s | la ruta; el despachador para de reclamar a los 45 s |
+
+**La cadencia depende del plan.** Vercel Hobby admite como mucho 2 crons y
+solo una vez al día; con esa cadencia el correo de confirmación de un lead
+tardaría hasta 24 h. Si el proyecto está en Hobby: o se sube a Pro, o se
+cambia `schedule` a algo diario **a sabiendas**. Un `schedule` que el plan no
+admite hace fallar el despliegue, así que no pasa desapercibido.
+
+`apps/web/src/deploy/deploy-contract.test.ts` comprueba que la entrada existe,
+que apunta a un fichero de ruta que existe de verdad, que la ruta pide
+credencial y que los tres tiempos (presupuesto del despachador < `maxDuration`
+< primer reintento) siguen encajando. Un cron que apunta a una URL que no
+responde no da error: simplemente no despacha nada, para siempre.
+
+Para dispararlo a mano contra un despliegue:
+
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" https://{dominio}/next/cron
+```
 
 ### Migraciones: nunca en el build
 
@@ -87,8 +126,10 @@ Vercel NO ejecuta `payload migrate`. Flujo:
   subir abre un ticket; uno cuyas subidas se evaporan a la semana, no.
 - **Dominio**: courvia.com/es sin verificar (pendiente legal, CLAUDE.md §1).
   Mientras, el subdominio `*.vercel.app` sirve para previews.
-- **Outbox**: el despacho es manual-asistido; el cron/worker (Vercel Cron)
-  llega con la integración de pagos.
+- **Outbox**: ya se despacha solo, por `GET /next/cron` (arriba). Lo que sigue
+  siendo manual-asistido son los efectos que no deben automatizarse —
+  `execute_provider_refund` sobre todo: nadie llama a una pasarela desde este
+  repo. Ver `docs/payments-runbook.md` §"El outbox".
 
 ### Por qué el build funciona sin base de datos, y cuándo deja de funcionar
 
@@ -135,6 +176,7 @@ y el ISR distribuido.
 2. Pegar `DATABASE_URL` (pooler 6543), `PAYLOAD_SECRET`, `NEXT_PUBLIC_SITE_URL`.
 3. Confirmar que TODAS las migraciones de `apps/web/src/migrations` figuran en `payload.payload_migrations` de Supabase (el ledger es la verdad, no un número recordado).
 4. Deploy → smoke: `/es`, `/es/robots`, `/es/robots/drill-pro`, `/admin`,
-   403 en `/api/prices`, 404 en `/next/webhooks/stripe` (sin configurar: correcto).
+   403 en `/api/prices`, 404 en `/next/webhooks/stripe` (sin configurar: correcto),
+   401 en `/next/cron` sin cabecera (con `CRON_SECRET` puesta: correcto).
 5. Sembrar contenido real desde `/admin` (o ejecutar los seeds una vez
    contra la BD de producción si se quiere el demo).

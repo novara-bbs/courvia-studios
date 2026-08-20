@@ -14,7 +14,7 @@ En Claude Code web, el hook **SessionStart** (`.claude/hooks/session-start.sh`, 
 
 ### Variables de entorno locales
 
-`apps/web/.env.example` es la plantilla: copiarla a `apps/web/.env.local` (ignorado por Git). Obligatorias en local: `DATABASE_URL` (apunta al Postgres del 5433), `PAYLOAD_SECRET` y `PAYMENT_FAKE_SECRET` (proveedor de pago fake de desarrollo, bloqueado en producción por el gate fail-closed). El resto — `NEXT_PUBLIC_SITE_URL`, `STRIPE_WEBHOOK_SECRET`, Plausible, las claves del test de exposición — son opcionales y van comentadas en la plantilla.
+`apps/web/.env.example` es la plantilla: copiarla a `apps/web/.env.local` (ignorado por Git). Obligatorias en local: `DATABASE_URL` (apunta al Postgres del 5433), `PAYLOAD_SECRET` y `PAYMENT_FAKE_SECRET` (proveedor de pago fake de desarrollo, bloqueado en producción por el gate fail-closed). El resto — `NEXT_PUBLIC_SITE_URL`, `STRIPE_WEBHOOK_SECRET`, `CRON_SECRET`, el correo (`RESEND_API_KEY` + `EMAIL_FROM`), Plausible y las claves del test de exposición — son opcionales y van comentadas en la plantilla. Sin las dos del correo, en local los mensajes van a consola; en un despliegue su ausencia hace que cada envío falle en voz alta en vez de tragarse el mensaje.
 
 ### Migraciones: `pnpm migrate:new <nombre>`
 
@@ -34,13 +34,29 @@ Commitear la migración **y también** `src/migrations/index.ts` (el generador l
 1. `ADMIN_EMAIL=... ADMIN_PASSWORD=... pnpm --filter @courvia/web seed:admin` — primer usuario admin por Local API (`ADMIN_NAME` opcional). Idempotente: se niega a correr si ya existe algún usuario.
 2. `pnpm seed` — ejecuta en orden `seed:catalog` → `seed:markets` → `seed:content`.
 
-### Sweep de checkouts abandonados
+### El tick de mantenimiento, y cómo ejecutarlo a mano
+
+En un despliegue lo dispara Vercel Cron cada 5 minutos sobre `GET /next/cron`
+(autenticado con `CRON_SECRET`; ver `docs/deployment.md`). Hace dos cosas:
+despachar el outbox y caducar los checkouts abandonados.
+
+En local, la ruta funciona igual con el servidor levantado:
+
+```bash
+# apps/web/.env.local: CRON_SECRET=lo-que-quieras
+curl -sS -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/next/cron
+```
+
+Sin credenciales de correo, Payload usa su adaptador de consola: el envío se
+registra en el log del servidor y la fila del outbox pasa a `dispatched`.
+
+Solo el sweep de checkouts, sin servidor:
 
 ```bash
 pnpm --filter @courvia/web sweep:checkouts
 ```
 
-Ejecuta `expireStaleCheckouts` (`packages/commerce-payload`): los pedidos `pending_payment` con más de 1 hora pasan a `cancelled` por la misma maquinaria que cualquier evento de pago — transición pura, lock de fila, transacción — y se liberan sus reservas de stock. Un checkout que paga durante el sweep está a salvo: el lock serializa a ambos escritores. Pensado para cron (Vercel Cron o schedule de GitHub Actions) o a mano.
+Ejecuta `expireStaleCheckouts` (`packages/commerce-payload`): los pedidos `pending_payment` con más de 1 hora pasan a `cancelled` por la misma maquinaria que cualquier evento de pago — transición pura, lock de fila, transacción — y se liberan sus reservas de stock. Un checkout que paga durante el sweep está a salvo: el lock serializa a ambos escritores.
 
 ---
 
@@ -75,7 +91,8 @@ STRIPE_SECRET_KEY · STRIPE_WEBHOOK_SECRET · NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 TABBY_API_KEY · TABBY_WEBHOOK_SECRET · TAMARA_API_TOKEN · TAMARA_NOTIFICATION_TOKEN
 # Futuro (solo si se activa el adaptador): ADYEN_API_KEY · ADYEN_HMAC_KEY · ADYEN_MERCHANT_ACCOUNT
 
-RESEND_API_KEY (o BREVO_API_KEY) · VERIFACTU_PROVIDER_API_KEY
+RESEND_API_KEY · EMAIL_FROM · VERIFACTU_PROVIDER_API_KEY
+CRON_SECRET                      # autentica GET /next/cron (outbox + sweep)
 NEXT_PUBLIC_GA4_ID · NEXT_PUBLIC_PLAUSIBLE_DOMAIN
 NEXT_PUBLIC_SITE_URL · NEXT_PUBLIC_DEFAULT_LOCALE=es
 ```
@@ -89,7 +106,7 @@ Se activa con `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` (ver `apps/web/.env.ex
 
 ### 15.2 La plantilla de entorno no puede desviarse del código
 
-`apps/web/src/server/env-contract.test.ts` recorre las fuentes de `apps/web`, extrae toda lectura del entorno —`process.env.X`, `process.env["X"]` y el accesor `env("X")` de `storage.ts`/`build-env.ts`— y exige que cada nombre esté en `apps/web/.env.example`. La dirección contraria **también falla**: un nombre en la plantilla que ningún código lee es una instrucción para no hacer nada, y peor, anuncia una integración que no existe (la plantilla de la raíz pedía `TAMARA_WEBHOOK_SECRET` mientras el código leía `TAMARA_NOTIFICATION_TOKEN`).
+`apps/web/src/server/env-contract.test.ts` recorre las fuentes de `apps/web`, extrae toda lectura del entorno —`process.env.X`, `process.env["X"]` y el accesor `env("X")` de `storage.ts`, `build-env.ts` y `email/adapter.ts`— y exige que cada nombre esté en `apps/web/.env.example`. La dirección contraria **también falla**: un nombre en la plantilla que ningún código lee es una instrucción para no hacer nada, y peor, anuncia una integración que no existe (la plantilla de la raíz pedía `TAMARA_WEBHOOK_SECRET` mientras el código leía `TAMARA_NOTIFICATION_TOKEN`).
 
 Dos ficheros, dos trabajos: `apps/web/.env.example` es la plantilla que alguien copia a `.env.local` y el test la mantiene exacta; el `.env.example` de la raíz es el inventario de plataforma —incluidas pasarelas y servicios que aún no existen (ADR-06/07)— y es un superconjunto a propósito. Las variables que inyecta la plataforma (`NODE_ENV`, `CI`, `NEXT_PHASE`, `VERCEL*`) están en una lista explícita del test: documentarlas invitaría a fijar a mano un valor que no es nuestro.
 

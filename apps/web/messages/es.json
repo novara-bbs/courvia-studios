@@ -109,5 +109,35 @@
     "title": "Recibido",
     "body": "Tu solicitud está en la mesa del equipo. Te escribimos en menos de 24 horas laborables — una persona, no un autorespondedor.",
     "back": "Volver a los robots"
+  },
+  "email": {
+    "lead": {
+      "subject": "Tu solicitud está registrada",
+      "preheader": "Confirmación de recepción. La respuesta la escribe una persona.",
+      "greeting": "Hola, {name}.",
+      "intro": "Hemos recibido tu petición de {ask}. Este correo solo confirma que llegó. La respuesta la escribe una persona del equipo, en menos de un día laborable.",
+      "ask": {
+        "demo": "una demo",
+        "waitlist": "un sitio en la lista de espera",
+        "preorder": "una reserva"
+      },
+      "configuration": "Configuración que marcaste: {sku}.",
+      "nextTitle": "Lo que te vamos a preguntar",
+      "nextCourt": "Dónde juegas. Un robot se calibra por pista y por bola: la de pádel no bota como la de tenis y el ajuste no se hereda.",
+      "nextGoal": "Qué golpe quieres trabajar primero. De ahí salen las rutinas, no del catálogo.",
+      "reply": "Si quieres adelantar trabajo, responde a este correo con esas dos respuestas.",
+      "privacy": "Guardamos tu nombre y tu correo solo para responder a esto. Pídenos que los borremos cuando quieras: {privacyUrl}",
+      "signature": "Equipo Courvia"
+    },
+    "passwordReset": {
+      "subject": "Restablecer tu contraseña del panel",
+      "preheader": "Enlace de un solo uso para el panel de Courvia.",
+      "greeting": "Hola, {name}.",
+      "intro": "Alguien ha pedido restablecer la contraseña de {email} en el panel de Courvia.",
+      "action": "Abre este enlace para elegir una nueva: {url}",
+      "expiry": "Caduca en {minutes} minutos y sirve una sola vez.",
+      "ignore": "Si no has sido tú, ignora este mensaje. La contraseña actual sigue siendo válida y nadie ha entrado.",
+      "signature": "Equipo Courvia"
+    }
   }
 }

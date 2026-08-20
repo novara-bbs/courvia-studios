@@ -153,19 +153,76 @@ secretos activos durante la ventana o dejar expirar los checkouts).
 
 ## El outbox
 
-Las filas `pending` se despachan fuera de la transacción. Fase 1: despacho
-**manual-asistido** desde el admin (colección Outbox, grupo Comercio); el
-worker/cron llega con la integración real. `refund.approved` es el ÚNICO
-disparador que ordena `execute_provider_refund`, y siempre lleva importe.
-`restock_if_applicable` también vive en el outbox: reponer stock es una
-acción de almacén con inspección física, no un update silencioso.
-`alert_payment_conflict` es la fila que nadie quiere ver: dinero capturado
-que contradice el pedido — se atiende antes que nada.
+Las filas `pending` se despachan fuera de la transacción, desde el tick
+programado `GET /next/cron` (`apps/web/src/server/outbox.ts`; la ruta y su
+`CRON_SECRET` en `docs/deployment.md`). El despacho es automático para los
+efectos que tienen manejador y deliberadamente manual para el resto.
+
+**Cómo no se entrega dos veces.** Tres mecanismos, cada uno para una ventana
+distinta:
+
+1. **Exclusión mutua** entre despachadores: la fila se *reclama* con un solo
+   UPDATE condicional — `SET attempts = attempts + 1 WHERE id = ? AND status
+   = 'pending' AND attempts = ?`. De dos despachadores que compiten por la
+   misma fila, exactamente uno obtiene `rowCount = 1`; el otro obtiene cero y
+   no llama al manejador.
+2. **Un lease**: reclamar mueve `updated_at`, y una fila solo vuelve a ser
+   elegible cuando `updated_at` es más viejo que el retardo de su número de
+   intento. El **primer** retardo (2 min) es mayor que el techo de la función
+   (60 s), así que una fila que se está trabajando es invisible para el
+   siguiente tick. Un test afirma esa relación entre las tres constantes.
+3. **Idempotencia del proveedor** para la ventana que queda (enviado pero no
+   marcado, porque el proceso murió en medio): el correo lleva
+   `Idempotency-Key` derivado del id de la fila y Resend colapsa la repetición
+   durante 24 h.
+
+Nota medida, porque cuesta descubrirla: `payload.update()` **no sirve** como
+lock optimista. Toma el lock de fila, sí, pero es un read-modify-write que
+lee el documento ANTES del lock y reescribe la fila entera, así que el
+escritor que estaba bloqueado pisa las columnas que el ganador acababa de
+confirmar. Con esa forma, los dos reclamantes leían `attempts = 0` y los dos
+enviaban.
+
+**Reintentos y cola de fallidos.** Retardos de 0 · 2 · 10 · 60 · 240 minutos;
+al quinto intento la fila pasa a `failed` y **no se reintenta más** — la
+desatasca una persona desde el admin. Un fallo irrecuperable (el lead ya no
+existe, la fila no trae lead) va a `failed` en el primer intento en vez de
+gastar cuatro más para llegar a la misma respuesta. El motivo queda en
+`lastError`.
+
+**Efectos que NO se automatizan**, y por qué. El despachador solo pide a la
+base de datos los efectos para los que tiene manejador, así que el resto
+—incluidos los que no conoce— nunca entra en el lote: se queda `pending`, con
+`attempts` a cero, y aparece contado por nombre en el censo que devuelve cada
+tick. No puede romper el lote ni desaparecer.
+
+- `execute_provider_refund` — **dinero saliendo**. Nada de este repo llama a
+  una pasarela: los cuatro adaptadores lanzan `NotImplementedError` a
+  propósito y tocar dinero real exige aprobación humana explícita
+  (`.claude/rules/payments.md`). Sigue siendo tarea manual, y el despachador
+  la registra en voz alta en cada tick.
+- `restock_if_applicable` — acción de almacén con inspección física.
+- `alert_payment_conflict`, `alert_refund_failure` — las lee una persona;
+  encaminarlas a un buzón necesita una dirección de operaciones que este
+  despliegue todavía no tiene (`docs/gap-analysis.md`, extras #5).
+- Los correos de pedido (`send_confirmation_email`, `send_tracking_email`,
+  `send_post_sale_email`, `send_refund_email`), `issue_tax_invoice`,
+  `issue_credit_note`, `notify_crm`, `open_withdrawal_window`,
+  `start_picking` — sin plantilla escrita todavía. Registrar un manejador que
+  envíe una plantilla vacía sería peor que la cola que dice «aún no».
+
+`refund.approved` sigue siendo el ÚNICO disparador que ordena
+`execute_provider_refund`, y siempre lleva importe. `alert_payment_conflict`
+es la fila que nadie quiere ver: dinero capturado que contradice el pedido —
+se atiende antes que nada.
 
 ## Qué vigilar
 
 - `payments`: el libro de eventos — cada webhook con significado deja fila.
-- `outbox` en `failed` o con `attempts` creciendo: efecto externo atascado.
-- Pedidos `pending_payment` viejos: candidatos a `checkout.expired` (el
-  sweep llega con la integración).
+- `outbox` en `failed`: cola de fallidos, no se reintenta sola. `attempts`
+  creciendo con `status: pending`: efecto atascado que aún reintenta.
+- `outbox` en `pending` con un efecto sin manejador: tarea para una persona.
+  Cada tick los cuenta por nombre en su respuesta JSON.
+- Pedidos `pending_payment` viejos: el mismo tick los caduca cada 5 minutos
+  (una hora de vida). Si se acumulan, el cron no está corriendo.
 - `refund_failed`: dinero comprometido sin devolver — alerta inmediata.

@@ -6,6 +6,8 @@ import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { buildConfig } from "payload";
 import sharp from "sharp";
 
+import { emailAdapter } from "./src/email/adapter";
+import { withAdminPasswordReset } from "./src/email/admin-password-reset";
 import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
 import { Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
 import { Media } from "./src/payload/media";
@@ -46,6 +48,13 @@ export default buildConfig({
   editor: lexicalEditor(),
   sharp,
 
+  // Sending is CONFIGURATION, exactly like the media bucket: credentials
+  // present -> the provider; absent on a laptop -> Payload's console
+  // adapter; absent on a deployment -> an adapter that refuses loudly
+  // instead of swallowing (see src/email/adapter.ts). Without this key the
+  // admin's "forgot password" flow accepted the request and sent nothing.
+  email: emailAdapter(),
+
   // Locale ≠ market (docs/markets.md §9): these are content languages; markets
   // live in @courvia/platform and MarketSettings.
   localization: {
@@ -66,7 +75,9 @@ export default buildConfig({
   },
 
   collections: [
-    Users,
+    // The reset email's copy lives with the rest of the copy, not in the
+    // collection that governs who may do what (src/email/admin-password-reset.ts).
+    withAdminPasswordReset(Users),
     Media,
     Pages,
     Redirects,
