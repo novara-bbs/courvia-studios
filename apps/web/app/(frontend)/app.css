@@ -61,6 +61,14 @@ body {
   gap: var(--cv-space-8);
 }
 
+/* Composed (CMS) pages: the sections own the rhythm via their spacing
+ * controls and their own inline padding — the shell adds none on top. */
+.page--composed {
+  gap: 0;
+  padding-block-start: 0;
+  padding-inline: 0;
+}
+
 .hero h1 {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-display);
@@ -156,8 +164,32 @@ code {
 }
 
 .site-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 30;
   border-block-end: 1px solid var(--cv-color-border);
   background: var(--cv-color-bg);
+}
+
+.site-header-cta {
+  font-size: var(--cv-font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--cv-color-on-fill-accent);
+  background: var(--cv-color-fill-accent);
+  border-radius: var(--cv-radius-pill);
+  padding-block: var(--cv-space-2);
+  padding-inline: var(--cv-space-4);
+  white-space: nowrap;
+}
+
+.site-header-cta:hover {
+  filter: brightness(1.05);
+}
+
+.site-header-cta:focus-visible {
+  outline: var(--cv-focus-width) solid var(--cv-color-accent);
+  outline-offset: var(--cv-focus-offset);
 }
 
 .site-header-inner {
@@ -217,16 +249,82 @@ code {
 .site-footer-inner {
   max-width: var(--cv-breakpoint-xl);
   margin-inline: auto;
-  padding-block: var(--cv-space-8);
+  padding-block: var(--cv-space-12) var(--cv-space-6);
   padding-inline: var(--cv-space-6);
   display: grid;
-  gap: var(--cv-space-4);
+  gap: var(--cv-space-8);
+}
+
+.site-footer-top {
+  display: grid;
+  gap: var(--cv-space-8);
+}
+
+@media (min-width: 860px) {
+  .site-footer-top {
+    grid-template-columns: minmax(220px, 1fr) 2fr;
+    gap: var(--cv-space-12);
+  }
+}
+
+.site-footer-wordmark {
+  font-family: var(--cv-font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-block-end: var(--cv-space-3);
 }
 
 .site-footer-tagline {
   color: var(--cv-color-text-muted);
   font-size: var(--cv-font-size-sm);
-  max-width: 62ch;
+  line-height: var(--cv-font-lineHeight-body);
+  max-width: 34ch;
+}
+
+.site-footer-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--cv-space-6);
+}
+
+.site-footer-column h2 {
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--cv-color-text-muted);
+  margin-block-end: var(--cv-space-3);
+}
+
+.site-footer-column ul {
+  list-style: none;
+  display: grid;
+  gap: var(--cv-space-2);
+}
+
+.site-footer-column a {
+  color: var(--cv-color-text);
+  text-decoration: none;
+  font-size: var(--cv-font-size-sm);
+}
+
+.site-footer-column a:hover,
+.site-footer-column a:focus-visible {
+  color: var(--cv-color-link);
+}
+
+.site-footer-bottom {
+  border-block-start: 1px solid var(--cv-color-border);
+  padding-block-start: var(--cv-space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cv-space-4) var(--cv-space-8);
+}
+
+.site-footer-copyright {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-font-size-xs);
 }
 
 .site-footer-links {
@@ -237,13 +335,14 @@ code {
 }
 
 .site-footer-links a {
-  color: var(--cv-color-link);
+  color: var(--cv-color-text-muted);
   text-decoration: none;
-  font-size: var(--cv-font-size-sm);
+  font-size: var(--cv-font-size-xs);
 }
 
 .site-footer-links a:hover,
 .site-footer-links a:focus-visible {
+  color: var(--cv-color-link);
   text-decoration: underline;
 }
 
@@ -329,8 +428,10 @@ code {
   color: var(--cv-color-text-muted);
 }
 
-/* Estado de lanzamiento (preventa / lista de espera): chip telemetría. */
-.catalog-card-status,
+/* Estado de lanzamiento (preventa / lista de espera): chip telemetría.
+ * `p.catalog-card-status` porque `.catalog-card p` ganaría por especificidad
+ * y teñiría el chip con el texto muted. */
+.catalog-card p.catalog-card-status,
 .pdp-status {
   display: inline-block;
   font-family: var(--cv-font-data, monospace);

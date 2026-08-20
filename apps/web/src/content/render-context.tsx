@@ -8,6 +8,7 @@
 import { RichText } from "@payloadcms/richtext-lexical/react";
 import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
 import type { RenderContext } from "@courvia/sections/registry";
+import { isRegionId } from "@courvia/platform";
 import type { RegionId } from "@courvia/platform";
 
 import { SectionLeadForm } from "./section-lead-form";
@@ -24,5 +25,12 @@ export function makeRenderContext(preview: boolean, region: RegionId): RenderCon
     renderLeadForm: (options) => (
       <SectionLeadForm region={region} intent={options.intent} productSlug={options.productSlug} />
     ),
+    // Content stores region-relative paths ("/robots"). Legacy content with a
+    // baked-in region ("/es/...") passes through untouched.
+    resolveHref: (href) => {
+      if (!href.startsWith("/")) return href;
+      const first = href.split("/")[1] ?? "";
+      return isRegionId(first) ? href : `/${region}${href === "/" ? "" : href}`;
+    },
   };
 }

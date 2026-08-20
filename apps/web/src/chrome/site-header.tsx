@@ -32,6 +32,11 @@ export async function SiteHeader({ region }: { region: RegionId }) {
             </ul>
           </nav>
         )}
+        {nav.headerCta === null ? null : (
+          <Link className="site-header-cta" href={`/${region}${nav.headerCta.href}`}>
+            {nav.headerCta.label}
+          </Link>
+        )}
       </div>
     </header>
   );

@@ -2,7 +2,7 @@ import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import { SectionList } from "@courvia/sections/render";
 import type { Metadata } from "next";
 import { draftMode } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { setRequestRegion } from "../../../../src/i18n/request-region";
 import { getDraftPage, getPage } from "../../../../src/content/get-page";
@@ -40,6 +40,9 @@ export default async function CmsPage({ params }: PageArgs) {
   setRequestRegion(region);
   // Nested paths are reserved for future scoped routes (robots/, academy/…).
   if (slug.length !== 1 || slug[0] === undefined) notFound();
+  // The home page's content doc: it lives at the region root, never at a
+  // second URL of its own (duplicate content).
+  if (slug[0] === "inicio") permanentRedirect(`/${region}`);
 
   const { isEnabled: draft } = await draftMode();
   const locale = REGION_DEFINITIONS[region].locale;
@@ -47,7 +50,7 @@ export default async function CmsPage({ params }: PageArgs) {
   if (page === null) notFound();
 
   return (
-    <main className="page">
+    <main className="page page--composed">
       {draft ? (
         <>
           <DraftModeBar exitPath={`/${region}/${page.slug}`} />

@@ -56,6 +56,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry(region, "/comparar", "weekly", 0.7),
     ...products.map((product) => entry(region, `/robots/${product.slug}`, "weekly", 0.9)),
     ...categorySlugs.map((slug) => entry(region, `/c/${slug}`, "weekly", 0.6)),
-    ...pageSlugs.map((slug) => entry(region, `/${slug}`, "monthly", 0.4)),
+    // "inicio" IS the region home — already listed as the root entry.
+    ...pageSlugs
+      .filter((slug) => slug !== "inicio")
+      .map((slug) => entry(region, `/${slug}`, "monthly", 0.4)),
   ]);
 }

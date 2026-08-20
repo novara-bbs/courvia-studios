@@ -243,6 +243,7 @@ export interface Page {
         | {
             eyebrow?: string | null;
             heading: string;
+            level?: ('h2' | 'h1') | null;
             lead?: string | null;
             ctas?:
               | {
@@ -1041,6 +1042,7 @@ export interface PagesSelect<T extends boolean = true> {
           | {
               eyebrow?: T;
               heading?: T;
+              level?: T;
               lead?: T;
               ctas?:
                 | T
@@ -1544,7 +1546,30 @@ export interface Navigation {
       }[]
     | null;
   /**
-   * Enlaces del pie (legales, contacto…), en orden.
+   * Botón destacado a la derecha del menú (p. ej. «Pide una demo»). Sin label no se muestra.
+   */
+  headerCta?: {
+    label?: string | null;
+    href?: string | null;
+  };
+  /**
+   * Columnas del pie con título (Comprar · Empresa · Ayuda…). El canon de las tiendas serias: 3-5 columnas por intención del visitante.
+   */
+  footerGroups?:
+    | {
+        label: string;
+        links?:
+          | {
+              label: string;
+              href: string;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Fila inferior del pie (legales), junto al copyright y el selector de región.
    */
   footer?:
     | {
@@ -1600,6 +1625,25 @@ export interface NavigationSelect<T extends boolean = true> {
     | {
         label?: T;
         href?: T;
+        id?: T;
+      };
+  headerCta?:
+    | T
+    | {
+        label?: T;
+        href?: T;
+      };
+  footerGroups?:
+    | T
+    | {
+        label?: T;
+        links?:
+          | T
+          | {
+              label?: T;
+              href?: T;
+              id?: T;
+            };
         id?: T;
       };
   footer?:

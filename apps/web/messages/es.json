@@ -24,7 +24,8 @@
     "mainNav": "Navegación principal"
   },
   "footer": {
-    "tagline": "Robots de entrenamiento para tenis, pádel y pickleball. Diseñados en España."
+    "tagline": "Robots de entrenamiento para tenis, pádel y pickleball. Diseñados en España.",
+    "copyright": "© Courvia Sports. Todos los derechos reservados."
   },
   "notFound": {
     "title": "Fuera de pista",

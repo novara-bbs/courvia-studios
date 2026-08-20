@@ -24,7 +24,8 @@
     "mainNav": "Main navigation"
   },
   "footer": {
-    "tagline": "Training robots for tennis, padel and pickleball. Designed in Spain."
+    "tagline": "Training robots for tennis, padel and pickleball. Designed in Spain.",
+    "copyright": "© Courvia Sports. All rights reserved."
   },
   "notFound": {
     "title": "Out of bounds",

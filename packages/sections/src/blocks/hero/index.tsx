@@ -9,6 +9,8 @@ export const hero = defineSection({
   fields: {
     eyebrow: { kind: "text", localized: true, max: 40 },
     heading: { kind: "text", required: true, localized: true, max: 90 },
+    /** "h1" when the hero OPENS the page (home, landings); "h2" inside. */
+    level: { kind: "select", options: ["h2", "h1"] },
     lead: { kind: "textarea", localized: true, max: 300 },
     ctas: {
       kind: "array",
@@ -23,23 +25,24 @@ export const hero = defineSection({
     lead: "Rutinas programables, 140 pelotas por carga y hasta 6 horas de sesión.",
     ctas: [{ label: "Reservar Drill Pro", href: "/es/robots/drill-pro" }],
   },
-  render: (content) => {
+  render: (content, ctx) => {
     const eyebrow = content.eyebrow as string | null | undefined;
     const heading = content.heading as string;
+    const Heading = content.level === "h1" ? "h1" : "h2";
     const lead = content.lead as string | null | undefined;
     const ctas = (content.ctas ?? []) as Array<{ label: string; href: string }>;
     return (
       <header className="cv-hero">
         {eyebrow ? <Badge variant="accent">{eyebrow}</Badge> : null}
-        <h2 className="cv-hero-heading">
+        <Heading className="cv-hero-heading">
           {heading}
           <span className="cv-hero-ball" aria-hidden="true" />
-        </h2>
+        </Heading>
         {lead ? <p className="cv-hero-lead">{lead}</p> : null}
         {ctas.length > 0 ? (
           <div className="cv-hero-ctas">
             {ctas.map((cta: Link, index) => (
-              <a key={cta.href} href={cta.href} className="cv-hero-cta">
+              <a key={cta.href} href={ctx.resolveHref?.(cta.href) ?? cta.href} className="cv-hero-cta">
                 <Button variant={index === 0 ? "primary" : "ghost"}>{cta.label}</Button>
               </a>
             ))}

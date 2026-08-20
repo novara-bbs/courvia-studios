@@ -46,9 +46,43 @@ export const Navigation: GlobalConfig = {
       fields: linkFields,
     },
     {
+      name: "headerCta",
+      type: "group",
+      admin: {
+        description:
+          "Botón destacado a la derecha del menú (p. ej. «Pide una demo»). Sin label no se muestra.",
+      },
+      fields: [
+        { name: "label", type: "text", localized: true },
+        {
+          name: "href",
+          type: "text",
+          validate: (value: string | null | undefined) =>
+            value === null || value === undefined || value === "" || /^\/[^\s]*$/.test(value)
+              ? true
+              : "Ruta relativa a la región, empezando por /",
+        },
+      ],
+    },
+    {
+      name: "footerGroups",
+      type: "array",
+      maxRows: 5,
+      admin: {
+        description:
+          "Columnas del pie con título (Comprar · Empresa · Ayuda…). El canon de las tiendas serias: 3-5 columnas por intención del visitante.",
+      },
+      fields: [
+        { name: "label", type: "text", required: true, localized: true },
+        { name: "links", type: "array", fields: linkFields },
+      ],
+    },
+    {
       name: "footer",
       type: "array",
-      admin: { description: "Enlaces del pie (legales, contacto…), en orden." },
+      admin: {
+        description: "Fila inferior del pie (legales), junto al copyright y el selector de región.",
+      },
       fields: linkFields,
     },
   ],

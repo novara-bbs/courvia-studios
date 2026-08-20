@@ -34,6 +34,47 @@ interface NavSeed {
 const HEADER: NavSeed[] = [
   { href: "/robots", label: { es: "Robots", en: "Robots", ar: "الروبوتات" } },
   { href: "/comparar", label: { es: "Comparar", en: "Compare", ar: "قارن" } },
+  { href: "/tecnologia", label: { es: "Tecnología", en: "Technology", ar: "التقنية" } },
+  { href: "/sobre-courvia", label: { es: "Sobre Courvia", en: "About Courvia", ar: "عن كورفيا" } },
+];
+
+const HEADER_CTA = {
+  href: "/contacto",
+  label: { es: "Pide una demo", en: "Book a demo", ar: "اطلب عرضًا" },
+};
+
+interface NavGroupSeed {
+  label: { es: string; en: string; ar: string };
+  links: NavSeed[];
+}
+
+// El canon de las tiendas serias: columnas por intención del visitante.
+const FOOTER_GROUPS: NavGroupSeed[] = [
+  {
+    label: { es: "Comprar", en: "Shop", ar: "التسوق" },
+    links: [
+      { href: "/robots", label: { es: "Robots", en: "Ball machines", ar: "الروبوتات" } },
+      { href: "/comparar", label: { es: "Comparar modelos", en: "Compare models", ar: "قارن الطرازات" } },
+      {
+        href: "/drill-club-preventa",
+        label: { es: "Preventa Drill Club", en: "Drill Club preorder", ar: "حجز Drill Club" },
+      },
+    ],
+  },
+  {
+    label: { es: "Empresa", en: "Company", ar: "الشركة" },
+    links: [
+      { href: "/sobre-courvia", label: { es: "Sobre Courvia", en: "About Courvia", ar: "عن كورفيا" } },
+      { href: "/tecnologia", label: { es: "Tecnología", en: "Technology", ar: "التقنية" } },
+    ],
+  },
+  {
+    label: { es: "Ayuda", en: "Support", ar: "المساعدة" },
+    links: [
+      { href: "/contacto", label: { es: "Contacto y demos", en: "Contact & demos", ar: "التواصل والعروض" } },
+      { href: "/privacidad", label: { es: "Privacidad", en: "Privacy", ar: "الخصوصية" } },
+    ],
+  },
 ];
 
 const FOOTER: NavSeed[] = [
@@ -48,33 +89,59 @@ const FOOTER: NavSeed[] = [
   },
 ];
 
-if (navHasLinks) {
-  console.log("Navigation already has links — skipped (editor changes are never overwritten).");
+// footerGroups vacío = la navegación aún no conoce la estructura nueva: se
+// completa (header + CTA + columnas) sin tocar la fila legal existente. Con
+// columnas ya presentes no se toca nada — los cambios de editor mandan.
+const navHasGroups = ((nav as { footerGroups?: unknown[] }).footerGroups ?? []).length > 0;
+if (navHasLinks && navHasGroups) {
+  console.log("Navigation already structured — skipped (editor changes are never overwritten).");
 } else {
   const created = await payload.updateGlobal({
     slug: "navigation",
     locale: "es",
     data: {
       header: HEADER.map((l) => ({ href: l.href, label: l.label.es })),
-      footer: FOOTER.map((l) => ({ href: l.href, label: l.label.es })),
+      headerCta: { href: HEADER_CTA.href, label: HEADER_CTA.label.es },
+      footerGroups: FOOTER_GROUPS.map((group) => ({
+        label: group.label.es,
+        links: group.links.map((l) => ({ href: l.href, label: l.label.es })),
+      })),
+      ...(navHasLinks
+        ? {}
+        : { footer: FOOTER.map((l) => ({ href: l.href, label: l.label.es })) }),
     },
   });
 
-  // Localized subfields inside arrays: later locales must address each row by
-  // its id or Payload recreates the rows and drops the Spanish labels.
+  // Localized subfields inside arrays: later locales must address each row
+  // (and each NESTED row) by its id or Payload recreates them and drops the
+  // Spanish labels.
   const headerIds = (created.header ?? []).map((row) => row.id);
   const footerIds = (created.footer ?? []).map((row) => row.id);
+  const groups = (created.footerGroups ?? []) as Array<{
+    id?: string | null;
+    links?: Array<{ id?: string | null }> | null;
+  }>;
   for (const locale of ["en", "ar"] as const) {
     await payload.updateGlobal({
       slug: "navigation",
       locale,
       data: {
         header: HEADER.map((l, i) => ({ id: headerIds[i], href: l.href, label: l.label[locale] })),
+        headerCta: { href: HEADER_CTA.href, label: HEADER_CTA.label[locale] },
+        footerGroups: FOOTER_GROUPS.map((group, i) => ({
+          id: groups[i]?.id,
+          label: group.label[locale],
+          links: group.links.map((l, j) => ({
+            id: groups[i]?.links?.[j]?.id,
+            href: l.href,
+            label: l.label[locale],
+          })),
+        })),
         footer: FOOTER.map((l, i) => ({ id: footerIds[i], href: l.href, label: l.label[locale] })),
       },
     });
   }
-  console.log("Navigation seeded (header: robots/comparar · footer: legales) in es/en/ar.");
+  console.log("Navigation seeded/completed (header+CTA+columnas+legales) in es/en/ar.");
 }
 
 /* ----------------------------------------------------------- legal pages */
@@ -500,6 +567,361 @@ for (const page of PAGES) {
   });
   console.log(`pages/${page.slug} seeded (es/en).`);
 }
+
+/* -------------------------------------------------------- composed pages */
+// Home, contacto y sobre-courvia como páginas COMPUESTAS: la anatomía
+// canónica de una tienda seria (hero → producto → prueba → FAQ → CTA),
+// editable bloque a bloque desde el admin.
+
+type SeedBlock = Record<string, unknown>;
+
+/** Graft the created (es) row ids onto the en blocks, positionally — blocks
+ *  and the rows of their nested arrays alike. Arrays of scalars
+ *  (relationships like `product: [3]`) pass through untouched. */
+function withIds(created: SeedBlock[], next: SeedBlock[]): SeedBlock[] {
+  return next.map((block, i) => {
+    const source = created[i] ?? {};
+    const out: SeedBlock = { ...block, id: source.id };
+    for (const [key, value] of Object.entries(block)) {
+      const sourceRows = source[key];
+      if (
+        Array.isArray(value) &&
+        Array.isArray(sourceRows) &&
+        value.every((row) => typeof row === "object" && row !== null && !Array.isArray(row))
+      ) {
+        out[key] = value.map((row, j) => ({
+          id: (sourceRows[j] as SeedBlock | undefined)?.id,
+          ...(row as SeedBlock),
+        }));
+      }
+    }
+    return out;
+  });
+}
+
+async function seedComposedPage(
+  slug: string,
+  titles: { es: string; en: string },
+  esBlocks: SeedBlock[],
+  enBlocks: SeedBlock[],
+): Promise<void> {
+  const exists = await payload.count({
+    collection: "pages",
+    where: { slug: { equals: slug } },
+    overrideAccess: true,
+  });
+  if (exists.totalDocs > 0) {
+    console.log(`pages/${slug} already exists — skipped.`);
+    return;
+  }
+  const doc = await payload.create({
+    collection: "pages",
+    locale: "es",
+    draft: false,
+    overrideAccess: true,
+    data: { title: titles.es, slug, blocks: esBlocks as never, _status: "published" },
+  });
+  await payload.update({
+    collection: "pages",
+    id: doc.id,
+    locale: "en",
+    draft: false,
+    overrideAccess: true,
+    data: {
+      title: titles.en,
+      blocks: withIds((doc.blocks ?? []) as SeedBlock[], enBlocks) as never,
+      _status: "published",
+    },
+  });
+  console.log(`pages/${slug} seeded (es/en).`);
+}
+
+const productIds = new Map<string, number>();
+for (const slug of ["drill-one", "drill-pro", "drill-club"]) {
+  const doc = (
+    await payload.find({
+      collection: "products",
+      where: { slug: { equals: slug } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+  ).docs[0];
+  if (doc !== undefined) productIds.set(slug, doc.id);
+}
+const allProducts = [...productIds.values()];
+
+/* --- inicio ------------------------------------------------------------ */
+await seedComposedPage(
+  "inicio",
+  { es: "Courvia — Robots de entrenamiento", en: "Courvia — Training robots" },
+  [
+    {
+      blockType: "hero",
+      level: "h1",
+      eyebrow: "Robots de entrenamiento",
+      heading: "Tu revés mejora esta semana",
+      lead: "Rutinas programables, 140 pelotas por carga y hasta 6 horas de sesión. El sparring que no se cansa: tú decides el golpe, la frecuencia y el efecto.",
+      ctas: [
+        { label: "Elige tu robot", href: "/robots" },
+        { label: "Compara modelos", href: "/comparar" },
+      ],
+      appearance: { spaceBlockStart: "xl", spaceBlockEnd: "xl" },
+    },
+    {
+      blockType: "productShowcase",
+      heading: "Tres gamas, un criterio",
+      products: allProducts,
+      appearance: { background: "surface" },
+    },
+    {
+      blockType: "featureGrid",
+      heading: "Datos, no humo",
+      items: [
+        { title: "3 deportes", body: "Pádel, tenis y pickleball. La bola manda sobre el hardware: cada variante se calibra para su bote." },
+        { title: "12 rutinas", body: "Diseñadas por entrenadores e incluidas de serie. Sin cuotas ni suscripciones." },
+        { title: "24-36 meses", body: "De garantía según gama, con repuestos y soporte desde España." },
+      ],
+    },
+    {
+      blockType: "quote",
+      quote: "Un robot no te regala el partido: te quita las excusas.",
+      author: "Equipo Courvia",
+      appearance: { background: "surface", align: "center" },
+    },
+    {
+      blockType: "faq",
+      heading: "Antes de preguntar",
+      items: [
+        {
+          question: "¿Sirven las pelotas normales?",
+          answer: richTextP("Sí: bola estándar de pádel, tenis o pickleball. Sin consumibles propios."),
+        },
+        {
+          question: "¿Cuánto dura la batería?",
+          answer: richTextP("De 3 a 6 horas de sesión según la gama; el dato exacto está en la ficha de cada robot."),
+        },
+        {
+          question: "¿Puedo probarlo antes de comprar?",
+          answer: richTextP("Sí. Pide una demo y te escribimos en menos de un día laborable para organizarla."),
+        },
+      ],
+    },
+    {
+      blockType: "ctaBand",
+      heading: "Pide una demo",
+      body: "Te escribimos en menos de un día laborable. Una persona, no un autorespondedor.",
+      cta: [{ label: "Pide una demo", href: "/contacto" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+  [
+    {
+      blockType: "hero",
+      level: "h1",
+      eyebrow: "Training robots",
+      heading: "Your backhand improves this week",
+      lead: "Programmable drills, 140 balls per hopper and up to 6 hours per charge. A sparring partner that never tires: you set the shot, the tempo and the spin.",
+      ctas: [
+        { label: "Choose your robot", href: "/robots" },
+        { label: "Compare models", href: "/comparar" },
+      ],
+      appearance: { spaceBlockStart: "xl", spaceBlockEnd: "xl" },
+    },
+    {
+      blockType: "productShowcase",
+      heading: "Three ranges, one rule",
+      products: allProducts,
+      appearance: { background: "surface" },
+    },
+    {
+      blockType: "featureGrid",
+      heading: "Data, not hype",
+      items: [
+        { title: "3 sports", body: "Padel, tennis and pickleball. The ball dictates the hardware: each variant is calibrated for its bounce." },
+        { title: "12 drills", body: "Coach-designed and included out of the box. No fees, no subscriptions." },
+        { title: "24-36 months", body: "Of warranty depending on range, with spare parts and support from Spain." },
+      ],
+    },
+    {
+      blockType: "quote",
+      quote: "A robot doesn't win you the match: it takes away your excuses.",
+      author: "Team Courvia",
+      appearance: { background: "surface", align: "center" },
+    },
+    {
+      blockType: "faq",
+      heading: "Before you ask",
+      items: [
+        {
+          question: "Do regular balls work?",
+          answer: richTextP("Yes: standard padel, tennis or pickleball balls. No proprietary consumables."),
+        },
+        {
+          question: "How long does the battery last?",
+          answer: richTextP("Between 3 and 6 hours per session depending on the range; the exact figure is on each robot's page."),
+        },
+        {
+          question: "Can I try one before buying?",
+          answer: richTextP("Yes. Book a demo and we'll write back within one working day to arrange it."),
+        },
+      ],
+    },
+    {
+      blockType: "ctaBand",
+      heading: "Book a demo",
+      body: "We write back within one working day. A person, not an autoresponder.",
+      cta: [{ label: "Book a demo", href: "/contacto" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+);
+
+/* --- contacto ---------------------------------------------------------- */
+await seedComposedPage(
+  "contacto",
+  { es: "Contacto y demos", en: "Contact & demos" },
+  [
+    {
+      blockType: "hero",
+      level: "h1",
+      heading: "Hablemos de tu pista",
+      lead: "Cuéntanos dónde juegas y qué quieres mejorar. Te escribimos en menos de un día laborable.",
+      appearance: { spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "waitlist",
+      heading: "Pide una demo",
+      body: "Sin listas de correo: una conversación sobre tu pista y tu juego, y una demo si encaja.",
+      intent: "demo",
+    },
+    {
+      blockType: "faq",
+      heading: "Preguntas frecuentes",
+      items: [
+        {
+          question: "¿Hacéis demos fuera de España?",
+          answer: richTextP("Vendemos en España, Reino Unido y Emiratos. Cuéntanos tu ciudad y vemos cómo organizarla."),
+        },
+        {
+          question: "¿Qué incluye la garantía?",
+          answer: richTextP("De 24 a 36 meses según gama, con repuestos y soporte desde España. El detalle está en cada ficha."),
+        },
+        {
+          question: "¿Cómo tratáis mis datos?",
+          answer: richTextP("Solo para responder a tu solicitud, como explica la política de privacidad. Nadie queda suscrito a nada."),
+        },
+      ],
+      appearance: { background: "surface" },
+    },
+  ],
+  [
+    {
+      blockType: "hero",
+      level: "h1",
+      heading: "Let's talk about your court",
+      lead: "Tell us where you play and what you want to improve. We write back within one working day.",
+      appearance: { spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "waitlist",
+      heading: "Book a demo",
+      body: "No mailing lists: a conversation about your court and your game, and a demo if it fits.",
+      intent: "demo",
+    },
+    {
+      blockType: "faq",
+      heading: "Frequently asked questions",
+      items: [
+        {
+          question: "Do you run demos outside Spain?",
+          answer: richTextP("We sell in Spain, the UK and the UAE. Tell us your city and we'll see how to arrange it."),
+        },
+        {
+          question: "What does the warranty include?",
+          answer: richTextP("24 to 36 months depending on range, with spare parts and support from Spain. Details on each product page."),
+        },
+        {
+          question: "How do you handle my data?",
+          answer: richTextP("Only to answer your request, as the privacy policy explains. Nobody gets subscribed to anything."),
+        },
+      ],
+      appearance: { background: "surface" },
+    },
+  ],
+);
+
+/* --- sobre-courvia ------------------------------------------------------ */
+await seedComposedPage(
+  "sobre-courvia",
+  { es: "Sobre Courvia", en: "About Courvia" },
+  [
+    {
+      blockType: "hero",
+      level: "h1",
+      eyebrow: "Courvia Sports",
+      heading: "La casa de los robots de pista",
+      lead: "Diseñamos en España robots lanzapelotas para pádel, tenis y pickleball, con una obsesión: que entrenes más y montes menos.",
+      appearance: { spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "featureGrid",
+      heading: "Cómo trabajamos",
+      items: [
+        { title: "Se mide o no se afirma", body: "Cada dato de una ficha sale de un banco de pruebas, no de un folleto." },
+        { title: "Reparable por diseño", body: "Ruedas, motores y baterías se cambian con herramientas normales. Los repuestos son parte del producto." },
+        { title: "La bola manda", body: "La de pádel bota distinto. Cada deporte tiene su calibración, no un adaptador." },
+      ],
+      appearance: { background: "surface" },
+    },
+    {
+      blockType: "quote",
+      quote: "El robot es el sparring del club, no un gadget.",
+      author: "Equipo Courvia",
+      appearance: { align: "center" },
+    },
+    {
+      blockType: "ctaBand",
+      heading: "Conoce los robots",
+      body: "Tres gamas para tres formas de entrenar.",
+      cta: [{ label: "Ver el catálogo", href: "/robots" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+  [
+    {
+      blockType: "hero",
+      level: "h1",
+      eyebrow: "Courvia Sports",
+      heading: "The home of court robots",
+      lead: "We design ball machines in Spain for padel, tennis and pickleball, with one obsession: more drilling, less setup.",
+      appearance: { spaceBlockEnd: "md" },
+    },
+    {
+      blockType: "featureGrid",
+      heading: "How we work",
+      items: [
+        { title: "Measured or not claimed", body: "Every figure on a spec sheet comes from a test bench, not a brochure." },
+        { title: "Repairable by design", body: "Wheels, motors and batteries swap out with ordinary tools. Spare parts are part of the product." },
+        { title: "The ball rules", body: "A padel ball bounces differently. Each sport gets its own calibration, not an adapter." },
+      ],
+      appearance: { background: "surface" },
+    },
+    {
+      blockType: "quote",
+      quote: "The robot is the club's sparring partner, not a gadget.",
+      author: "Team Courvia",
+      appearance: { align: "center" },
+    },
+    {
+      blockType: "ctaBand",
+      heading: "Meet the robots",
+      body: "Three ranges for three ways of training.",
+      cta: [{ label: "Browse the catalogue", href: "/robots" }],
+      appearance: { background: "accent", align: "center", spaceBlockEnd: "none" },
+    },
+  ],
+);
 
 console.log("Content seed complete.");
 process.exit(0);

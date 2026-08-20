@@ -28,6 +28,13 @@ export interface RenderContext {
     intent: "demo" | "waitlist" | "preorder";
     productSlug?: string;
   }) => ReactNode;
+  /**
+   * Region-aware link resolution: content stores REGION-RELATIVE paths
+   * ("/robots"), and the app prefixes the active region — one page serves
+   * every region without baked-in "/es/..." links. Absent = hrefs pass
+   * through untouched.
+   */
+  resolveHref?: (href: string) => string;
 }
 
 export interface SectionDefinition {

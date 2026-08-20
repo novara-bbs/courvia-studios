@@ -13,10 +13,19 @@ export interface NavLink {
   href: string;
 }
 
+export interface NavGroup {
+  label: string;
+  links: NavLink[];
+}
+
 export interface Navigation {
   header: NavLink[];
+  headerCta: NavLink | null;
+  footerGroups: NavGroup[];
   footer: NavLink[];
 }
+
+const EMPTY: Navigation = { header: [], headerCta: null, footerGroups: [], footer: [] };
 
 export async function getNavigation(locale: LocaleId): Promise<Navigation> {
   "use cache";
@@ -29,15 +38,30 @@ export async function getNavigation(locale: LocaleId): Promise<Navigation> {
       locale,
       depth: 0,
       overrideAccess: true,
-    })) as { header?: NavLink[] | null; footer?: NavLink[] | null };
-    return { header: global.header ?? [], footer: global.footer ?? [] };
+    })) as {
+      header?: NavLink[] | null;
+      headerCta?: { label?: string | null; href?: string | null } | null;
+      footerGroups?: Array<{ label: string; links?: NavLink[] | null }> | null;
+      footer?: NavLink[] | null;
+    };
+    const cta = global.headerCta;
+    return {
+      header: global.header ?? [],
+      headerCta:
+        cta?.label && cta?.href ? { label: cta.label, href: cta.href } : null,
+      footerGroups: (global.footerGroups ?? []).map((group) => ({
+        label: group.label,
+        links: group.links ?? [],
+      })),
+      footer: global.footer ?? [],
+    };
   } catch (error) {
     console.error("navigation read failed", error);
     if (
       process.env.NEXT_PHASE === "phase-production-build" &&
       (process.env.DATABASE_URL ?? "") === ""
     ) {
-      return { header: [], footer: [] };
+      return EMPTY;
     }
     throw error;
   }

@@ -197,9 +197,13 @@
 /* ---------------------------------------------------------------- quote */
 
 .cv-quote {
-  max-inline-size: var(--cv-section-measure, 62ch);
+  max-inline-size: 62ch;
   display: grid;
   gap: var(--cv-space-3);
+}
+
+[data-align='center'] .cv-quote {
+  margin-inline: auto;
 }
 
 .cv-quote blockquote p {

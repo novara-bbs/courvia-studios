@@ -1,12 +1,22 @@
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import { Badge, Card, LinkButton } from "@courvia/ui";
+import { SectionList } from "@courvia/sections/render";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
+import { getPage } from "../../../src/content/get-page";
+import { makeRenderContext } from "../../../src/content/render-context";
+import { setRequestRegion } from "../../../src/i18n/request-region";
 import { regionAlternates } from "../../../src/seo/region-alternates";
 
 type PageArgs = { params: Promise<{ region: string }> };
+
+/** The home is CMS content: the page with slug "inicio" (seeded, editable
+ *  block by block in the admin). The static markup below is only the
+ *  fallback for a database without that page — the site never 500s over
+ *  missing marketing content. */
+const HOME_SLUG = "inicio";
 
 export async function generateMetadata({ params }: PageArgs): Promise<Metadata> {
   const { region } = await params;
@@ -17,10 +27,19 @@ export async function generateMetadata({ params }: PageArgs): Promise<Metadata> 
 export default async function HomePage({ params }: PageArgs) {
   const { region } = await params;
   if (!isRegionId(region)) notFound();
+  setRequestRegion(region);
   const { locale } = REGION_DEFINITIONS[region];
 
-  const t = await getTranslations({ locale, namespace: "home" });
+  const page = await getPage(HOME_SLUG, locale);
+  if (page !== null) {
+    return (
+      <main className="page page--composed">
+        <SectionList blocks={page.blocks} ctx={makeRenderContext(false, region)} />
+      </main>
+    );
+  }
 
+  const t = await getTranslations({ locale, namespace: "home" });
   return (
     <main className="page">
       <header className="hero">
