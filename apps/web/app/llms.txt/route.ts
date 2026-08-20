@@ -4,7 +4,7 @@ import {
   DEFAULT_REGION,
   MARKETS,
   MARKET_DEFINITIONS,
-  REGIONS,
+  PUBLISHED_REGIONS,
   REGION_DEFINITIONS,
 } from "@courvia/platform";
 
@@ -44,6 +44,10 @@ function productLine(product: ProductSummary, origin: string): string {
  * retired by ADR-022 and the file kept publishing them to the crawlers that
  * feed LLMs. A hand-written catalogue cannot be kept true, so there is none.
  *
+ * The list is PUBLISHED_REGIONS, not REGIONS, for the same reason the
+ * sitemap's is: this file exists so an assistant can cite us accurately, and
+ * announcing an Arabic home that serves Spanish is a fact it would repeat.
+ *
  * The region labels come from REGION_DEFINITIONS, NOT from next-intl: this is
  * one machine-facing document with no locale of its own, so picking one
  * locale's selector labels ("España · Español") would be arbitrary. What a
@@ -52,7 +56,7 @@ function productLine(product: ProductSummary, origin: string): string {
  */
 export async function GET(): Promise<Response> {
   const origin = siteUrl();
-  const links = REGIONS.map((region) => {
+  const links = PUBLISHED_REGIONS.map((region) => {
     const def = REGION_DEFINITIONS[region];
     return `- [Home — ${def.hreflang}, ${def.currency}](${origin}/${def.id})`;
   }).join("\n");

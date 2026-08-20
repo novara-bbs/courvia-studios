@@ -76,7 +76,7 @@ export const DEFAULT_MARKET: MarketId = "es";
 /* ----------------------------------------------------------------- regions */
 
 /**
- * A region is one (locale, market) pair with its own indexable URL segment.
+ * A region is one (locale, market) pair with its own URL segment.
  * Locale is NOT market: en-gb and en-ae share a language but differ in
  * currency, tax, shipping and SEO, so they are distinct routes rather than a
  * language plus a cookie — a cookie cannot be indexed and would force dynamic
@@ -84,6 +84,28 @@ export const DEFAULT_MARKET: MarketId = "es";
  */
 export const REGIONS = ["es", "en-gb", "en-ae", "ar-ae"] as const;
 export type RegionId = (typeof REGIONS)[number];
+
+/**
+ * Whether a region is something we tell the world exists.
+ *
+ * `published` — the region is real: its content is written in its language,
+ * it enters the sitemap, it is part of the hreflang cluster and it is
+ * indexable.
+ *
+ * `prepared` — the route, the layout, the direction and the message
+ * catalogue exist and are exercised by the build, but the CONTENT does not.
+ * A prepared region is navigable and testable and is declared nowhere: no
+ * sitemap entry, no hreflang annotation, no public selector link, `noindex`
+ * on every page. Declaring `hreflang="ar-AE"` over pages that serve the
+ * Spanish fallback is not an omission, it is a wrong statement — Search
+ * Console reads it as an incorrect language alternate and the penalty
+ * spreads to the sibling regions in the same cluster, which ARE real.
+ *
+ * Publishing is therefore one value in one row of REGION_DEFINITIONS, not a
+ * literal repeated across sitemap, metadata, proxy and chrome.
+ */
+export const REGION_STATUSES = ["published", "prepared"] as const;
+export type RegionStatus = (typeof REGION_STATUSES)[number];
 
 export interface RegionDefinition {
   id: RegionId;
@@ -93,17 +115,101 @@ export interface RegionDefinition {
   dir: Direction;
   /** Value for the `hreflang` attribute. */
   hreflang: string;
+  /**
+   * Declared, never derived. The honest condition would be "is there real
+   * content in this language", but that lives in Postgres and every consumer
+   * of this flag (sitemap, metadata, proxy, chrome) runs at build time,
+   * where asking the database is exactly the silent coupling we are removing
+   * elsewhere. A build-time proxy — "does its message catalogue exist" —
+   * would be worse than useless: the catalogues cover UI chrome only, so a
+   * complete ar.json would flip the region to published while every product
+   * page still rendered the Spanish fallback. Going live is an editorial and
+   * legal decision (ADR-09 puts the AR legal documents first); a human takes
+   * it and writes it down here.
+   */
+  status: RegionStatus;
 }
 
 export const REGION_DEFINITIONS: Record<RegionId, RegionDefinition> = {
-  es: { id: "es", locale: "es", market: "es", currency: "EUR", dir: "ltr", hreflang: "es-ES" },
-  "en-gb": { id: "en-gb", locale: "en", market: "uk", currency: "GBP", dir: "ltr", hreflang: "en-GB" },
-  "en-ae": { id: "en-ae", locale: "en", market: "ae", currency: "AED", dir: "ltr", hreflang: "en-AE" },
-  "ar-ae": { id: "ar-ae", locale: "ar", market: "ae", currency: "AED", dir: "rtl", hreflang: "ar-AE" },
+  es: {
+    id: "es",
+    locale: "es",
+    market: "es",
+    currency: "EUR",
+    dir: "ltr",
+    hreflang: "es-ES",
+    status: "published",
+  },
+  "en-gb": {
+    id: "en-gb",
+    locale: "en",
+    market: "uk",
+    currency: "GBP",
+    dir: "ltr",
+    hreflang: "en-GB",
+    status: "published",
+  },
+  "en-ae": {
+    id: "en-ae",
+    locale: "en",
+    market: "ae",
+    currency: "AED",
+    dir: "ltr",
+    hreflang: "en-AE",
+    status: "published",
+  },
+  // ADR-09: Phase 1 serves the UAE in English; Arabic starts with the legal
+  // and privacy documents and the commercial UI comes later. Until that
+  // content exists this stays `prepared` — flipping this single value is the
+  // whole of "publish Arabic".
+  "ar-ae": {
+    id: "ar-ae",
+    locale: "ar",
+    market: "ae",
+    currency: "AED",
+    dir: "rtl",
+    hreflang: "ar-AE",
+    status: "prepared",
+  },
 };
 
 /** Region served when negotiation finds no better match. */
 export const DEFAULT_REGION: RegionId = "es";
+
+/**
+ * The regions we declare: the sitemap's rows, the hreflang cluster, the
+ * public selector's links. Derived from the table so the two lists cannot
+ * disagree.
+ */
+export const PUBLISHED_REGIONS: readonly RegionId[] = REGIONS.filter(
+  (region) => REGION_DEFINITIONS[region].status === "published",
+);
+
+/** Built and navigable, declared nowhere. */
+export const PREPARED_REGIONS: readonly RegionId[] = REGIONS.filter(
+  (region) => REGION_DEFINITIONS[region].status === "prepared",
+);
+
+export function isPublishedRegion(region: RegionId): boolean {
+  return REGION_DEFINITIONS[region].status === "published";
+}
+
+/**
+ * The region actually offered in place of `region` — itself when published,
+ * otherwise the published region of the same market, and the default region
+ * as the last resort. This is what language negotiation lands on: sending an
+ * Arabic-speaking visitor to /ar-ae would be suggesting a page we have told
+ * crawlers not to index and whose body is in Spanish, so they get /en-ae —
+ * the same market, in the language we do publish (ADR-09).
+ *
+ * Negotiation still only ever SUGGESTS (docs/markets.md §9): a deep link to
+ * a prepared region is never rewritten.
+ */
+export function publishedRegionFor(region: RegionId): RegionId {
+  if (isPublishedRegion(region)) return region;
+  const { market } = REGION_DEFINITIONS[region];
+  return PUBLISHED_REGIONS.find((r) => REGION_DEFINITIONS[r].market === market) ?? DEFAULT_REGION;
+}
 
 /* -------------------------------------------------------- payment providers */
 

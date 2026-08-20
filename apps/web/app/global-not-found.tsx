@@ -7,7 +7,7 @@ import {
   DEFAULT_REGION,
   LOCALES,
   LOCALE_DEFINITIONS,
-  REGIONS,
+  PUBLISHED_REGIONS,
   REGION_DEFINITIONS,
 } from "@courvia/platform";
 import type { Metadata } from "next";
@@ -27,8 +27,8 @@ export const metadata: Metadata = {
 /**
  * Site-wide 404 for URLs outside every region tree. It cannot know the
  * visitor's language (no params here), so it answers in every locale we ship
- * and links every region home. In-region unknown paths never reach this:
- * pages that miss content call notFound() into the region boundary.
+ * and links every PUBLISHED region home. In-region unknown paths never reach
+ * this: pages that miss content call notFound() into the region boundary.
  *
  * The document's own lang/dir/theme come from DEFAULT_REGION rather than from
  * literals — this page must follow the default market, not a frozen guess
@@ -55,7 +55,9 @@ export default function GlobalNotFound() {
             </p>
           ))}
           <nav className="region-selector" aria-label="Regions">
-            {REGIONS.map((region) => (
+            {/* Published regions only: this is a crawlable link block, and
+                a prepared region is one we have stopped announcing. */}
+            {PUBLISHED_REGIONS.map((region) => (
               <a key={region} href={`/${region}`}>
                 /{region}
               </a>

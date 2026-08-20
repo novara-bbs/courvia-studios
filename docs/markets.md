@@ -31,9 +31,15 @@
 ## 9. i18n y multi-región técnica
 
 1. **Un dominio, subrutas por locale** (`courvia.com/es`, `/en-gb`, `/en-ae`, futuro `/ar-ae`) — no ccTLDs (ADR-02). **Locale ≠ market**: UK y EAU comparten EN pero son mercados distintos (moneda, impuestos, envíos, SEO) → rutas separadas.
-2. **`next-intl`** para App Router/RSC (ADR-03). Segmento `[locale]`, middleware de negociación (cookie → Accept-Language → default) que **sugiere, nunca fuerza**; selector país/idioma persistente; **hreflang** + `x-default`.
+2. **`next-intl`** para App Router/RSC (ADR-03). Segmento `[locale]`, middleware de negociación (cookie → Accept-Language → default) que **sugiere, nunca fuerza**; selector país/idioma persistente; **hreflang** + `x-default`. La negociación solo aterriza en regiones **publicadas**: un navegador en árabe va a `/en-ae` —mismo mercado, idioma que sí publicamos— y no a una página marcada `noindex` con el cuerpo en español. Un enlace profundo a `/ar-ae` no se reescribe jamás.
 3. **Payload localization** nativa: `locales: [es (default), en, ar(rtl)]`, `fallback: true`. Bugs conocidos de RTL en admin (issues #10344, #9482) → **fijar `dir` en `<html>` server-side**, no confiar en el default.
 4. **Árabe (ADR-09):** Fase 1 EAU en EN + **documentos legales y privacidad en AR** (obligación e-commerce/PDPL); UI comercial AR en S5+ si hay tracción. Propiedades lógicas CSS desde S0 evitan el refactor.
+
+   **Cómo se implementa (ADR-025).** `RegionDefinition.status` distingue una región **publicada** de una **preparada**. `ar-ae` está preparada: su ruta, su layout RTL, su `dir` y su `ar.json` existen y **los compila el build** —el trabajo de RTL sigue verificado—, pero no la declaramos en ninguna parte. Ni sitemap, ni hreflang (tampoco saliente: hreflang es recíproco y una anotación de ida es el error «no return tags»), ni selector público, ni `llms.txt`, ni el 404 global; y `noindex, nofollow` en todas sus páginas, declarado una vez en el layout de `[region]` porque la indexabilidad es propiedad de la región.
+
+   Servir español bajo `lang="ar"` no era una carencia sino una **afirmación falsa**, y hreflang se evalúa por clúster: el castigo alcanzaba a `en-ae`, que sí es real. **Publicar árabe = cambiar ese único valor** en `packages/platform/src/index.ts`, con los documentos legales primero.
+
+   Nunca `Disallow` en `robots.txt` para esto: una URL bloqueada no se descarga, así que el `noindex` no se lee nunca y la URL puede quedarse indexada sin descripción.
 5. **Precios (ADR-05):** **`Price` objects con `currency_options` EUR/GBP/AED e importes fijos por mercado** (1.290 € no se convierte en 1.312,47 £). Adaptive Pricing solo como respaldo. Payment Element muestra métodos por país; Tabby/Tamara aparte (API propia, ADR-06).
 
 ---
@@ -41,4 +47,4 @@
 ---
 
 ## 14. SEO internacional
-hreflang por locale + `x-default` · sitemaps por locale en robots.txt · schema.org `Product/Offer` con **`priceCurrency` por mercado**, `AggregateRating`, `FAQPage`, `VideoObject` · CWV budget móvil: LCP <2,5 s · INP <200 ms · CLS <0,1 · meta localizada vía Payload.
+hreflang por **región publicada** + `x-default` (ADR-025: una región preparada no se anota) · sitemaps por locale en robots.txt · schema.org `Product/Offer` con **`priceCurrency` por mercado**, `AggregateRating`, `FAQPage`, `VideoObject` · CWV budget móvil: LCP <2,5 s · INP <200 ms · CLS <0,1 · meta localizada vía Payload.

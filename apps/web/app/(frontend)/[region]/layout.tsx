@@ -14,6 +14,7 @@ import { SiteFooter } from "../../../src/chrome/site-footer";
 import { SiteHeader } from "../../../src/chrome/site-header";
 import { setRequestRegion } from "../../../src/i18n/request-region";
 import { OrganizationJsonLd } from "../../../src/seo/organization-json-ld";
+import { regionRobots } from "../../../src/seo/region-alternates";
 import { siteUrl } from "../../../src/seo/site-url";
 import { getSiteTheme } from "../../../src/theme/get-site-theme";
 import { fontClassesFor } from "../fonts";
@@ -23,6 +24,11 @@ type LayoutArgs = {
   params: Promise<{ region: string }>;
 };
 
+// REGIONS, not PUBLISHED_REGIONS: a prepared region keeps prerendering on
+// purpose. Undeclared is not the same as removed — dropping it here would
+// mean nothing in CI ever compiles the RTL tree again, and the direction
+// work would rot silently until the day we tried to publish it. It stays
+// buildable, navigable and noindex.
 export function generateStaticParams() {
   return REGIONS.map((region) => ({ region }));
 }
@@ -31,6 +37,11 @@ export function generateStaticParams() {
 // each PAGE (via regionAlternates): defined in a layout they are inherited
 // verbatim by every nested route, which would declare the region home as the
 // canonical of every deep URL.
+//
+// `robots` is the exception, and inheritance is precisely why it belongs
+// here: indexability is a property of the REGION, so a prepared region
+// (@courvia/platform) turns every page under it noindex in one place
+// instead of once per route — with no way to forget the next route.
 export async function generateMetadata({
   params,
 }: {
@@ -43,6 +54,7 @@ export async function generateMetadata({
 
   return {
     metadataBase: new URL(siteUrl()),
+    robots: regionRobots(region),
     title: { default: t("title"), template: "%s · Courvia" },
     description: t("description"),
     openGraph: {
