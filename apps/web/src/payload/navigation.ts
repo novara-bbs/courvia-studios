@@ -8,6 +8,7 @@ import { revalidateTag } from "next/cache";
 import type { GlobalConfig } from "payload";
 
 import { anyone, isAuthenticated } from "./access";
+import { previewRegion, previewUrl } from "./preview";
 
 const linkFields = [
   { name: "label", type: "text" as const, required: true, localized: true },
@@ -25,7 +26,11 @@ const linkFields = [
 export const Navigation: GlobalConfig = {
   slug: "navigation",
   label: "Navegación",
-  admin: { description: "Menú de cabecera y enlaces de pie. Rutas relativas a la región." },
+  admin: {
+    description:
+      "Menú de cabecera y enlaces de pie. Rutas relativas a la región. «Vista previa» abre el sitio con lo último guardado: este global no tiene borrador.",
+    preview: (_data, { locale }) => previewUrl(`/${previewRegion(locale)}`),
+  },
   access: { read: anyone, update: isAuthenticated },
   hooks: {
     afterChange: [

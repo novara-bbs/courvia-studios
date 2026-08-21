@@ -21,6 +21,9 @@ import { StrikethroughFeatureClient as StrikethroughFeatureClient_e70f5e05f09f93
 import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
+import { CourviaIcon as CourviaIcon_9361be91300a9ff3e063f604559234b1 } from '../../../src/admin/graphics'
+import { CourviaLogo as CourviaLogo_9361be91300a9ff3e063f604559234b1 } from '../../../src/admin/graphics'
+import { CourviaQuickStart as CourviaQuickStart_68a1ead3d1a1bf66c0631610d5cf7a0f } from '../../../src/admin/quick-start'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -48,5 +51,8 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#UnderlineFeatureClient": UnderlineFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
+  "/src/admin/graphics#CourviaIcon": CourviaIcon_9361be91300a9ff3e063f604559234b1,
+  "/src/admin/graphics#CourviaLogo": CourviaLogo_9361be91300a9ff3e063f604559234b1,
+  "/src/admin/quick-start#CourviaQuickStart": CourviaQuickStart_68a1ead3d1a1bf66c0631610d5cf7a0f,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

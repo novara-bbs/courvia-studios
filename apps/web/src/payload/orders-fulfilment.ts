@@ -518,6 +518,13 @@ export const Shipments: CollectionConfig = {
  * Two things: `status` becomes read-only in the admin — it was only ever a
  * description asking nicely not to touch it — and the order shows its
  * shipment, so nobody has to go looking for it in another list.
+ *
+ * `readOnly` is HALF the guarantee and always was: it greys the input and
+ * says nothing to REST or GraphQL. The other half is the field-level
+ * `access.update` denial declared in `commerce.ts`, which those APIs do
+ * respect and which `overrideAccess: true` — every domain write — bypasses.
+ * The assertion below now demands both, so removing either one fails at boot
+ * instead of quietly reopening the back door.
  */
 export function withFulfilment(orders: CollectionConfig): CollectionConfig {
   const fields: Field[] = orders.fields.map((field) => {
@@ -539,6 +546,13 @@ export function withFulfilment(orders: CollectionConfig): CollectionConfig {
   const status = fields.find((field) => "name" in field && field.name === "status");
   if (status === undefined || status.type !== "select" || status.admin?.readOnly !== true) {
     throw new Error("withFulfilment: el campo `status` de orders ya no queda en solo lectura.");
+  }
+  // The panel is not the API. Without this the field is writable by anything
+  // holding an admin session, whatever the greyed-out input suggests.
+  if (status.access?.update === undefined || status.access.create === undefined) {
+    throw new Error(
+      "withFulfilment: el campo `status` de orders no niega escritura a nivel de campo (access.create/update).",
+    );
   }
   fields.push({
     name: "shipment",

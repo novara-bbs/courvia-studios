@@ -13,9 +13,9 @@
  */
 import { LAUNCH_STATUSES, SPEC_EVIDENCE_LEVELS } from "@courvia/commerce-domain";
 import { MARKETS, SPORTS } from "@courvia/platform";
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, Field } from "payload";
 
-import { anyone, isAdmin, isAuthenticated } from "./access";
+import { anyone, hiddenUnlessAdmin, isAdmin, isAuthenticated } from "./access";
 import { catalogHooks, revalidateCatalog } from "./catalog-revalidation";
 
 /** True once a document is (or has ever been) publicly visible. Draft
@@ -27,8 +27,34 @@ function affectsPublished(doc: { _status?: unknown }, previousDoc?: { _status?: 
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/**
+ * The SKU a price or a stock row is about, borrowed from its variant.
+ *
+ * Both collections titled themselves by `id`, so every list and every
+ * relationship selector offered a column of database numbers. A stored copy
+ * of the SKU would be a migration AND a value that goes stale the day
+ * someone renames one; a `virtual: true` field computed in a hook cannot be
+ * a title at all (Payload 3.88 refuses it outright — "a virtual field can be
+ * used as the title only when linked to a relationship"). Linked to the
+ * relationship it already has, it is neither: no column, no drift, and
+ * Payload resolves it through the join.
+ */
+function skuFromVariant(): Field {
+  return {
+    name: "sku",
+    type: "text",
+    label: "SKU",
+    virtual: "variant.sku",
+    admin: {
+      readOnly: true,
+      description: "De la variante enlazada. No es una columna: renombrar el SKU lo cambia aquí también.",
+    },
+  };
+}
+
 export const Brands: CollectionConfig = {
   slug: "brands",
+  labels: { singular: "Marca", plural: "Marcas" },
   admin: {
     useAsTitle: "name",
     group: "Catálogo",
@@ -57,6 +83,7 @@ export const Brands: CollectionConfig = {
 
 export const Categories: CollectionConfig = {
   slug: "categories",
+  labels: { singular: "Categoría", plural: "Categorías" },
   admin: {
     useAsTitle: "title",
     group: "Catálogo",
@@ -97,6 +124,7 @@ export const Categories: CollectionConfig = {
 
 export const Products: CollectionConfig = {
   slug: "products",
+  labels: { singular: "Producto", plural: "Productos" },
   admin: {
     useAsTitle: "title",
     group: "Catálogo",
@@ -217,6 +245,7 @@ export const Products: CollectionConfig = {
 
 export const Variants: CollectionConfig = {
   slug: "variants",
+  labels: { singular: "Variante", plural: "Variantes" },
   admin: {
     useAsTitle: "sku",
     group: "Catálogo",
@@ -226,7 +255,13 @@ export const Variants: CollectionConfig = {
   // Server-only: a variant has no draft state of its own, so public REST
   // would leak the SKUs/config of variants belonging to draft products. The
   // storefront reads variants through the adapter (Local API, overrideAccess).
-  access: { read: isAuthenticated, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
+  //
+  // WRITES ARE ADMIN-ONLY. A SKU is the join between the catalogue, the price
+  // table, the stock table and every order line ever written: renaming one
+  // does not rename the copies orders keep, and creating one is opening a
+  // sellable configuration. An editor writes the product page; the SKU that
+  // page sells is not editorial.
+  access: { read: isAuthenticated, create: isAdmin, update: isAdmin, delete: isAdmin },
   hooks: catalogHooks("product"),
   fields: [
     { name: "product", type: "relationship", relationTo: "products", required: true, index: true },
@@ -257,19 +292,25 @@ export const Variants: CollectionConfig = {
 
 export const Prices: CollectionConfig = {
   slug: "prices",
+  labels: { singular: "Precio", plural: "Precios" },
   admin: {
-    useAsTitle: "id",
+    useAsTitle: "sku",
     group: "Catálogo",
-    defaultColumns: ["variant", "market", "amount", "active"],
+    defaultColumns: ["sku", "market", "amount", "compareAtAmount", "active"],
+    // Prices are neither editorial nor readable at a glance, and an editor
+    // who can open the list is an editor who will eventually try to fix a
+    // price in it. `hidden` removes the nav entry AND the routes.
+    hidden: hiddenUnlessAdmin,
     description:
       "SOLO SERVIDOR. Importes en unidades menores (129000 = 1.290,00). La moneda la fija el mercado en código: nunca hay conversión en runtime (ADR-05).",
   },
-  // Server-only: never exposed through public REST/GraphQL. The storefront
+  // Server-only, and admin-only to write: a price is money. The storefront
   // reads prices through the CommerceService adapter (Local API).
-  access: { read: isAuthenticated, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
+  access: { read: isAuthenticated, create: isAdmin, update: isAdmin, delete: isAdmin },
   hooks: catalogHooks("variant"),
   fields: [
     { name: "variant", type: "relationship", relationTo: "variants", required: true, index: true },
+    skuFromVariant(),
     { name: "market", type: "select", required: true, options: [...MARKETS] },
     {
       name: "amount",
@@ -303,13 +344,17 @@ export const Prices: CollectionConfig = {
 
 export const Inventory: CollectionConfig = {
   slug: "inventory",
+  labels: { singular: "Existencias", plural: "Existencias" },
   admin: {
-    useAsTitle: "id",
+    useAsTitle: "sku",
     group: "Catálogo",
-    defaultColumns: ["variant", "qtyOnHand", "qtyCommitted"],
+    defaultColumns: ["sku", "qtyOnHand", "qtyCommitted"],
+    // Same reasoning as Prices: `qtyCommitted` is written by the state
+    // machine after `paid`, and a hand edit here oversells or hides stock.
+    hidden: hiddenUnlessAdmin,
     description: "SOLO SERVIDOR. Disponible = en mano − comprometido; se compromete solo tras `paid`.",
   },
-  access: { read: isAuthenticated, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
+  access: { read: isAuthenticated, create: isAdmin, update: isAdmin, delete: isAdmin },
   hooks: catalogHooks("variant"),
   fields: [
     {
@@ -320,6 +365,7 @@ export const Inventory: CollectionConfig = {
       unique: true,
       index: true,
     },
+    skuFromVariant(),
     { name: "qtyOnHand", type: "number", required: true, min: 0, defaultValue: 0 },
     { name: "qtyCommitted", type: "number", required: true, min: 0, defaultValue: 0 },
   ],
@@ -327,6 +373,7 @@ export const Inventory: CollectionConfig = {
 
 export const Leads: CollectionConfig = {
   slug: "leads",
+  labels: { singular: "Lead", plural: "Leads" },
   admin: {
     useAsTitle: "email",
     group: "Comercio",

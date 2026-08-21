@@ -109,6 +109,7 @@ const validateTo: TextFieldSingleValidation = (value) => {
 
 export const Redirects: CollectionConfig = {
   slug: "redirects",
+  labels: { singular: "Redirección", plural: "Redirecciones" },
   admin: {
     useAsTitle: "from",
     group: "Contenido",

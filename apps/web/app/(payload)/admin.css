@@ -1,0 +1,234 @@
+/**
+ * The panel's Courvia layer. Deliberately small.
+ *
+ * Two colour systems meet here and they do different jobs:
+ *
+ * - `--theme-*` are PAYLOAD's, and they flip with the panel's own
+ *   light/dark switch. Anything that has to stay legible in both — text,
+ *   surfaces, borders — reads from them. Hardcoding a Courvia text colour
+ *   would look right in one theme and be unreadable in the other.
+ * - `--cv-*` are OURS (packages/design-tokens, imported in layout.tsx).
+ *   They carry the brand: the mark's navy and volt, the spacing scale, the
+ *   radii. The volt pair `accent` / `accent-contrast` is the one colour
+ *   combination that works on either panel theme, because it brings its own
+ *   background.
+ *
+ * Nothing here is layered, so it wins over Payload's `@layer payload-default`
+ * without a specificity race.
+ */
+
+/* ── The mark ─────────────────────────────────────────────────────────── */
+
+/*
+ * Colours as classes rather than SVG attributes: same drawing as
+ * app/icon.svg, but expressed in tokens, which is what lets stylelint check
+ * it and keeps src/admin/graphics.tsx free of raw hex.
+ */
+.cv-mark {
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.cv-mark__plate {
+  fill: var(--cv-color-bg);
+}
+
+.cv-mark__arc {
+  fill: none;
+  stroke: var(--cv-color-accent);
+}
+
+.cv-mark__ball {
+  fill: var(--cv-color-accent);
+}
+
+/* ── Login ────────────────────────────────────────────────────────────── */
+
+.cv-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+}
+
+.cv-logo .cv-mark {
+  block-size: 2.75rem;
+  inline-size: 2.75rem;
+  flex-shrink: 0;
+}
+
+.cv-logo__word {
+  font-family: var(--cv-admin-font-display), var(--font-body);
+  font-size: var(--cv-font-size-2xl);
+  font-weight: 700;
+  line-height: var(--cv-font-lineHeight-tight);
+  letter-spacing: -0.01em;
+  color: var(--theme-text);
+}
+
+/* ── Dashboard band ───────────────────────────────────────────────────── */
+
+.cv-panel {
+  margin-block-end: var(--cv-space-12);
+  padding: var(--cv-space-8);
+  border: 1px solid var(--theme-elevation-150);
+  /* The one piece of chrome that says whose panel this is. */
+  border-block-start: 3px solid var(--cv-color-accent);
+  border-radius: var(--cv-radius-md);
+  background: var(--theme-elevation-50);
+}
+
+.cv-panel__eyebrow {
+  display: inline-block;
+  margin: 0;
+  padding-block: var(--cv-space-1);
+  padding-inline: var(--cv-space-3);
+  border-radius: var(--cv-radius-pill);
+  background: var(--cv-color-accent);
+  color: var(--cv-color-accent-contrast);
+  font-family: var(--font-mono);
+  font-size: var(--cv-font-size-xs);
+  letter-spacing: var(--cv-font-tracking-wide);
+  text-transform: uppercase;
+}
+
+.cv-panel__heading {
+  margin-block: var(--cv-space-4) var(--cv-space-2);
+  font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
+  color: var(--theme-text);
+}
+
+.cv-panel__lead {
+  max-inline-size: var(--cv-measure-prose);
+  margin-block: 0;
+  color: var(--theme-elevation-600);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+.cv-panel__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--cv-space-4);
+  margin-block-start: var(--cv-space-6);
+}
+
+.cv-panel-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-2);
+  padding: var(--cv-space-4);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: var(--cv-radius-sm);
+  background: var(--theme-elevation-0);
+  color: var(--theme-text);
+  text-decoration: none;
+  transition: border-color var(--cv-motion-duration-fast) var(--cv-motion-easing-standard);
+}
+
+.cv-panel-card:hover {
+  border-color: var(--theme-elevation-400);
+}
+
+.cv-panel-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-2);
+}
+
+.cv-panel-card__title {
+  font-weight: 600;
+}
+
+.cv-panel-card__chip {
+  padding-block: 2px;
+  padding-inline: var(--cv-space-2);
+  border-radius: var(--cv-radius-pill);
+  background: var(--theme-elevation-100);
+  color: var(--theme-elevation-800);
+  font-family: var(--font-mono);
+  font-size: var(--cv-font-size-xs);
+  white-space: nowrap;
+}
+
+/*
+ * `--theme-elevation-600`, not 500, and the difference is not taste: 500 is
+ * rgb(128,128,128), which is 3.9:1 on the light panel's white surface and
+ * fails AA for body text. 600 clears it in both panel themes.
+ */
+.cv-panel-card__hint {
+  color: var(--theme-elevation-600);
+  font-size: var(--cv-font-size-sm);
+  line-height: var(--cv-font-lineHeight-body);
+}
+
+/* ── Recently edited ──────────────────────────────────────────────────── */
+
+.cv-panel__recent-title {
+  margin-block: var(--cv-space-8) var(--cv-space-2);
+  font-size: var(--cv-font-size-md);
+  color: var(--theme-elevation-600);
+}
+
+.cv-panel__recent {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block-start: 1px solid var(--theme-elevation-150);
+}
+
+.cv-panel__recent-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: var(--cv-space-4);
+  padding-block: var(--cv-space-3);
+  border-block-end: 1px solid var(--theme-elevation-150);
+  color: var(--theme-text);
+  text-decoration: none;
+}
+
+.cv-panel__recent-link:hover .cv-panel__recent-name {
+  text-decoration: underline;
+}
+
+.cv-panel__recent-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cv-panel__recent-slug,
+.cv-panel__recent-date {
+  color: var(--theme-elevation-600);
+  font-family: var(--font-mono);
+  font-size: var(--cv-font-size-xs);
+  white-space: nowrap;
+  /*
+   * Isolated so neither of these can be reordered by the text beside them.
+   * Without it, in the Arabic panel `/tecnologia` renders as `tecnologia/`:
+   * a leading slash is a bidi-neutral character and takes the paragraph's
+   * direction, so it jumps to the other end of the word.
+   */
+  unicode-bidi: isolate;
+}
+
+/*
+ * And a URL path is LTR in every language, so the slug declares it. The date
+ * does not: `Intl` already formats it for the panel's language, Arabic
+ * included, and forcing a direction on it would undo that.
+ */
+.cv-panel__recent-slug {
+  direction: ltr;
+}
+
+@media (max-width: 680px) {
+  .cv-panel {
+    padding: var(--cv-space-4);
+  }
+
+  .cv-panel__recent-slug {
+    display: none;
+  }
+}

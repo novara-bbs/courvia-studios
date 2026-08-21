@@ -13,7 +13,7 @@ import { MARKETS, PAYMENT_PROVIDERS } from "@courvia/platform";
 import { ORDER_STATUSES, PAYMENT_EVENT_TYPES, SIDE_EFFECT_EXECUTION } from "@courvia/commerce-domain";
 import type { CollectionConfig, Field } from "payload";
 
-import { isAdmin } from "./access";
+import { isAdmin, nobodyWrites } from "./access";
 
 const minorUnits = (value: number | null | undefined): true | string =>
   value === null || value === undefined || Number.isInteger(value)
@@ -35,8 +35,20 @@ const serverOnly = { read: isAdmin, create: isAdmin, update: isAdmin, delete: is
 
 export const Orders: CollectionConfig = {
   slug: "orders",
+  labels: { singular: "Pedido", plural: "Pedidos" },
   admin: {
-    useAsTitle: "id",
+    /**
+     * `id` titled every order in every list and every relationship selector,
+     * so picking the order a shipment belongs to meant choosing between "12"
+     * and "13". The customer's email address is the one field on an order
+     * that a human recognises; the number stays as the first column, so the
+     * list shows both. A composed "#12 · ana@… · 1.290,00 €" would read better
+     * still and is not possible: it would be either a stored column (a
+     * migration, and a copy that goes stale) or a computed `virtual: true`
+     * field, which Payload 3.88 refuses as a title unless it is linked to a
+     * relationship — and an order has no relationship that names it.
+     */
+    useAsTitle: "email",
     group: "Comercio",
     defaultColumns: ["id", "status", "market", "totalAmount", "email", "createdAt"],
     description:
@@ -51,6 +63,17 @@ export const Orders: CollectionConfig = {
       defaultValue: "draft",
       index: true,
       options: [...ORDER_STATUSES],
+      /**
+       * The description used to read "only the state machine moves this. Do
+       * not edit" — and the field was writable by anyone who could reach the
+       * REST API, which for a collection whose access is `isAdmin` means
+       * every admin, forever, one PATCH away from a paid order that was
+       * never paid. `admin.readOnly` (added by `withFulfilment`) greys the
+       * input; this closes the API. Both are needed, and neither costs the
+       * domain anything: every legitimate write runs `overrideAccess: true`,
+       * which bypasses field access by design.
+       */
+      access: { create: nobodyWrites, update: nobodyWrites },
       admin: { description: "Solo lo mueve la máquina de estados. No editar." },
     },
     { name: "market", type: "select", required: true, options: [...MARKETS] },
@@ -112,6 +135,7 @@ export const Orders: CollectionConfig = {
 
 export const Payments: CollectionConfig = {
   slug: "payments",
+  labels: { singular: "Pago", plural: "Pagos" },
   admin: {
     useAsTitle: "providerEventId",
     group: "Comercio",
@@ -135,6 +159,7 @@ export const Payments: CollectionConfig = {
 
 export const Outbox: CollectionConfig = {
   slug: "outbox",
+  labels: { singular: "Efecto pendiente", plural: "Bandeja de salida" },
   admin: {
     useAsTitle: "effect",
     group: "Comercio",
@@ -180,16 +205,26 @@ export const Outbox: CollectionConfig = {
 
 export const Returns: CollectionConfig = {
   slug: "returns",
+  labels: { singular: "Devolución", plural: "Devoluciones" },
   admin: {
-    useAsTitle: "id",
+    // Same problem as Orders, but a return HAS a relationship that names it:
+    // the order it belongs to. Linked virtual field, no column, no drift.
+    useAsTitle: "customer",
     group: "Comercio",
-    defaultColumns: ["order", "status", "reason", "createdAt"],
+    defaultColumns: ["id", "customer", "order", "status", "reason", "createdAt"],
     description:
       "SOLO SERVIDOR. RMA: la aprobación humana del reembolso (refund.approved) es el ÚNICO disparador que ordena ejecutar un reembolso en la pasarela.",
   },
   access: serverOnly,
   fields: [
     { name: "order", type: "relationship", relationTo: "orders", required: true, index: true },
+    {
+      name: "customer",
+      type: "text",
+      label: "Cliente",
+      virtual: "order.email",
+      admin: { readOnly: true, description: "Del pedido enlazado. No es una columna." },
+    },
     {
       name: "status",
       type: "select",

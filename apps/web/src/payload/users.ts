@@ -13,6 +13,7 @@ import { isAdmin, isAdminOrSelf } from "./access";
 export const Users: CollectionConfig = {
   slug: "users",
   auth: true,
+  labels: { singular: "Cuenta", plural: "Cuentas" },
   admin: {
     group: "Sistema",
     useAsTitle: "email",
