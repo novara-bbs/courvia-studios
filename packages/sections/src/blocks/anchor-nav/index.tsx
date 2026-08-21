@@ -60,10 +60,22 @@ export const anchorNav = defineSection({
           max: 60,
           row: "item",
           label: { es: "Sección de destino", en: "Target section", ar: "القسم الهدف" },
+          /**
+           * Este texto decía «el nombre del bloque, tal cual», y era una
+           * trampa: el renderer emite `href={"#" + item.anchor}` SIN
+           * slugificar, así que un editor que seguía la instrucción al pie
+           * de la letra escribía `Especificaciones` y obtenía `#Especificaciones`
+           * contra un id que es `especificaciones`. Un enlace roto, publicado,
+           * siguiendo la ayuda del propio campo.
+           *
+           * Ahora dice lo que hay que escribir de verdad. Y al publicar, el
+           * `beforeValidate` de Pages rechaza un ancla que ningún bloque
+           * produce y enumera las disponibles, así que no hay que adivinarlo.
+           */
           help: {
-            es: "El nombre que le diste al bloque de destino, tal cual: el ancla se deriva de él.",
-            en: "The name you gave the target block, verbatim: the anchor is derived from it.",
-            ar: "الاسم الذي أعطيته للكتلة الهدف حرفيًا: يُشتق منه المرساة.",
+            es: "En minúsculas y con guiones, como aparece en la lista al publicar: el nombre del bloque «Specs QuickDock» da specs-quickdock.",
+            en: "Lowercase with hyphens, as listed when you publish: a block named “Specs QuickDock” gives specs-quickdock.",
+            ar: "بأحرف صغيرة وشرطات، كما تظهر في القائمة عند النشر: كتلة اسمها «Specs QuickDock» تعطي specs-quickdock.",
           },
         },
       },

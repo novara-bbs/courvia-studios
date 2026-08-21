@@ -426,7 +426,7 @@ export interface Page {
             items: {
               text: string;
               /**
-               * The name you gave the target block, verbatim: the anchor is derived from it.
+               * Lowercase with hyphens, as listed when you publish: a block named “Specs QuickDock” gives specs-quickdock.
                */
               anchor: string;
               id?: string | null;

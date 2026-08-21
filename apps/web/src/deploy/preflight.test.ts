@@ -14,7 +14,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const appDir = join(import.meta.dirname, "..", "..");
-const script = join(appDir, "scripts", "deploy-preflight.mjs");
+// En `scripts/` de la raíz, junto a `vercel-root-guard.mjs`: es la convención
+// del repositorio para los guiones sueltos de despliegue, y además los deja
+// fuera de lo que recorre dependency-cruiser — un `.mjs` que nadie importa
+// dentro de `apps/` dispara su regla `no-orphans`, con razón.
+const script = join(appDir, "..", "..", "scripts", "deploy-preflight.mjs");
 
 /** Lanza el preflight con un entorno construido desde cero. */
 function run(overrides: Record<string, string>): { code: number; stderr: string } {

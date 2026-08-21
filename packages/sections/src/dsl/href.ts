@@ -73,3 +73,65 @@ export const HREF_ERROR: LocalizedText = {
   en: "Invalid destination. Use a path starting with / (e.g. /robots/tempo-r1), an anchor (#specs) or a full address (https://, mailto:, tel:). No spaces.",
   ar: "وجهة غير صالحة. استخدم مسارًا يبدأ بـ / (مثل ‎/robots/tempo-r1‎) أو مرساة (‎#specs‎) أو عنوانًا كاملًا (‎https://‎ أو ‎mailto:‎ أو ‎tel:‎). بدون مسافات.",
 };
+
+/**
+ * ---------------------------------------------------------------------------
+ * The other destination: an anchor INSIDE the page.
+ * ---------------------------------------------------------------------------
+ *
+ * `anchorNav` stores a bare fragment ("especificaciones") and the renderer
+ * turns it into `#especificaciones`. What it has to match is the id the
+ * renderer derives from ANOTHER block's Payload Block Name, and that
+ * derivation is this function.
+ *
+ * It lives here, next to the authoring guard for the other kind of
+ * destination, because two callers need the very same string: the renderer,
+ * which emits the id, and the CMS layer, which refuses an index pointing at
+ * an id no block on the page will emit. A second, slightly different
+ * slugifier written on the CMS side would BE the bug it was written to
+ * catch — an anchor accepted at save time and dead in the markup.
+ */
+
+/**
+ * A URL fragment from an editor-written label. Accents are folded (NFD +
+ * strip marks) because Spanish labels carry them, and everything outside
+ * [a-z0-9-] collapses to a single dash — an id must survive being typed
+ * into a link by hand.
+ */
+export function anchorId(label: string): string | undefined {
+  const slug = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug === "" ? undefined : slug;
+}
+
+/**
+ * Why an index entry was refused, in the panel's three languages.
+ *
+ * Two sentences, not one, because the two situations need different advice
+ * and the second is the likely one. `unknown` happens when the page HAS
+ * named blocks and the entry names none of them: the fix is to copy one of
+ * the anchors listed. `unnamed` happens when nothing on the page has a Block
+ * Name at all — telling that editor "anchor not found" would send them
+ * hunting for a typo in a list that does not exist, when what they have to
+ * do is name the target block.
+ *
+ * `{anchor}` and `{available}` are filled by the caller. They are the only
+ * two placeholders; a translation that drops one loses information but
+ * still reads.
+ */
+export const ANCHOR_ERROR: { unknown: LocalizedText; unnamed: LocalizedText } = {
+  unknown: {
+    es: "El índice apunta a «{anchor}» y ningún bloque de esta página produce esa ancla. Disponibles: {available}.",
+    en: "The index points at “{anchor}” and no block on this page produces that anchor. Available: {available}.",
+    ar: "يشير الفهرس إلى «{anchor}» ولا تنتج أي كتلة في هذه الصفحة هذه المرساة. المتاح: {available}.",
+  },
+  unnamed: {
+    es: "El índice apunta a «{anchor}», pero ningún bloque de esta página tiene nombre todavía: el ancla se deriva del nombre del bloque de destino, así que ponle uno.",
+    en: "The index points at “{anchor}”, but no block on this page has a name yet: the anchor is derived from the target block's name, so give it one.",
+    ar: "يشير الفهرس إلى «{anchor}»، لكن لا تحمل أي كتلة في هذه الصفحة اسمًا بعد: تُشتق المرساة من اسم الكتلة الهدف، فامنحها اسمًا.",
+  },
+};

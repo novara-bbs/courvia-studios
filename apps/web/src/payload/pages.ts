@@ -1,8 +1,10 @@
 import { STARTERS, starterBlockTypes } from "@courvia/sections/starters";
-import { SECTIONS } from "@courvia/sections/registry";
+import { ANCHOR_ERROR, SECTIONS, anchorId } from "@courvia/sections/registry";
+import type { Fields } from "@courvia/sections/registry";
 import type { LocalizedText } from "@courvia/appearance";
 import { revalidateTag } from "next/cache";
-import type { CollectionConfig, PayloadRequest } from "payload";
+import { ValidationError } from "payload";
+import type { CollectionBeforeValidateHook, CollectionConfig, PayloadRequest } from "payload";
 
 import { isAdmin, isAuthenticated } from "./access";
 import { buildBlocks } from "./blocks";
@@ -100,6 +102,161 @@ async function freeSlug(base: string, req: PayloadRequest): Promise<string> {
 }
 
 /**
+ * ---------------------------------------------------------------------------
+ * A page index that points nowhere is refused at PUBLISH.
+ * ---------------------------------------------------------------------------
+ *
+ * `anchorNav` stores a bare fragment per row and the renderer emits
+ * `href="#<fragment>"`. What that has to match is the id the renderer derives
+ * from another block's Payload Block Name — `anchorId(blockName)`, the very
+ * function this file imports rather than re-implements. Nothing checked the
+ * two against each other: an index pointing at `especificaciones` while the
+ * target block is called «Specs» published green, rendered a link, and did
+ * nothing when clicked. It is the least diagnosable failure in the CMS,
+ * because every layer involved is behaving correctly.
+ *
+ * WHY PUBLISH AND NOT SAVE, which is the real decision here.
+ *
+ * A collection `beforeValidate` runs on EVERY write — including autosave,
+ * which this collection fires every 375 ms while an editor types, and
+ * including it regardless of `versions.drafts.validate`, because that flag
+ * governs FIELD validation and this is a collection hook. So a hook that
+ * threw on any inconsistency would not be "an early error": it would be a
+ * refused autosave three times a second, and a refused autosave is unsaved
+ * work. The editor would lose the paragraph they were writing over a link
+ * that nobody outside the panel can click yet.
+ *
+ * It would also be wrong about the workflow. Building the page IS the
+ * inconsistent state: you drop the index in, then you add and name the
+ * sections it points at, or the other way round. Requiring both halves to
+ * agree at every intermediate save inverts the order of the work.
+ *
+ * A draft harms nobody — anonymous read is filtered to `_status: published`
+ * and `get-page.ts` looks pages up the same way — so the moment worth
+ * defending is the one where the page becomes public. That moment is a
+ * deliberate click on Publish, the editor is looking at the document, and
+ * the message below can name both the offending anchor and the ones that
+ * exist. The cost, stated plainly: the refusal arrives later than the
+ * mistake, which is why it carries the field path and the list of available
+ * anchors instead of just saying no.
+ */
+
+/** Sections that store an anchor at all, from the registry rather than from
+ *  memory: today only `anchorNav`, and a second one would be covered without
+ *  anybody editing this file. Renaming the field is what breaks it, and that
+ *  is a rename the section's own contract already refuses to hide. */
+function declaresAnchor(fields: Fields): boolean {
+  return Object.entries(fields).some(
+    ([name, spec]) => name === "anchor" || (spec.kind === "array" && declaresAnchor(spec.of)),
+  );
+}
+
+const ANCHOR_SECTIONS = new Set(
+  Object.values(SECTIONS)
+    .filter((section) => declaresAnchor(section.fields))
+    .map((section) => section.type),
+);
+
+/**
+ * Every `anchor` string inside one block instance, with the path the panel's
+ * form uses for it (`blocks.2.items.1.anchor`) so the refusal lands on the
+ * row that caused it rather than on the document.
+ *
+ * It walks the VALUE, not the field DSL, so a reshuffle of `anchorNav`'s rows
+ * cannot quietly take the check out of service. It only ever runs on blocks
+ * in ANCHOR_SECTIONS, which is what keeps it from wandering into a rich-text
+ * document looking for a key called `anchor`.
+ */
+function anchorEntries(value: unknown, path: string): { anchor: string; path: string }[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => anchorEntries(entry, `${path}.${String(index)}`));
+  }
+  if (typeof value !== "object" || value === null) return [];
+  return Object.entries(value).flatMap(([key, entry]) =>
+    key === "anchor" && typeof entry === "string"
+      ? [{ anchor: entry, path: `${path}.anchor` }]
+      : anchorEntries(entry, `${path}.${key}`),
+  );
+}
+
+/** The blocks this write leaves on the page. A publish that carries only
+ *  `_status` (the Local API's usual shape) changes no content, so the stored
+ *  stack is the one being published. */
+function blocksAfterWrite(data: unknown, originalDoc: unknown): unknown[] {
+  const incoming = (data as { blocks?: unknown } | undefined)?.blocks;
+  if (Array.isArray(incoming)) return incoming;
+  const stored = (originalDoc as { blocks?: unknown } | undefined)?.blocks;
+  return Array.isArray(stored) ? stored : [];
+}
+
+/**
+ * True when the document is public once this write lands.
+ *
+ * `_status` in `data` is authoritative when present, and Payload puts it
+ * there itself for every draft save (`if (isSavingDraft) data._status =
+ * 'draft'`, in both the create and the update operation), so `draft: true`
+ * always reaches here as a draft even from the Local API, which sets no
+ * query. Absent, the document keeps the status it had: updating an already
+ * published page without asking for a draft publishes it again.
+ */
+function publishesDocument(data: unknown, originalDoc: unknown): boolean {
+  const incoming = (data as { _status?: unknown } | undefined)?._status;
+  if (typeof incoming === "string") return incoming === "published";
+  return (originalDoc as { _status?: unknown } | undefined)?._status === "published";
+}
+
+/**
+ * The refusal, in the language of the PANEL — `req.i18n.language`, not
+ * `req.locale`, for the same reason `hrefValidate` reads it (blocks.ts): an
+ * editor filling in the Arabic version of a page with the panel in Spanish
+ * must read the refusal in Spanish.
+ */
+function anchorMessage(anchor: string, available: string[], language: string | undefined): string {
+  const copy = available.length === 0 ? ANCHOR_ERROR.unnamed : ANCHOR_ERROR.unknown;
+  const text =
+    (language !== undefined && language in copy
+      ? copy[language as keyof LocalizedText]
+      : undefined) ?? copy.en;
+  return text.replace("{anchor}", anchor).replace("{available}", available.join(", "));
+}
+
+export const refuseDeadAnchorsOnPublish: CollectionBeforeValidateHook = ({
+  data,
+  originalDoc,
+  req,
+}) => {
+  if (!publishesDocument(data, originalDoc)) return data;
+
+  const blocks = blocksAfterWrite(data, originalDoc);
+  const available = [
+    ...new Set(
+      blocks.flatMap((block) => {
+        const name = (block as { blockName?: unknown }).blockName;
+        const id = typeof name === "string" ? anchorId(name) : undefined;
+        return id === undefined ? [] : [id];
+      }),
+    ),
+  ];
+
+  const errors = blocks.flatMap((block, index) => {
+    const type = (block as { blockType?: unknown }).blockType;
+    if (typeof type !== "string" || !ANCHOR_SECTIONS.has(type)) return [];
+    return anchorEntries(block, `blocks.${String(index)}`)
+      // An empty anchor is `required`'s business. Answering "points at ''"
+      // on a row the editor has not filled in yet would be a worse error in
+      // the same place as a real one.
+      .filter((entry) => entry.anchor !== "" && !available.includes(entry.anchor))
+      .map((entry) => ({
+        message: anchorMessage(entry.anchor, available, req.i18n.language),
+        path: entry.path,
+      }));
+  });
+
+  if (errors.length > 0) throw new ValidationError({ collection: "pages", errors, req });
+  return data;
+};
+
+/**
  * Editable pages: a slug plus a stack of registered sections. The layout is
  * shared across locales; the text fields inside each block are localized —
  * one structure, three languages.
@@ -156,6 +313,7 @@ export const Pages: CollectionConfig = {
     delete: isAdmin,
   },
   hooks: {
+    beforeValidate: [refuseDeadAnchorsOnPublish],
     afterChange: [
       // Renaming a published page writes its own redirect, in the page's own
       // transaction (src/payload/page-redirects.ts). It runs BEFORE the
