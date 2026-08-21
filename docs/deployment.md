@@ -75,15 +75,27 @@ Un único tick programado en `apps/web/vercel.json` hace dos trabajos:
 | Cosa | Valor | Dónde |
 |---|---|---|
 | Ruta | `/next/cron` | `apps/web/app/(frontend)/next/cron/route.ts` |
-| Cadencia | `*/5 * * * *` | `apps/web/vercel.json` (`crons`) |
+| Cadencia | `0 4 * * *` — **una vez al día, decisión consciente** | `apps/web/vercel.json` (`crons`) |
 | Autenticación | `Authorization: Bearer $CRON_SECRET` | la pone Vercel; sin `CRON_SECRET` la ruta responde **503** |
 | Techo de función | `maxDuration = 60` s | la ruta; el despachador para de reclamar a los 45 s |
 
-**La cadencia depende del plan.** Vercel Hobby admite como mucho 2 crons y
-solo una vez al día; con esa cadencia el correo de confirmación de un lead
-tardaría hasta 24 h. Si el proyecto está en Hobby: o se sube a Pro, o se
-cambia `schedule` a algo diario **a sabiendas**. Un `schedule` que el plan no
-admite hace fallar el despliegue, así que no pasa desapercibido.
+**La cadencia depende del plan, y hoy es diaria a propósito.** Vercel Hobby
+admite como mucho 2 crons y solo una vez al día, y un `schedule` más fino no
+se ejecuta despacio: **hace fallar el despliegue** al validar `vercel.json`,
+después de que el build ya haya salido bien. Es la misma forma de avería que
+el Root Directory, una capa más abajo.
+
+Elegido el 21 ago 2026: `0 4 * * *` para que despliegue en Hobby. **El coste
+es real y hay que saberlo**: quien rellena la waitlist —la única conversión
+del sitio— puede esperar hasta 24 h su confirmación, y el stock que reserva
+un checkout muerto tarda lo mismo en liberarse. Mientras esto siga así, el
+puente es dispararlo a mano (abajo).
+
+**Al pasar a Pro**: subir el `schedule` y cambiar en el mismo commit el test
+`keeps a cadence the current plan accepts` de `deploy-contract.test.ts`. Que
+ese test falle es el objetivo — significa que alguien está tomando una
+decisión que cuesta dinero, y conviene que lo sepa. Comprobado que muerde:
+con `*/5 * * * *` el test señala el campo del minuto por su nombre.
 
 `apps/web/src/deploy/deploy-contract.test.ts` comprueba que la entrada existe,
 que apunta a un fichero de ruta que existe de verdad, que la ruta pide

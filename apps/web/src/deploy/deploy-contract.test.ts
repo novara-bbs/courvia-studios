@@ -144,9 +144,28 @@ describe("the maintenance cron is wired and authenticated", () => {
 
   it("declares the tick", () => {
     expect(cron).toBeDefined();
-    // Five fields, standard cron. Vercel Hobby only accepts a daily cadence;
-    // docs/deployment.md says so next to the plan it needs.
     expect(cron?.schedule).toMatch(/^\S+ \S+ \S+ \S+ \S+$/);
+  });
+
+  it("keeps a cadence the current plan accepts", () => {
+    // Not style — a deployment blocker. Vercel Hobby allows two cron jobs at
+    // a DAILY cadence and rejects anything finer when it validates
+    // vercel.json, so `*/5 * * * *` does not run slowly: it fails the
+    // deployment outright, after the build has already succeeded. That is
+    // the same shape as the Root Directory failure this file exists for.
+    //
+    // The minute and hour fields may be anything; the three date fields must
+    // be wildcards, which is what "once a day" looks like in cron.
+    //
+    // MOVING TO PRO: raise the schedule and change this test in the same
+    // commit. It failing is the point — it means somebody is making a
+    // decision that costs money, and should know it.
+    const [minute, hour, dayOfMonth, month, dayOfWeek] = (cron?.schedule ?? "").split(" ");
+    // A single number, not a step or a list: `*/5` and `0,30` are both finer
+    // than daily and both would fail Vercel's validation.
+    expect(minute, "minute must be a fixed number").toMatch(/^\d{1,2}$/);
+    expect(hour, "hour must be a fixed number").toMatch(/^\d{1,2}$/);
+    expect([dayOfMonth, month, dayOfWeek]).toEqual(["*", "*", "*"]);
   });
 
   it("points at a route that exists", () => {
