@@ -130,6 +130,18 @@ Acceso: `read`/`create`/`update` solo admin; `shipments` no se puede borrar
 
 **Globals:** `ThemeSettings` (tema activo + overrides Zod) · `Navigation` por locale · `MarketSettings` por mercado (moneda, impuestos, envíos, incoterm, **paymentProviders[] con orden de presentación**).
 
-**Bloques (definitivos):** Hero · BentoGrid · SpecsTable · ProductComparator · VideoBlock · LeadForm · TestimonialStrip · FAQBlock · CTABand · RichText · MediaGallery · WarrantyBlock.
+**Bloques (19, y el techo son 24 — ADR-028):** `anchorNav` · `bento` · `ctaBand` ·
+`embed` · `faq` · `featureGrid` · `gallery` · `hero` · `hotspots` · `mediaText` ·
+`productShowcase` · `quote` · `richText` · `specTable` · `stage` · `statBand` · `steps` ·
+`timeline` · `waitlist`.
+
+Son los `type` que declara cada `defineSection` en `packages/sections/src/blocks/`, que es
+de donde `apps/web/src/payload/blocks.ts` genera la configuración de Payload — no se
+escriben a mano en ningún sitio, y por eso tampoco se enumeran a mano aquí sin
+comprobarlos. La lista anterior de este párrafo llevaba doce nombres inventados
+(`BentoGrid`, `SpecsTable`, `ProductComparator`, `VideoBlock`, `LeadForm`,
+`TestimonialStrip`, `MediaGallery`, `WarrantyBlock`) que ningún bloque ha tenido nunca, y
+omitía nueve que sí existen. El comparador, además, no es un bloque: es una ruta
+(`/{región}/comparar`).
 
 ---

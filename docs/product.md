@@ -55,7 +55,7 @@ Dark-first (volt) · **bento grids** en home y specs · tipografía variable exp
   /tenis · /padel (★ ES/EAU) · /pickleball     → landings de deporte
   /robots (faceta sport|nivel|precio)
     /robots/tempo-r1 · /robots/go-pickleball · /robots/rally-station
-  /robots/comparar · /robots/selector (quiz)
+  /comparar (ruta de región: /{región}/comparar) · /robots/selector (quiz, pendiente)
   /gear (faceta sport) · /academy (sport, nivel)
   /tecnologia · /financiacion · /club (futuro)
   /soporte (manuales · firmware · garantia · rma · faq)

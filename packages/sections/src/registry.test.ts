@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { ADMIN_LOCALES } from "@courvia/appearance";
 import { describe, expect, it } from "vitest";
 
@@ -245,5 +248,45 @@ describe("the section ceiling (ADR-028)", () => {
           `el techo por balda es ${String(SHELF_CEILING)} (ADR-028), dos filas de la rejilla del selector.`,
       ).toBeLessThanOrEqual(SHELF_CEILING);
     }
+  });
+});
+
+/**
+ * El párrafo de `docs/data-model.md` que enumera los bloques.
+ *
+ * Llevaba doce nombres que ningún bloque ha tenido nunca —`BentoGrid`,
+ * `SpecsTable`, `ProductComparator`, `VideoBlock`, `LeadForm`,
+ * `TestimonialStrip`, `MediaGallery`, `WarrantyBlock`— y omitía nueve reales.
+ * Una auditoría lo encontró a cuatro líneas de otra enumeración igual de
+ * caducada (una colección `academyPosts` que no existe), lo cual dice cuál
+ * es el modo de fallo: una lista escrita a mano junto a un registro que sí
+ * se mantiene.
+ *
+ * El test compara las dos. Vive aquí, y no en la app, porque aquí es donde
+ * está la lista canónica: la comparación es una línea y no duplica nada.
+ */
+describe("la enumeración de bloques de docs/data-model.md", () => {
+  const doc = readFileSync(
+    join(import.meta.dirname, "..", "..", "..", "docs", "data-model.md"),
+    "utf8",
+  );
+  const paragraph = /\*\*Bloques \([^)]*\):\*\*([\s\S]*?)\n\n/.exec(doc);
+
+  it("existe y se encuentra", () => {
+    // Sin esto, un cambio de formato del documento dejaría la comprobación
+    // de abajo hablando de la cadena vacía, que pasa siempre.
+    expect(paragraph, "ya no hay un párrafo **Bloques (…):** en data-model.md").not.toBeNull();
+    expect(paragraph?.[1] ?? "").toContain("hero");
+  });
+
+  it("nombra exactamente los tipos registrados, sin sobras ni ausencias", () => {
+    const named = new Set((paragraph?.[1] ?? "").match(/`([a-zA-Z]+)`/g)?.map((m) => m.slice(1, -1)));
+    const registered = new Set(Object.keys(SECTIONS));
+    const missing = [...registered].filter((type) => !named.has(type)).sort();
+    const invented = [...named].filter((type) => !registered.has(type)).sort();
+    expect(missing, `el documento no nombra: ${missing.join(", ")}`).toEqual([]);
+    expect(invented, `el documento nombra bloques que no existen: ${invented.join(", ")}`).toEqual(
+      [],
+    );
   });
 });

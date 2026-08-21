@@ -83,11 +83,11 @@ llegan al cristal.
 | `/{región}/inicio` 200; mayúsculas 200; selector de región mintiendo | 200 → 308 | **hecho** |
 | **La PDP no tenía columna de compra** | CTA al 76 % de la página y a 3,9 pantallas de scroll en móvil → **463 px en escritorio y 546 px en móvil**, dentro del pliegue en los dos | **hecho** (`ccf7117`): galería a la izquierda, raíl con identidad, estado, garantía y **una** acción a la derecha, pegajoso desde 1180 px. El que se pega es el hijo, no la celda del grid. La acción sigue siendo el salto a la waitlist: la columna de compra existe, la compra no (ver «El veredicto, sin adornos») |
 | **No había navegación móvil** | la cabecera se partía en tres filas: **155 px a 390** y **196 a 320** → **barra de 64 px fijos en los nueve anchos medidos**, con el menú en un `<details>` nativo | **hecho** (`fab7019`): abre y cierra sin JavaScript, el panel lleva los mismos destinos que la nav de escritorio y CI lo comprueba sobre el HTML servido en las cuatro regiones (`chrome-shell.test.ts`) |
-| 12 de 18 roles enfocables con el anillo por defecto de Chrome | — | pendiente |
-| `<button>` dentro de `<a>` en tres secciones | HTML inválido, doble parada de tabulador | pendiente |
+| Roles enfocables con el anillo por defecto de Chrome | 25 de 32 paradas de tabulación caían al anillo del navegador → **34 de 34** llevan el propio | **hecho** (`fab7019`) |
+| `<button>` dentro de `<a>` en tres secciones | HTML inválido y doble parada de tabulador → eliminado de `hero`, `ctaBand` y `stage` | **hecho** (`fab7019`) |
 | Anclas que aterrizan bajo la cabecera pegajosa | 140 px en móvil → **0** | **hecho** (`fab7019`): la reserva y la altura de la barra son **la misma variable**, `scroll-padding-block-start: calc(var(--cv-header-block-size) + var(--cv-space-4))` contra `block-size: var(--cv-header-block-size)` — 64 px fijos, no un mínimo que se excedía. Lo que CI sujeta es el mecanismo, leído del CSS **servido** (`chrome-shell.test.ts`): que la variable se declare una sola vez y que la lea la barra. La geometría se midió a mano en Chromium; el navegador en CI sigue siendo WP16 (regla 6 de abajo) |
 | Tabla comparativa sin etiquetas de fila al desplazarla en móvil | — | pendiente |
-| FAQ con el triángulo por defecto del navegador | — | pendiente |
+| FAQ con el triángulo por defecto del navegador | marcador propio: `list-style: none` + `::-webkit-details-marker` + un `::after` de tokens (`sections.css:209-247`) | **hecho** (`fab7019`) |
 
 **La regla que salió de aquí, y que ya ha cazado cuatro tests inútiles:** un
 test que afirma la intención declarada en vez del efecto observable pasa con
