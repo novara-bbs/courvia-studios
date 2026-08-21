@@ -8,7 +8,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { getPayload } from "payload";
 
 import type { PageSeoFields, PageSeoImage } from "../seo/page-metadata";
-import { isDatabaselessBuild } from "../server/build-env";
+import { assertNoFixtureData, isDatabaselessBuild } from "../server/build-env";
 
 export interface PageDocument {
   slug: string;
@@ -94,6 +94,7 @@ export async function listPublishedSlugs(): Promise<string[]> {
   "use cache";
   cacheLife("max");
   cacheTag("pages", "media");
+  let slugs: string[];
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({
@@ -103,12 +104,19 @@ export async function listPublishedSlugs(): Promise<string[]> {
       depth: 0,
       select: { slug: true },
     });
-    return result.docs.map((doc) => doc.slug);
+    slugs = result.docs.map((doc) => doc.slug);
   } catch (error) {
     console.error("published slug listing failed", error);
     if (isDatabaselessBuild("the list of published page slugs", error)) return [];
     throw error;
   }
+  // OUTSIDE the try, like the catalogue listing: this is not a failed query,
+  // and the catch would log it as one. The sitemap and llms.txt are built
+  // from this list, so a fixture page left behind by an interrupted suite
+  // would be published to crawlers and then cached by turbo against a hash
+  // that cannot see it. See src/server/build-env.ts.
+  assertNoFixtureData(slugs, "the list of published page slugs");
+  return slugs;
 }
 
 /**

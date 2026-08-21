@@ -98,6 +98,58 @@ function missingDatabaseMessage(context: string, audience: Exclude<BuildAudience
 }
 
 /**
+ * Product slugs that only a test suite ever creates.
+ *
+ * Kept here rather than imported from the suites: this module may not depend
+ * on test files, and a slug that changes in a suite without changing here
+ * costs a missed warning, never a false one.
+ */
+export const FIXTURE_SLUGS = new Set([
+  "test-rig", // commerce-adapter, access, orders-fulfilment
+  "preview-tempo-en-edicion", // product-preview
+  "preview-tempo-sin-tocar",
+  "acl-test-pagina", // access — a page, and pages get prerendered too
+]);
+
+/**
+ * Refuses a production build that can see fixture rows.
+ *
+ * `next build` prerenders /{region}/robots — and lists every page slug in
+ * the sitemap and llms.txt — by READING THE DATABASE, and
+ * turbo caches the resulting `.next` against a hash of the SOURCES. The
+ * database is not in that hash and cannot be: so a build produced while a
+ * test fixture existed bakes "Test Rig" into the static HTML, that output
+ * goes into the cache, and every later run with the same sources replays it.
+ * A test asserting on the catalogue then fails deterministically, against
+ * code that is correct, until something forces a clean build.
+ *
+ * That is the same shape as the databaseless build above — output that
+ * depends on state the hash cannot see — and it earns the same answer: fail
+ * loudly at the moment the wrong thing is being baked, rather than later and
+ * somewhere else.
+ *
+ * It cannot happen inside one `pnpm verify`: `@courvia/web#test` declares
+ * `dependsOn: ["^build", "build"]`, so the suites that create these rows run
+ * after the build. It happens when a suite is interrupted before its cleanup
+ * runs, or when a second process shares the local Postgres — two agents on
+ * one machine, which is how this was found.
+ *
+ * Build-time only. A leftover row must never 500 a running site.
+ */
+export function assertNoFixtureData(slugs: readonly string[], context: string): void {
+  if (process.env.NEXT_PHASE !== PRODUCTION_BUILD_PHASE) return;
+  const found = slugs.filter((slug) => FIXTURE_SLUGS.has(slug));
+  if (found.length === 0) return;
+  throw new Error(
+    `${context} contains test fixtures (${found.join(", ")}). This build would bake them into ` +
+      `the prerendered catalogue, and turbo would cache that output against the source hash — ` +
+      `so every later run with these same sources would replay it. Either a test suite was ` +
+      `interrupted before its cleanup, or a second process is writing to this database. ` +
+      `Delete those products (from /admin, or in Postgres) and build again.`,
+  );
+}
+
+/**
  * True when the failure that just happened is nothing worse than "this build
  * has no database" — the single case where serving empty is correct.
  *

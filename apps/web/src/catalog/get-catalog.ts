@@ -26,7 +26,7 @@ import { MARKET_DEFINITIONS, REGION_DEFINITIONS, type RegionId } from "@courvia/
 import { cacheLife, cacheTag } from "next/cache";
 import { getPayload } from "payload";
 
-import { isDatabaselessBuild } from "../server/build-env";
+import { assertNoFixtureData, isDatabaselessBuild } from "../server/build-env";
 import { getCommerce } from "../server/container";
 
 export async function listRobots(region: RegionId): Promise<ProductSummary[]> {
@@ -34,14 +34,24 @@ export async function listRobots(region: RegionId): Promise<ProductSummary[]> {
   cacheLife("max");
   cacheTag("catalog", "media");
   const { locale, market } = REGION_DEFINITIONS[region];
+  let products: ProductSummary[];
   try {
     const commerce = await getCommerce(locale);
-    return await commerce.listProducts({ market });
+    products = await commerce.listProducts({ market });
   } catch (error) {
     console.error(`catalog listing failed for region "${region}"`, error);
     if (isDatabaselessBuild(`the "${region}" robot listing`, error)) return [];
     throw error;
   }
+  // OUTSIDE the try on purpose: this is not a failed query, and the catch
+  // above would log it as one and then hand it to a gate that judges a
+  // different problem. This listing is what gets prerendered into
+  // /{region}/robots, which is why the check belongs here.
+  assertNoFixtureData(
+    products.map((product) => product.slug),
+    `the "${region}" robot listing`,
+  );
+  return products;
 }
 
 /** The listing of one category (dynamic category pages). */

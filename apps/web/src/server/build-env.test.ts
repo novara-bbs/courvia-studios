@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { BUILD_GATE_ENV, isDatabaselessBuild } from "./build-env";
+import { BUILD_GATE_ENV, FIXTURE_SLUGS, assertNoFixtureData, isDatabaselessBuild } from "./build-env";
 
 const BUILD = "phase-production-build";
 
@@ -140,5 +140,72 @@ describe("the signals reach the build", () => {
 
   it.each(BUILD_GATE_ENV)("turbo.json forwards %s to the build task", (name) => {
     expect([...forwarded]).toContain(name);
+  });
+});
+
+/**
+ * The second gate: a build that can see test fixtures.
+ *
+ * Same shape as the first — output that depends on state the hash cannot
+ * see — but a different state. `next build` prerenders the catalogue from
+ * the database, turbo caches the result against a hash of the sources, and
+ * the database is in neither.
+ */
+describe("a build that can see test fixtures", () => {
+  // The file-level afterEach above already restores every gate variable.
+  it("refuses, and names the rows it found", () => {
+    setEnv({ NEXT_PHASE: BUILD, DATABASE_URL: "postgres://x" });
+    expect(() => {
+      assertNoFixtureData(["tempo-r1", "test-rig", "go-pickleball"], 'the "es" robot listing');
+    }).toThrow(/test-rig/);
+    expect(() => {
+      assertNoFixtureData(["test-rig"], 'the "es" robot listing');
+    }).toThrow(/the "es" robot listing/);
+  });
+
+  it("says nothing when the catalogue is the real one", () => {
+    setEnv({ NEXT_PHASE: BUILD, DATABASE_URL: "postgres://x" });
+    expect(() => {
+      assertNoFixtureData(["tempo-r1", "go-pickleball", "rally-station"], "the listing");
+    }).not.toThrow();
+  });
+
+  it("says nothing at runtime, however dirty the database is", () => {
+    // A leftover row is a nuisance in a build and must never be a 500 on a
+    // running site. The gate is about what gets BAKED, not about what is
+    // stored.
+    setEnv({ DATABASE_URL: "postgres://x" });
+    expect(() => {
+      assertNoFixtureData(["test-rig"], "the listing");
+    }).not.toThrow();
+  });
+
+  it("knows the slugs the suites actually create", () => {
+    // Without this the guard is decorative: a suite that renames its fixture
+    // walks straight past a list nobody updated. Reads the suites and
+    // demands that every product slug they create is covered.
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const suites = [
+      "commerce-adapter.test.ts",
+      "../catalog/product-preview.test.ts",
+      "../payload/access.test.ts",
+      "../payload/orders-fulfilment.test.ts",
+    ];
+    const created = new Set<string>();
+    for (const suite of suites) {
+      const source = readFileSync(path.join(here, suite), "utf8");
+      // `slug: "…"` next to a products create, and the const blocks that
+      // hold one. Over-collects on purpose: a slug that is not a product's
+      // only costs one more entry in the set.
+      for (const match of source.matchAll(/slug:\s*"([a-z0-9-]+)"/g)) {
+        created.add(match[1]!);
+      }
+    }
+    // The scan has to find something, or the assertion below is about the
+    // empty set and passes forever.
+    expect(created.size).toBeGreaterThanOrEqual(3);
+    expect(created.has("test-rig")).toBe(true);
+    const uncovered = [...created].filter((slug) => !FIXTURE_SLUGS.has(slug));
+    expect(uncovered).toEqual([]);
   });
 });
