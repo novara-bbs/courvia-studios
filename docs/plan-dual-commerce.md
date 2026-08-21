@@ -106,7 +106,7 @@ Ninguno se da por bueno sin un test que se haya visto en rojo.
 
 ## 5 · Fases
 
-### Fase 0 — Línea base, topología y ADR · **en curso**
+### Fase 0 — Línea base, topología y ADR · `code_complete`
 
 | Tarea | Estado |
 |---|---|
@@ -117,11 +117,10 @@ Ninguno se da por bueno sin un test que se haya visto en rojo.
 | ADR-029 | ✅ borrador, estado *propuesto* |
 | Reconciliar documentación contradictoria | ✅ 11 arregladas de 37 confirmadas (26 refutadas) |
 | Aplicar ADR-022 al código | ✅ `4af73f8` — 12 sitios, dos visibles en el panel, + test que lo sujeta |
-| TCO con fuentes y fecha | ⏳ **pendiente** |
+| TCO con fuentes y fecha | ✅ [`docs/tco-dos-motores.md`](tco-dos-motores.md) — `2add6b6` |
 
-**Fase 0 cerrada salvo el TCO.** Lo que queda de ella es el análisis de coste
-con fuentes y fecha, que depende de decisiones que no son mías: plan de Vercel,
-plan de Shopify y si Preview lleva su propia base.
+**Fase 0 cerrada.** El TCO deja explícito lo que depende de decisiones que no
+son mías: plan de Vercel, plan de Shopify y si Preview lleva su propia base.
 
 #### El diagnóstico de Vercel, cerrado
 
@@ -180,21 +179,79 @@ Consecuencia para el plan: el motor nativo no llega a `sandbox_verified` conecta
 Necesita, en este orden: bloqueo correcto → carrito → totales con envío e impuestos →
 Stripe → handlers de outbox → cadencia de cron decente.
 
-### Fase 1 — Capabilities sin cambio visual · **en curso**
+### Fase 1 — Capabilities sin cambio visual · `code_complete`
 Contratos nuevos, disponibilidad honesta, `CheckoutHandoff` discriminado, fachada,
 adaptador nativo compatible, estudio Shopify compatible, tests de aislamiento.
 **Cero cambio visible. Cero migración productiva.**
 
-### Fase 2 — Connections, bindings y referencias · `not_started`
+Entregado en `53495e3` (dominio), `0ad4fa8` (Shopify honesto), `99fbe2b` (motor
+nativo y fachada) y `cebb97e` (la regla de arquitectura que prometía «o al
+revés» y solo vigilaba una dirección). Lo que la fase deja sujeto por un test y
+no por una convención:
+
+- `AvailabilityView` es una unión discriminada con `quantity?: never` en las
+  ramas que no la tienen, así que una tienda no puede leer «0» donde el motor
+  dijo «no lo sé». El truco es que el chequeo de propiedades sobrantes de
+  TypeScript solo actúa sobre literales frescos: sin los `never`, la unión no
+  protegía nada.
+- `EngineCapabilities` es una unión discriminada, no un saco de banderas: el
+  estudio Shopify declara `catalog_read` y `availability_read` y **no**
+  `checkout_start`, y el motor nativo tampoco lo declara — porque todavía no
+  lo tiene. Un motor no puede mentir sobre lo que sabe hacer sin romper el
+  tipo.
+- `ShopifyHostedHandoff` lleva `orderRef?: never`. Un handoff alojado no puede
+  fingir que produjo un pedido local.
+
+### Fase 2 — Connections, bindings y referencias · `code_complete`
 Migraciones aditivas, backfill nativo, clave editorial de producto,
 `CommerceProductReference`, owner del carrito, cache keys con site/engine/connection/market.
 **No se activa Shopify.**
 
-### Fase 3 — CMS y ProductTemplates · `not_started`
+Entregado en `3cb4dec`. La propiedad dejó de ser una convención del código y
+bajó a Postgres: `20260821_214924_commerce_ownership` añade el owner
+(`siteKey`, `engine`, `connectionKey`, `bindingRevision`) a carritos y pedidos,
+lo congela con un disparador —las columnas de propiedad no se pueden reescribir
+después del INSERT—, y comprueba en la propia migración que ninguna fila quedó
+sin conexión. Las credenciales de la conexión llevan un CHECK
+(`looks_like_secret`) sobre seis columnas de texto: un token de Shopify pegado
+en el campo equivocado revienta al guardar, no seis meses después.
+
+### Fase 3 — CMS y ProductTemplates · `code_complete`
 Catalog Workspace, mapping, preview engine-aware, ProductTemplates, secciones vinculadas,
 secciones sincronizadas, workflow editorial. **Sin cobros reales.**
 
-### Fase 4 — Carrito compartido · `not_started`
+Entregado en `9b1e199`, en una sola migración
+(`20260821_234246_fase3_templates_trash_versions`):
+
+- **`templates`**: la PDP deja de ser código y pasa a ser composición
+  editable, con recaída a la plantilla por defecto de su tipo.
+- **Cinco secciones vinculadas** (`productHero`, `productStory`,
+  `productSpecs`, `productRange`, `productLead`): sin campos de contenido,
+  leen del producto que se está pintando. Suman 5 bloques y **0 campos** al
+  registro, así que ni el techo de ADR-028 ni el coste de carga del panel se
+  mueven.
+- **Papelera** en `pages`, `media` y `redirects`, con los dos índices únicos
+  parciales que Payload no sabe declarar. Sin ellos, tirar una página a la
+  papelera dejaba su dirección ocupada por un documento que el editor no ve.
+- **Versiones en los tres globals**: cambiar el menú o las pasarelas ya tiene
+  deshacer.
+
+Y el riesgo de la fase, resuelto en vez de esquivado: `market-settings` recibe
+`dbName: "markets"` porque sin ese nombre corto su tabla de versiones genera
+enums de 65 caracteres y Payload no arranca. El diff de esquema no distingue un
+renombrado de un DROP + CREATE, y el DROP se habría llevado las pasarelas
+configuradas de los tres mercados. El bloque 1 de la migración está escrito a
+mano —cuatro tablas, tres enums, seis índices, cuatro claves primarias, tres
+claves ajenas y dos secuencias— dentro de un bloque plpgsql que cuenta las
+filas antes y después y lanza si no coinciden.
+
+Comprobado, no afirmado: los cinco proveedores de los tres mercados siguen ahí
+después de migrar (es:1 uk:1 ae:3); guardar el global crea una versión en
+`_markets_v` sin alterar el contenido; el viaje completo migrar → deshacer →
+volver a migrar termina con el esquema idéntico contra una base construida
+desde cero; RLS 273/273 y cero políticas en las dos bases.
+
+### Fase 4 — Carrito compartido · **siguiente**
 Casos de uso de carrito, cookie/sesión, drawer y badge, página de carrito, buybox y
 selector de variante, purchase actions, tests móviles y de accesibilidad.
 
@@ -310,3 +367,7 @@ secretos de pago.
 | 21 ago 2026 | Las once arregladas (`a68aafc`). ADR-022 aplicado por fin al código, con test (`4af73f8`). Fase 0 cerrada salvo el TCO. |
 | 21 ago 2026 | Fase 1 arrancada (contratos de capabilities). Y el MCP de Supabase, ya autenticado, revela que el proyecto de producción documentado no existe en esta cuenta. |
 | 21 ago 2026 | Fase 1: dominio (`53495e3`) y Shopify honesto (`0ad4fa8`). Falta el nativo, la fachada y la frontera de arch. |
+| 21 ago 2026 | Fase 1 cerrada: motor nativo y fachada (`99fbe2b`), y la regla de arquitectura que solo vigilaba una dirección (`cebb97e`). |
+| 21 ago 2026 | TCO con fuente y fecha en cada cifra (`2add6b6`). Fase 0 cerrada del todo. |
+| 21 ago 2026 | Fase 2: la propiedad baja a Postgres con disparador de congelación y CHECK anti-secreto (`3cb4dec`). |
+| 21 ago 2026 | Fase 3: plantillas de PDP, papelera, versiones y el renombrado de `market_settings` sin perder las pasarelas (`9b1e199`). |
