@@ -1244,3 +1244,29 @@ a {
   color: inherit;
   font-weight: 600;
 }
+
+/*
+ * El afordance de clic-para-editar, y nada más.
+ *
+ * Vivía en su propia hoja, importada por el componente cliente del puente.
+ * Next enlaza el CSS del grafo de cliente de una ruta en TODAS sus
+ * respuestas, así que aquella hoja aparecía igualmente en el HTML público —
+ * medido: 121 bytes servidos a cualquier visitante de /es/tecnologia — y,
+ * peor, hacía que unas rutas sirvieran cinco hojas y otras cuatro. Aquí, al
+ * lado de la barra de borrador que ya vivía en esta hoja, el coste es el
+ * mismo y las rutas dejan de diferir.
+ *
+ * `data-cv-index` solo lo emite el renderer en modo borrador, así que en una
+ * página publicada esta regla no alcanza a ningún elemento.
+ *
+ * Un outline y no un borde ni un fondo: los outlines no ocupan espacio, así
+ * que señalar una banda no puede desplazar la maqueta que el editor está
+ * juzgando. Aquí importa más que en ningún sitio — una previsualización que
+ * se mueve cuando la apuntas es una previsualización que no sirve para medir.
+ */
+@media (hover: hover) {
+  [data-cv-index]:hover {
+    outline: 1px dashed var(--cv-color-accent);
+    outline-offset: calc(var(--cv-space-1) * -1);
+  }
+}

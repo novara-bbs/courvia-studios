@@ -65,6 +65,24 @@ async function html(path: string): Promise<string> {
 }
 
 /** The stylesheets the page itself links, concatenated: the shipped bytes. */
+/**
+ * Hand-written outlines on FOCUS rules, which is the thing there may be only
+ * one of. Everything else an outline can be — an editor's hover affordance,
+ * a debugging aid — is not a focus ring and was never what this guarded; the
+ * check used to flag any `outline:` anywhere and that is why the preview
+ * bridge could not be mounted on the home page.
+ *
+ * Deliberately crude: split on `}` and keep the chunks whose selector
+ * mentions `:focus`. A CSS parser here would be a second implementation of
+ * the thing under test.
+ */
+function handWrittenFocusOutlines(css: string): string[] {
+  return css
+    .split("}")
+    .filter((chunk) => chunk.includes(":focus"))
+    .flatMap((chunk) => [...chunk.matchAll(/outline:\s*(\d[^;}]*)/g)].map((m) => String(m[1])));
+}
+
 async function servedCss(path = "/es"): Promise<string> {
   const document_ = await html(path);
   const hrefs = [...document_.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)].map(
@@ -271,10 +289,25 @@ describe.skipIf(!hasDb || !dbIsDisposable)("the shell the browser receives", () 
     it("leaves no rule spelling the ring by hand", async () => {
       // Three treatments in one form (2px/3px from tokens, 2px/1px by hand,
       // and Chrome's 1px auto on the submit button) is what this replaced.
-      const offenders = [...(await servedCss()).matchAll(/outline:\s*(\d[^;}]*)/g)].map((match) =>
-        String(match[1]),
-      );
-      expect(offenders, `${offenders.join(" · ")} hand-write an outline`).toEqual([]);
+      const offenders = handWrittenFocusOutlines(await servedCss());
+      expect(offenders, `${offenders.join(" · ")} hand-write a focus ring`).toEqual([]);
+    });
+
+    it("still catches one, and still ignores an outline that is not a ring", () => {
+      // The check used to flag EVERY hand-written outline in the served CSS,
+      // whatever its selector, and that is what it was narrowed from. The
+      // narrowing is the risk, so both halves are exercised here against a
+      // string rather than trusted against the real sheet: a green result on
+      // a page that happens to have no outline at all proves nothing.
+      expect(
+        handWrittenFocusOutlines(".cv-btn:focus-visible{outline:2px solid #fff}"),
+      ).toHaveLength(1);
+      expect(handWrittenFocusOutlines("a:focus{outline:1px dotted red}")).toHaveLength(1);
+      // The editor affordance: a hover, not a focus, and the reason for the
+      // narrowing. It ships in the site sheet because the draft bar does.
+      expect(
+        handWrittenFocusOutlines("@media (hover:hover){[data-cv-index]:hover{outline:1px dashed}}"),
+      ).toEqual([]);
     });
   });
 

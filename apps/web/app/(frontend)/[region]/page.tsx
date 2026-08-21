@@ -11,6 +11,7 @@ import { getDraftPage, getPage } from "../../../src/content/get-page";
 import { makeRenderContext } from "../../../src/content/render-context";
 import { setRequestRegion } from "../../../src/i18n/request-region";
 import { DraftModeBar } from "../../../src/preview/draft-mode-bar";
+import { PreviewEditingBridge } from "../../../src/preview/editing-bridge";
 import { RefreshRouteOnSave } from "../../../src/preview/refresh-route-on-save";
 import { pageMetadata } from "../../../src/seo/page-metadata";
 import { regionAlternates } from "../../../src/seo/region-alternates";
@@ -91,26 +92,14 @@ export default async function HomePage({ params }: PageArgs) {
                 to leave preview, and land them here anyway. */}
             <DraftModeBar exitPath={`/${region}`} />
             <RefreshRouteOnSave serverUrl={siteUrl()} />
-            {/* PreviewEditingBridge — the client listener that turns a click
-                in the frame into "focus this field" — is NOT mounted here,
-                and the reason is measured rather than editorial. It imports
-                app/(frontend)/preview-editing.css, and Next links a route's
-                client-graph CSS from every response that route sends, draft
-                or not: /es links four stylesheets today and five with that
-                import present (tried statically, with `await import()`
-                inside this branch, and with next/dynamic — all five). The
-                fifth carries `outline: 1px dashed var(--cv-color-accent)`,
-                a HOVER affordance on [data-cv-index], and
-                chrome/chrome-shell.test.ts greps the served stylesheet of
-                /es for hand-written outlines to keep one focus ring — so
-                mounting the bridge here turns that suite red on a rule that
-                is not a focus ring at all. Unblocking it is one line in a
-                file this session was scoped out of: either give that rule a
-                non-`outline` treatment, or narrow the assertion to
-                :focus-visible rules. The field index the bridge reads
-                (`data-cv-fields`) already ships here — that comes from
-                makeRenderContext(draft) below, not from the listener — so
-                the day the rule moves, this is one import. */}
+            {/* Click a band, focus the field that wrote it. Mountable here
+                only since the hover affordance moved into app.css: it used
+                to live in its own sheet, imported by this client component,
+                and Next links a route's client-graph CSS from EVERY response
+                that route sends — so /es served five stylesheets in preview
+                and in production alike, and one of them hand-wrote an
+                outline that chrome-shell.test.ts refuses on /es. */}
+            <PreviewEditingBridge />
           </>
         ) : null}
         <SectionList

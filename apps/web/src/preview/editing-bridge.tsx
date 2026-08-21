@@ -18,7 +18,6 @@ import { useEffect } from "react";
 
 // The hover affordance. Every selector in it keys on an attribute that only
 // exists in draft, so it matches nothing on a published page.
-import "../../app/(frontend)/preview-editing.css";
 import { EDITING_MESSAGE } from "./editing-message";
 import type { EditingMessage } from "./editing-message";
 
