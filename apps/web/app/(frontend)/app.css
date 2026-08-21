@@ -406,8 +406,20 @@ a {
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  /* auto-FIT, not auto-fill: with three products in a 1132px row, auto-fill
+   * laid four 271px tracks and left the fourth one empty — 25% of the row —
+   * which is what pushed the whole listing to the left of the page. */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  justify-items: center;
   gap: var(--cv-space-4);
+}
+
+/* auto-fit collapses the empty track by handing its space to the survivors,
+ * so a two-product catalogue would otherwise render two 558px billboards.
+ * The cap is what makes a short catalogue read as cards instead. */
+.catalog-grid > * {
+  inline-size: 100%;
+  max-inline-size: 420px;
 }
 
 .catalog-card {
@@ -436,10 +448,13 @@ a {
   background: var(--cv-color-bg);
 }
 
+/* `contain`, like .cv-gallery-frame: `cover` on a 4/3 frame threw away 40%
+ * of a 320x400 render — Tempo R1 lost its head and its base in the listing.
+ * A catalogue card that crops the product is worse than one with air. */
 .catalog-card-media img {
   inline-size: 100%;
   block-size: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .catalog-card h2,
@@ -510,6 +525,26 @@ a {
   inline-size: 100%;
   border-collapse: collapse;
   font-size: var(--cv-font-size-sm);
+  /* Equal columns. With the `auto` algorithm the widths came from how long
+   * each product's prose happened to be — 140/274/318/399 at 1440 — so the
+   * eye compared paragraphs of different measures. `fixed` splits whatever
+   * is left after the label column evenly, for three products or for six. */
+  table-layout: fixed;
+  /* The floor keeps the horizontal scroll on a phone: `fixed` alone would
+   * crush four columns into 342px instead of letting them overflow. */
+  min-inline-size: 640px;
+}
+
+/* The row label travels with the horizontal scroll. At 390px the table
+ * overflows its box by 301px, and the labels used to end up at x=-274: a
+ * column of values with nothing left to name them. The whole first cell is
+ * pinned, header included, so the corner cannot slide under the body. */
+.compare-table tr > *:first-child {
+  inline-size: 140px;
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: var(--cv-color-bg);
 }
 
 .compare-table th,
@@ -519,7 +554,6 @@ a {
   padding-block: var(--cv-space-3);
   padding-inline-end: var(--cv-space-4);
   border-block-end: 1px solid var(--cv-color-border);
-  min-inline-size: 140px;
 }
 
 .compare-table thead th {
@@ -555,14 +589,76 @@ a {
 
 /* ------------------------------------------------------------------ PDP */
 
+/* Two columns from xl: the media scrolls, the buy rail stays. Measured
+ * before this existed: the fold of /es/robots/tempo-r1 held five texts and
+ * not one action, while the waitlist form — this shop's add-to-cart — began
+ * at 76% of the page (3.9 screens on a phone) and the right-hand 30% of the
+ * viewport carried almost no ink.
+ *
+ * The rail is TWO elements, as it is in Dawn's main-product.liquid
+ * (.product__info-wrapper holding .product__column-sticky), and that is not
+ * a flourish. Chromium constrains a sticky GRID ITEM to the grid
+ * container's content box rather than to its own grid area, so a rail that
+ * IS the sticky item travels the whole page and paints over the
+ * description, the specs, the form and the cross-sell —
+ * measured: bottom at y=3445 with the media column ending at y=1480. So the
+ * grid item stretches to the row (`align-self: stretch`, against the
+ * container's `align-items: start`, which keeps the gallery at its natural
+ * height) and the STICKY box is the child inside it: its containing block is
+ * the item, so it stops where the media stops.
+ *
+ * The `:has()` guard is the honest half — a product whose renders have not
+ * arrived yet has no gallery, and a rail alone in the second track with an
+ * empty first one is worse than one column. */
+@media (min-width: 1180px) {
+  .page--pdp:has(.pdp-gallery) {
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 30%, 420px);
+    align-items: start;
+  }
+
+  .page--pdp:has(.pdp-gallery) > * {
+    grid-column: 1 / -1;
+  }
+
+  /* The rail comes FIRST in the document — on a phone the title, the state
+   * and the action must beat the 1075px hero — and the grid puts it back on
+   * the right of the media for the two-column reading. */
+  .page--pdp:has(.pdp-gallery) > .pdp-gallery {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .page--pdp:has(.pdp-gallery) > .pdp-rail {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: stretch;
+  }
+
+  .page--pdp:has(.pdp-gallery) .pdp-rail-sticky {
+    position: sticky;
+    /* The same token pair as html { scroll-padding-block-start }: the rail
+     * and an anchor jump clear the sticky header by the same amount. */
+    inset-block-start: calc(var(--cv-space-16) + var(--cv-space-4));
+  }
+}
+
+/* Identity and ONE action. The form stays full width further down under
+ * #lista-espera; a rail with a whole form in it stops being a rail. */
+.pdp-rail-sticky {
+  display: grid;
+  gap: var(--cv-space-4);
+  justify-items: start;
+}
+
 .pdp-head {
-  margin-block-end: var(--cv-space-6);
+  display: grid;
+  gap: var(--cv-space-3);
+  justify-items: start;
 }
 
 .pdp-price {
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-lg);
-  margin-block-start: var(--cv-space-3);
 }
 
 .pdp-variants,
@@ -603,6 +699,18 @@ a {
   inline-size: 100%;
   block-size: auto;
   display: block;
+}
+
+/* One frame ratio for the two-up row, copying .cv-gallery-frame: mixed
+ * portrait/landscape renders staggered the captions of the same row by 79px.
+ * The hero is deliberately left out — forcing 4/3 on it would cut an 860px
+ * render from 1075px to 645px, which is a different decision. */
+@media (min-width: 860px) {
+  .pdp-gallery .pdp-media:not(:first-child) img {
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    background: var(--cv-color-surface);
+  }
 }
 
 .pdp-concept {
@@ -668,14 +776,32 @@ a {
   margin: 0;
   display: grid;
   gap: var(--cv-space-2);
+  /* The same measure the gallery already uses on this page. Stretched to the
+   * full 1132px the longest label was 129px and the longest value 528px, so
+   * 475px — 42% of the table — was air between a label and its own number. */
+  max-inline-size: 860px;
 }
 
+/* Label over value on a phone. Two tracks with a 140px floor did not fit:
+ * the row's min-content was 321px inside 272px of viewport, which set the
+ * track of the page grid and made the WHOLE document scroll sideways
+ * (scrollWidth 345 vs clientWidth 320 — WCAG 1.4.10 Reflow). */
 .specs-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) 2fr;
-  gap: var(--cv-space-4);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cv-space-1);
   padding-block: var(--cv-space-2);
   border-block-end: 1px solid var(--cv-color-border);
+}
+
+@media (min-width: 680px) {
+  .specs-row {
+    /* `max-content`, not a fixed 220px: the label track fits the longest
+     * label of whatever language is active, so no magic number breaks on
+     * translation. */
+    grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
+    gap: var(--cv-space-4);
+  }
 }
 
 .specs-row dt {
@@ -695,19 +821,25 @@ a {
   letter-spacing: 0.06em;
   color: var(--cv-color-text-muted);
   margin-inline-start: var(--cv-space-2);
+  /* A two-word label that breaks in half stops reading as one chip: it broke
+   * in 6 of the 7 spec rows at 390px and in all 16 cells of the comparator. */
+  display: inline-block;
+  white-space: nowrap;
 }
 
-.pdp-evidence-note {
+/* Shared by the PDP and the comparator: the chip is the compliance mechanism
+ * (ADR-022 §3) and the note is what makes it mean something. A `pdp-` class
+ * on the comparator would lie about where it lives. */
+.evidence-note {
   color: var(--cv-color-text-muted);
   font-size: var(--cv-font-size-sm);
-  max-inline-size: 62ch;
+  max-inline-size: var(--cv-measure-prose);
   margin-block-start: var(--cv-space-3);
 }
 
 .pdp-warranty {
   color: var(--cv-color-text-muted);
   font-size: var(--cv-font-size-sm);
-  margin-block-end: var(--cv-space-6);
 }
 
 /* ---------------------------------------------------------- formulario */

@@ -43,6 +43,11 @@ export default async function ComparePage({ params }: PageArgs) {
   const details = (
     await Promise.all(summaries.map((summary) => getRobot(summary.slug, region)))
   ).filter((detail): detail is ProductDetail => detail !== null);
+  const unverified = details.some((detail) =>
+    detail.product.specs.some(
+      (spec) => spec.evidence !== undefined && spec.evidence !== "published",
+    ),
+  );
 
   return (
     <main className="page">
@@ -118,7 +123,13 @@ export default async function ComparePage({ params }: PageArgs) {
                           ? "—"
                           : `${spec.value}${spec.unit === undefined ? "" : ` ${spec.unit}`}`}
                         {spec?.evidence !== undefined && spec.evidence !== "published" ? (
-                          <span className="spec-evidence">{tCatalog(`evidence.${spec.evidence}`)}</span>
+                          <>
+                            {/* Explicit space: value and chip are two words. */}
+                            {" "}
+                            <span className="spec-evidence">
+                              {tCatalog(`evidence.${spec.evidence}`)}
+                            </span>
+                          </>
                         ) : null}
                       </td>
                     );
@@ -151,6 +162,13 @@ export default async function ComparePage({ params }: PageArgs) {
           </table>
         </div>
       )}
+
+      {/* The chip is the compliance mechanism (ADR-022 §3); the note is what
+          makes it mean something. The PDP prints one and the comparator did
+          not, so "OBJETIVO DE DISEÑO" appeared 16 times with no legend. Same
+          guard as the PDP, so the note disappears by itself the day the
+          register promotes the figures. */}
+      {unverified ? <p className="evidence-note">{t("evidenceNote")}</p> : null}
     </main>
   );
 }

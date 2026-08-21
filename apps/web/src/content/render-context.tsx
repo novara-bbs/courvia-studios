@@ -25,9 +25,15 @@ export function makeRenderContext(
     // Sections hold no user-visible strings: the concept-render label they
     // must show over non-final assets (E-028) arrives translated from here.
     ...(conceptLabel === undefined ? {} : { conceptLabel }),
+    // `disableContainer`: without it the serializer wraps every document in
+    // one <div class="payload-richtext">, so `.cv-prose`'s `display: grid;
+    // gap` had a single child and separated nothing — the four paragraphs of
+    // a product description measured 0, 0, 0 px apart and read as a wall.
+    // Unwrapping here, at the composition root, keeps the editor's class name
+    // out of a stylesheet that is not allowed to know Payload exists.
     renderRichText: (value) =>
       value === null || value === undefined ? null : (
-        <RichText data={value as SerializedEditorState} />
+        <RichText data={value as SerializedEditorState} disableContainer />
       ),
     renderProductGrid: (slugs) => <SectionProductGrid slugs={slugs} region={region} />,
     renderSpecTable: (slugs) => <SectionSpecTable slugs={slugs} region={region} />,

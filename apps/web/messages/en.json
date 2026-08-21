@@ -92,7 +92,8 @@
       "sample_tested": "sample-tested",
       "pilot_verified": "pilot-verified"
     },
-    "evidenceNote": "Marked figures are design targets or unverified factory claims. We only publish a number as verified once the exact hardware revision passes the Courvia test protocol."
+    "evidenceNote": "Marked figures are design targets or unverified factory claims. We only publish a number as verified once the exact hardware revision passes the Courvia test protocol.",
+    "relatedTitle": "The rest of the range"
   },
   "compare": {
     "title": "Compare the robots",
@@ -103,7 +104,8 @@
     "rowWarranty": "Warranty",
     "warrantyValue": "{months} months",
     "rowCta": "Product page",
-    "cta": "View details"
+    "cta": "View details",
+    "evidenceNote": "Marked figures are not verified. A number becomes verified once the exact hardware revision passes the Courvia test protocol."
   },
   "thanks": {
     "title": "Got it",

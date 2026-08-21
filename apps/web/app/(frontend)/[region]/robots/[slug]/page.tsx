@@ -1,16 +1,21 @@
 import { format, type Money } from "@courvia/commerce-domain";
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
+import { LinkButton } from "@courvia/ui";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
-import { getRobot } from "../../../../../src/catalog/get-catalog";
+import { getRobot, listRobots } from "../../../../../src/catalog/get-catalog";
+import { ProductCard } from "../../../../../src/catalog/product-card";
 import { makeRenderContext } from "../../../../../src/content/render-context";
 import { setRequestRegion } from "../../../../../src/i18n/request-region";
 import { LeadForm } from "../../../../../src/leads/lead-form";
 import { ProductJsonLd } from "../../../../../src/seo/product-json-ld";
 import { regionAlternates } from "../../../../../src/seo/region-alternates";
+
+/** Where the buy rail's single action lands, and the id of the form. */
+const LEAD_ANCHOR = "lista-espera";
 
 type PageArgs = { params: Promise<{ region: string; slug: string }> };
 
@@ -49,9 +54,10 @@ export default async function RobotDetailPage({ params }: PageArgs) {
   setRequestRegion(region);
 
   const def = REGION_DEFINITIONS[region];
-  const [t, detail] = await Promise.all([
+  const [t, detail, catalogue] = await Promise.all([
     getTranslations({ locale: def.locale, namespace: "catalog" }),
     getRobot(slug, region),
+    listRobots(region),
   ]);
   if (detail === null) notFound();
 
@@ -63,27 +69,51 @@ export default async function RobotDetailPage({ params }: PageArgs) {
     (lowest, offer) => pickLower(lowest, offer.price),
     null,
   );
+  // The rail's action and the form's heading say the same words on purpose:
+  // the jump lands on the sentence the button just promised.
+  const askLabel =
+    status === "waitlist"
+      ? t("waitlistTitle")
+      : status === "preorder"
+        ? t("preorderTitle")
+        : t("leadTitle");
+  const related = catalogue.filter((other) => other.slug !== product.slug);
 
   return (
-    <main className="page">
-      <header className="pdp-head">
-        <p className="eyebrow">
-          {[
-            product.brand?.name,
-            product.sports.map((sport) => t(`sport.${sport}`)).join(" · "),
-          ]
-            .filter(Boolean)
-            .join(" — ")}
-        </p>
-        <h1>{product.title}</h1>
-        {status === "available" ? null : (
-          <p className="pdp-status">{t(`status.${status}`)}</p>
-        )}
-        {product.excerpt === undefined ? null : <p className="lead">{product.excerpt}</p>}
-        {fromPrice === null || status === "waitlist" ? null : (
-          <p className="pdp-price">{t("fromPrice", { price: format(fromPrice, def.hreflang) })}</p>
-        )}
-      </header>
+    <main className="page page--pdp">
+      {/* The buy rail: who this is, what state it is in, and ONE action. It
+          comes first in the document so a phone reads the title and the CTA
+          before the 1075px hero; on desktop the grid puts it back beside the
+          media and pins it (see .page--pdp in app.css). The form itself stays
+          full width below — a rail with a whole form in it is not a rail.
+          Two elements, like Dawn's info-wrapper/column-sticky: the outer one
+          is the grid cell, the inner one is what sticks. */}
+      <div className="pdp-rail">
+        <div className="pdp-rail-sticky">
+          <header className="pdp-head">
+            <p className="eyebrow">
+              {[
+                product.brand?.name,
+                product.sports.map((sport) => t(`sport.${sport}`)).join(" · "),
+              ]
+                .filter(Boolean)
+                .join(" — ")}
+            </p>
+            <h1>{product.title}</h1>
+            {status === "available" ? null : (
+              <p className="pdp-status">{t(`status.${status}`)}</p>
+            )}
+            {product.excerpt === undefined ? null : <p className="lead">{product.excerpt}</p>}
+            {fromPrice === null || status === "waitlist" ? null : (
+              <p className="pdp-price">{t("fromPrice", { price: format(fromPrice, def.hreflang) })}</p>
+            )}
+          </header>
+          {product.warrantyMonths === undefined ? null : (
+            <p className="pdp-warranty">{t("warranty", { months: product.warrantyMonths })}</p>
+          )}
+          <LinkButton href={`#${LEAD_ANCHOR}`}>{askLabel}</LinkButton>
+        </div>
+      </div>
 
       {product.images === undefined || product.images.length === 0 ? null : (
         // Canonical gallery (brand book §26): hero first and full-width, the
@@ -167,23 +197,25 @@ export default async function RobotDetailPage({ params }: PageArgs) {
                   {spec.value}
                   {spec.unit === undefined ? "" : ` ${spec.unit}`}
                   {spec.evidence === undefined || spec.evidence === "published" ? null : (
-                    <span className="spec-evidence">{t(`evidence.${spec.evidence}`)}</span>
+                    <>
+                      {/* An explicit space: without it the value and the chip
+                          are one word for line breaking, for a screen reader
+                          and for copy/paste. */}
+                      {" "}
+                      <span className="spec-evidence">{t(`evidence.${spec.evidence}`)}</span>
+                    </>
                   )}
                 </dd>
               </div>
             ))}
           </dl>
           {product.specs.some((spec) => spec.evidence !== undefined && spec.evidence !== "published") ? (
-            <p className="pdp-evidence-note">{t("evidenceNote")}</p>
+            <p className="evidence-note">{t("evidenceNote")}</p>
           ) : null}
         </section>
       )}
 
-      {product.warrantyMonths === undefined ? null : (
-        <p className="pdp-warranty">{t("warranty", { months: product.warrantyMonths })}</p>
-      )}
-
-      <section className="pdp-lead" aria-label={t("leadTitle")}>
+      <section className="pdp-lead" id={LEAD_ANCHOR} aria-label={t("leadTitle")}>
         <LeadForm
           region={region}
           intent={status === "available" ? "demo" : status}
@@ -225,6 +257,22 @@ export default async function RobotDetailPage({ params }: PageArgs) {
           }}
         />
       </section>
+
+      {related.length === 0 ? null : (
+        // Dawn closes a PDP with product-recommendations; without it <main>
+        // held exactly one link (the privacy policy) and the page was a
+        // dead end for anyone the rail did not convince.
+        <section className="pdp-related" aria-labelledby="pdp-related-title">
+          <h2 id="pdp-related-title">{t("relatedTitle")}</h2>
+          <ul className="catalog-grid">
+            {related.map((other) => (
+              <li key={other.id}>
+                <ProductCard robot={other} region={region} headingLevel="h3" />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <ProductJsonLd detail={detail} region={region} />
     </main>
