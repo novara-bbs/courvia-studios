@@ -1,4 +1,4 @@
-import { appearanceAttributes, parseAppearance } from "@courvia/appearance";
+import { SECTION_INNER_CLASS, appearanceAttributes, parseAppearance } from "@courvia/appearance";
 import type { ReactNode } from "react";
 
 import { SECTIONS } from "../registry";
@@ -53,8 +53,10 @@ export function SectionRenderer({
 
   if (definition === undefined) {
     return ctx.preview ? (
-      <section data-cv-section="unknown" className="cv-section-problem">
-        Bloque desconocido: {type ?? "(sin tipo)"} — ¿retirado del código sin migrar el contenido?
+      <section data-cv-section="unknown">
+        <div className={`${SECTION_INNER_CLASS} cv-section-problem`}>
+          Bloque desconocido: {type ?? "(sin tipo)"} — ¿retirado del código sin migrar el contenido?
+        </div>
       </section>
     ) : null;
   }
@@ -62,8 +64,10 @@ export function SectionRenderer({
   const parsed = definition.contract.safeParse(block);
   if (!parsed.success) {
     return ctx.preview ? (
-      <section data-cv-section={definition.type} className="cv-section-problem">
-        Contenido inválido en «{definition.type}»: {parsed.error.issues[0]?.message}
+      <section data-cv-section={definition.type}>
+        <div className={`${SECTION_INNER_CLASS} cv-section-problem`}>
+          Contenido inválido en «{definition.type}»: {parsed.error.issues[0]?.message}
+        </div>
       </section>
     ) : null;
   }
@@ -86,7 +90,12 @@ export function SectionRenderer({
   const id = typeof block.blockName === "string" ? anchorId(block.blockName) : undefined;
   return (
     <section data-cv-section={definition.type} {...(id === undefined ? {} : { id })} {...attrs}>
-      {body}
+      {/* The band paints, the inner measures. Emitted HERE rather than by a
+       *  @courvia/ui primitive on purpose: it is layout the RENDERER owns,
+       *  so no primitive has to start accepting a className to get it. A
+       *  section stays a pure function of (content, appearance) and never
+       *  learns it is inside a container. */}
+      <div className={SECTION_INNER_CLASS}>{body}</div>
     </section>
   );
 }

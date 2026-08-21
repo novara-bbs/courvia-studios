@@ -29,7 +29,7 @@
 }
 
 .cv-hero-lead {
-  max-inline-size: 62ch;
+  max-inline-size: var(--cv-measure-prose);
   color: var(--cv-color-text-muted);
   line-height: var(--cv-font-lineHeight-body);
 }
@@ -44,8 +44,15 @@
   text-decoration: none;
 }
 
+/* The reading measure is a CONSTANT, not a share of the band. It used to be
+ * `var(--cv-section-measure, 62ch)`, and that fallback was dead code: the
+ * generated sheet always sets the variable, so prose ran to whatever the
+ * band was — 1132px, 144 characters a line. Worse, `width: full` sets the
+ * variable to `none`, so the indirection could not just be widened, it could
+ * lose its cap entirely. `width` still governs the band, its background and
+ * its padding; it no longer governs how long a line of text is. */
 .cv-prose {
-  max-inline-size: var(--cv-section-measure, 62ch);
+  max-inline-size: var(--cv-measure-prose);
   line-height: var(--cv-font-lineHeight-body);
   display: grid;
   gap: var(--cv-space-3);
@@ -60,7 +67,7 @@
 .cv-prose h1 {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
-  line-height: var(--cv-font-lineHeight-tight);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-2);
 }
 
@@ -80,14 +87,21 @@
 .cv-cta-band h2 {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
 }
 
 /* --------------------------------------------------------- media & text */
 
+/* Top-aligned, not centred. Centring splits the height difference between
+ * the two columns, so a 693px portrait beside 173px of copy pushed the
+ * heading 260px down the band and read as a hole in the page — the height of
+ * the band was being decided by the aspect ratio of whatever the editor had
+ * uploaded. Aligned to the start, the two columns begin together and the
+ * slack falls where slack belongs: after the text, beside the image. */
 .cv-media-text {
   display: grid;
   gap: var(--cv-space-6);
-  align-items: center;
+  align-items: start;
 }
 
 @media (min-width: 860px) {
@@ -118,7 +132,7 @@
 .cv-media-text-body h2 {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
-  line-height: var(--cv-font-lineHeight-tight);
+  line-height: var(--cv-font-lineHeight-snug);
 }
 
 /* --------------------------------------------------------- feature grid */
@@ -126,6 +140,7 @@
 .cv-feature-grid-heading {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-6);
 }
 
@@ -143,16 +158,24 @@
   }
 }
 
+/* `--cv-space-5` does not exist on the scale (1,2,3,4,6,8,12,16,24), so this
+ * padding computed to 0 and the text sat on the border. 24px is what the
+ * .cv-card primitive already uses. */
 .cv-feature-grid-item {
   background: var(--cv-color-surface);
   border: 1px solid var(--cv-color-border);
   border-radius: var(--cv-radius-md);
-  padding: var(--cv-space-5);
+  padding: var(--cv-space-6);
 }
 
+/* A card title at `md` was the same 16px as the page body — and, in the
+ * feature grid, LARGER than nothing at all next to its own 14px copy. `lg`
+ * is what the app's global h2 already is, so a heading now renders the same
+ * size inside a card as outside one. */
 .cv-feature-grid-item h3 {
   font-family: var(--cv-font-display);
-  font-size: var(--cv-font-size-md);
+  font-size: var(--cv-font-size-lg);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-2);
 }
 
@@ -164,15 +187,20 @@
 
 /* ------------------------------------------------------------------ faq */
 
+/* No measure here on purpose. It used to declare one and it never applied
+ * (the generated sheet always set --cv-section-measure), so the accordion
+ * has always been band-wide; the ANSWERS are what needed a cap and .cv-prose
+ * gives them one. An editor who wants a narrow accordion picks
+ * `width: prose`, which is what that control is for. */
 .cv-faq {
   display: grid;
   gap: var(--cv-space-3);
-  max-inline-size: var(--cv-section-measure, 62ch);
 }
 
 .cv-faq h2 {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-3);
 }
 
@@ -199,7 +227,7 @@
 /* ---------------------------------------------------------------- quote */
 
 .cv-quote {
-  max-inline-size: 62ch;
+  max-inline-size: var(--cv-measure-prose);
   display: grid;
   gap: var(--cv-space-3);
 }
@@ -211,7 +239,7 @@
 .cv-quote blockquote p {
   font-family: var(--cv-font-voice, var(--cv-font-display));
   font-size: var(--cv-font-size-lg);
-  line-height: var(--cv-font-lineHeight-tight);
+  line-height: var(--cv-font-lineHeight-snug);
 }
 
 .cv-quote figcaption {
@@ -229,6 +257,7 @@
 .cv-product-showcase h2 {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
 }
 
 /* ------------------------------------------------------------- waitlist */
@@ -248,7 +277,7 @@
 .cv-waitlist-copy h2 {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
-  line-height: var(--cv-font-lineHeight-tight);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-3);
 }
 
@@ -258,23 +287,36 @@
   max-inline-size: 48ch;
 }
 
-/* Preview-only diagnostics: loud for editors, never shipped to customers. */
+/* Preview-only diagnostics: loud for editors, never shipped to customers.
+ * It shares its element with `.cv-section-inner`, so only the block padding
+ * is its own — a `padding` shorthand here would be a declaration that loses
+ * on specificity every time and looks like it works. */
 .cv-section-problem {
   border: 2px dashed var(--cv-color-accent);
   color: var(--cv-color-text);
-  padding: var(--cv-space-4);
+  padding-block: var(--cv-space-4);
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-sm);
 }
 
 /* ---------------------------------------------------------------- escena */
 
-/* Full-bleed media band. The media escapes the wrapper's inline padding with
- * a logical negative inset (never left/right), so it reaches the viewport
- * edge in LTR and RTL alike while the copy keeps its measure. */
+/* Full-bleed media band. The media escapes the inner's inline padding with a
+ * logical negative inset (never left/right), so under `width: full` — where
+ * the inner carries no measure — it reaches the band edge in LTR and RTL
+ * alike. Under `width: content` it reaches the measure, which is the point:
+ * the control decides how far the scene runs.
+ *
+ * The COPY does not follow it out there. A single grid track, capped at the
+ * page measure and centred, keeps the headline starting where every other
+ * section's content starts; without it a 2560px viewport put the text 24px
+ * from the glass. This is the half that a full-bleed switch is missing
+ * wherever it only changes a background. */
 .cv-stage {
   position: relative;
   display: grid;
+  grid-template-columns: min(100%, var(--cv-breakpoint-xl));
+  justify-content: center;
   gap: var(--cv-space-4);
   justify-items: start;
   padding-block: var(--cv-space-12);
@@ -358,7 +400,7 @@
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-text-muted);
 }
 
@@ -371,7 +413,7 @@
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-text);
   background: var(--cv-color-surface);
   border: 1px solid var(--cv-color-border);
@@ -385,6 +427,7 @@
 .cv-stat-band-heading {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-6);
 }
 
@@ -422,7 +465,7 @@
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--cv-font-tracking-wider);
 }
 
 /* ---------------------------------------------------------------- hitos */
@@ -430,11 +473,12 @@
 .cv-timeline-heading {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
 }
 
 .cv-timeline-lead {
   color: var(--cv-color-text-muted);
-  max-inline-size: 62ch;
+  max-inline-size: var(--cv-measure-prose);
   margin-block-start: var(--cv-space-3);
   line-height: var(--cv-font-lineHeight-body);
 }
@@ -487,7 +531,7 @@
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-text-muted);
 }
 
@@ -497,7 +541,8 @@
 
 .cv-timeline-title {
   font-family: var(--cv-font-display);
-  font-size: var(--cv-font-size-md);
+  font-size: var(--cv-font-size-lg);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block: var(--cv-space-2);
   text-wrap: balance;
 }
@@ -513,6 +558,7 @@
 .cv-gallery-heading {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-6);
 }
 
@@ -584,9 +630,20 @@
  * plainly instead of a band that never fades in. */
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: view()) {
+    /* The band names the timeline; the INNER is what moves. Animating the
+     * band moved the element that PAINTS: two contiguous bands split apart
+     * by up to 24px of page background while the second one revealed, and
+     * a band with `divider: hairline` covered its own rule until it landed.
+     * Keeping the band as the timeline source — rather than `view()` on the
+     * inner — preserves the choreography exactly: the inner's box excludes
+     * the section's padding-block, which would shift every keyframe. */
     [data-reveal] {
+      view-timeline: --cv-reveal-band block;
+    }
+
+    [data-reveal] > .cv-section-inner {
       animation: var(--cv-reveal-name) linear both;
-      animation-timeline: view();
+      animation-timeline: --cv-reveal-band;
       animation-range: entry 8% cover 30%;
     }
   }
@@ -634,6 +691,7 @@
 .cv-bento-heading {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-6);
 }
 
@@ -691,7 +749,7 @@
 .cv-bento-body {
   display: grid;
   gap: var(--cv-space-2);
-  padding: var(--cv-space-5);
+  padding: var(--cv-space-6);
   align-content: start;
 }
 
@@ -707,13 +765,14 @@
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-text-muted);
 }
 
 .cv-bento-title {
   font-family: var(--cv-font-display);
-  font-size: var(--cv-font-size-md);
+  font-size: var(--cv-font-size-lg);
+  line-height: var(--cv-font-lineHeight-snug);
   text-wrap: balance;
 }
 
@@ -728,11 +787,12 @@
 .cv-steps-heading {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
 }
 
 .cv-steps-lead {
   color: var(--cv-color-text-muted);
-  max-inline-size: 62ch;
+  max-inline-size: var(--cv-measure-prose);
   margin-block-start: var(--cv-space-3);
   line-height: var(--cv-font-lineHeight-body);
 }
@@ -768,13 +828,14 @@
   inset-inline-start: 0;
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-sm);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--cv-font-tracking-wide);
   color: var(--cv-color-accent);
 }
 
 .cv-step-title {
   font-family: var(--cv-font-display);
-  font-size: var(--cv-font-size-md);
+  font-size: var(--cv-font-size-lg);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-2);
   text-wrap: balance;
 }
@@ -805,7 +866,7 @@
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-text-muted);
 }
 
@@ -840,6 +901,7 @@
 .cv-hotspots-heading {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
   margin-block-end: var(--cv-space-6);
 }
 
@@ -994,11 +1056,12 @@
 .cv-spec-table-heading {
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-xl);
+  line-height: var(--cv-font-lineHeight-snug);
 }
 
 .cv-spec-table-lead {
   color: var(--cv-color-text-muted);
-  max-inline-size: 62ch;
+  max-inline-size: var(--cv-measure-prose);
   margin-block: var(--cv-space-3) var(--cv-space-6);
   line-height: var(--cv-font-lineHeight-body);
 }

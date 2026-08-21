@@ -73,6 +73,12 @@ Los extras específicos de tema (el oro de club, el inverso de carbon) se neutra
 
 27 tests calculan el ratio de cada par texto/fondo en los 3 temas y exigen AA (4.5:1). Dos fallos reales se corrigieron al introducirlos: el badge de acento usaba el acento como **texto** (3.55:1 en carbon) y el propio token `color.link` de volt medía 3.45:1. La garantía se hace una vez en build; ninguna combinación seleccionable por un editor puede ser ilegible.
 
+### Un token que no existe no puede pasar desapercibido
+
+`var(--cv-space-5)` estuvo en producción: la escala va 1,2,3,4,6,8,12,16,24 y no tiene paso 5, así que la declaración era inválida en tiempo de cómputo, el `padding` caía al 0 del reset y el texto de las tarjetas se apoyaba en el borde. Ni stylelint (nunca ha leído `tokens.json`) ni los tests de contraste (comparan pares de tokens, no hojas de estilo) podían verlo, y el único test que sí miraba hojas de estilo cubría dos de las tres del repo — precisamente no `sections.css`.
+
+Ahora la guarda recorre las tres y pregunta dos cosas: un nombre usado **sin fallback** tiene que existir, y un nombre **con forma de token** (`--cv-space-…`, `--cv-color-…`) tiene que existir aunque lleve fallback, porque esa forma es una afirmación sobre la escala y el fallback solo la disimula. Las propiedades que declara la capa de apariencia (`--cv-section-measure`, `--cv-reveal-name`, `--cv-scrim`) cuentan como declaradas: no son tokens y no van a serlo.
+
 ### Anidamiento
 
 Como los temas son bloques `[data-theme]` de igual especificidad y neutralizan lo que no definen, **un tema dentro de otro funciona**. Esto es lo que permite el modelo aprobado: tema de sitio → override por página → override por sección.
@@ -106,7 +112,7 @@ El vocabulario vive en `packages/appearance/src/controls.ts` y cada sección dec
 |---|---|---|
 | `spaceBlockStart` / `spaceBlockEnd` | `none · sm · md · lg · xl` | `--cv-space-*` (`padding-block`) |
 | `background` | `none · surface · raised · inverse · accent` | roles semánticos; `inverse` y `accent` reasignan también texto y borde |
-| `width` | `prose · content · full` | `--cv-section-measure` |
+| `width` | `prose · content · full` | `--cv-section-measure` (mide la **columna**, no la banda) |
 | `align` | `start · center` (lógico, nunca `left`/`right`) | `text-align`, RTL-seguro |
 | `columns` | `2 · 3 · 4` | `--cv-section-columns` |
 | `mediaPosition` | `start · end` (lógico) | orden de la rejilla en `mediaText` |
@@ -124,6 +130,26 @@ Trece controles. La fuente de verdad es `controls.ts`, no esta tabla: un test co
 Previstos, **no implementados** (cada uno entrará como una entrada más en esa tabla con su CSS, nunca como valor libre): `gap` · `accentUse` · `radius` · `elevation`.
 
 **Deliberadamente ausentes** — y esta lista *es* el diseño: selectores de color, hex, familias tipográficas, tamaños en px, padding libre, `className`, `style`, CSS a medida, z-index, opacidad.
+
+#### Banda y contenedor: dos elementos, dos trabajos
+
+Una sección se renderiza como **dos** elementos, y la separación es la condición para que exista composición:
+
+```
+<section data-cv-section data-bg data-space-* …>   ← la BANDA: pinta y marca el ritmo
+  <div class="cv-section-inner">                   ← el CONTENEDOR: mide y centra
+    …lo que devuelve render()…
+```
+
+La banda **no tiene medida propia**: es tan ancha como la deje su contenedor de página, y por eso `background: surface` puede llegar al borde en vez de flotar como un rectángulo con fondo de página a los lados. El contenedor lleva `max-inline-size: var(--cv-section-measure)` y el padding lateral. Es lo que hacen Webflow (Section + Container), Dawn (`<section class="color-scheme">` + `.page-width`) y `theme.json` (`contentSize` dentro de un grupo `full`) — y lo que ya hacía el propio footer de esta app (`.site-footer` / `.site-footer-inner`) mientras las secciones no.
+
+Consecuencias que conviene tener presentes:
+
+- `width` gobierna **la columna**, no la banda: con `full` la columna se abre hasta el viewport; con `content` la banda sigue sangrando y solo el contenido para a 1180.
+- La **medida de lectura** no sale de ahí. `--cv-section-measure` vale `none` en `full`, así que la prosa se acota con `--cv-measure-prose` (un token), nunca con la medida de la banda. Un test lo impide.
+- `reveal` anima el **contenedor**. Animar la banda movía el elemento que pinta y abría una costura de hasta 24 px entre dos fondos contiguos; la banda conserva la línea temporal (`view-timeline`) para que la coreografía no cambie.
+- Una sección que sangra —la escena— sale del padding del contenedor con un inset lógico negativo y **da a su copy una columna centrada propia**: una banda a sangre sin columna deja el titular a 24 px del cristal en una pantalla de 2560 px.
+- El filete de `divider` pasa a trazarse de borde a borde, que es lo que hace un separador de bandas.
 
 **Cómo se renderiza.** Como atributos `data-*` en el envoltorio de la sección, con una hoja CSS generada desde la misma tabla de enums. Tres consecuencias que lo hacen seguro para siempre:
 
@@ -237,7 +263,7 @@ Esa separación es una corrección al contrato original, que pedía todos los ef
 | `pnpm arch` | Las fronteras de §1, cada una probada contra su violación **con la dependencia declarada** (ver el aviso de §1) |
 | `pnpm stylelint` | Nada de hex crudo, nada de propiedades físicas |
 | Lint con tipos | `no-floating-promises`, `no-misused-promises`, Rules of Hooks |
-| Vitest | Dominio, `Money`, contrato semántico, **contraste AA en 3 temas**, compilador de tokens |
+| Vitest | Dominio, `Money`, contrato semántico, **contraste AA en 3 temas**, compilador de tokens, **invariantes de `sections.css`** (medida de lectura acotada, 1.0 solo en versales, tracking por token, la entrada anima el contenedor y no la banda) |
 | Suites de contrato | Todo adaptador prueba que el puerto es implementable |
 | Playwright *(WP16)* | Checkout por mercado y proveedor, RMA, desistimiento |
 | Storybook + visual *(WP16)* | Secciones × 3 temas × LTR/RTL |

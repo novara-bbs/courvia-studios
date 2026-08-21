@@ -80,7 +80,15 @@ body {
  * controls and their own inline padding — the shell adds none on top. */
 .page--composed {
   gap: 0;
-  padding-block-start: 0;
+  /* A band has no width of its own by design — it is the wrapper that decides
+   * how far a full-bleed background reaches, and `.page` caps at 1180px. With
+   * that cap in place no section could ever bleed, so every composed page read
+   * as one column floating in the same colour. */
+  max-width: none;
+  /* Both ends: the last band owns the space above the footer, which is why
+   * .site-footer no longer adds a margin of its own. Two owners of the same
+   * gap left 128px of dead background under every composed page. */
+  padding-block: 0;
   padding-inline: 0;
 }
 
@@ -254,6 +262,19 @@ code {
   gap: var(--cv-space-4);
 }
 
+/* Without this rule an anchor inherits the user-agent's #0000EE, which is
+ * 1.74:1 on --cv-color-surface — far under the 4.5:1 this system promises.
+ * The `link` role has existed in the semantic contract from the start, with
+ * a contrast test per theme; nothing was reading it. The gap showed on the
+ * one line that can least afford it: the GDPR consent sentence under the
+ * waitlist form, where the link to the privacy policy is what makes the
+ * consent informed.
+ *
+ * The author-origin rule also displaces :visited, so no purple either. */
+a {
+  color: var(--cv-color-link);
+}
+
 .site-nav a {
   color: var(--cv-color-text);
   text-decoration: none;
@@ -268,7 +289,6 @@ code {
 .site-footer {
   border-block-start: 1px solid var(--cv-color-border);
   background: var(--cv-color-surface);
-  margin-block-start: var(--cv-space-16);
 }
 
 .site-footer-inner {

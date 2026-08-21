@@ -34,7 +34,7 @@ export const BREAKPOINTS = { sm: 480, md: 680, lg: 860, xl: 1180 } as const;
 
 export type BreakpointName = keyof typeof BREAKPOINTS;
 
-/** `padding-inline: var(--cv-space-6)` on the section wrapper, both sides. */
+/** `padding-inline: var(--cv-space-6)` on `.cv-section-inner`, both sides. */
 const WRAPPER_PADDING = 48;
 
 /**
@@ -65,8 +65,10 @@ export interface MediaFrame {
    */
   from?: BreakpointName;
   /**
-   * The media escapes the wrapper's inline padding (a full-bleed scene), so
+   * The media escapes the inner's inline padding (a full-bleed scene), so
    * it is as wide as the measure rather than the measure minus padding.
+   * With `width: full` the measure is `none`, so the scene is the viewport
+   * and the arithmetic below already answers `100vw`.
    */
   bleed?: boolean;
 }

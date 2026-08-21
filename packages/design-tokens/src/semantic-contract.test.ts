@@ -104,22 +104,128 @@ describe("WCAG AA contrast", () => {
 
 /* --------------------------------------------- every var() resolves to a token */
 
+/**
+ * `.cv-feature-grid-item { padding: var(--cv-space-5) }` shipped, and the
+ * scale has no step 5: the declaration was invalid at computed-value time,
+ * padding fell back to the reset's 0 and the copy sat on the card border.
+ * Nothing caught it. stylelint cannot — it has never read tokens.json — and
+ * the previous version of this suite only looked at two of the repo's three
+ * stylesheets, and `sections.css` was the one it did not look at.
+ *
+ * So the guard covers every stylesheet, and it asks two questions instead of
+ * one: a name used WITHOUT a fallback must exist (or it computes to nothing),
+ * and a name shaped like a token — `--cv-space-…`, `--cv-color-…` — must
+ * exist even WITH a fallback, because that shape is a claim about the scale
+ * and a fallback only hides the fact that the claim is false.
+ */
 describe("token variable usage", () => {
-  const css = buildCss(doc);
-  const declared = new Set([...css.matchAll(/(--cv-[A-Za-z0-9-]+)\s*:/g)].map((m) => m[1]));
+  /** Every stylesheet in the repo that consumes the token layer. */
+  const CSS_SOURCES = [
+    "packages/ui/src/styles.css",
+    "packages/sections/src/sections.css",
+    "apps/web/app/(frontend)/app.css",
+  ];
 
-  function assertVarsExist(file: string): void {
-    const source = readFileSync(join(pkgRoot, "..", "..", file), "utf8");
-    const used = [...source.matchAll(/var\((--cv-[A-Za-z0-9-]+)/g)].map((m) => m[1]);
-    const unknown = [...new Set(used)].filter((name) => name !== undefined && !declared.has(name));
-    expect(unknown, `${file} references undeclared tokens: ${unknown.join(", ")}`).toEqual([]);
+  function read(file: string): string {
+    return readFileSync(join(pkgRoot, "..", "..", file), "utf8");
   }
 
-  it("packages/ui styles only reference declared tokens", () => {
-    assertVarsExist("packages/ui/src/styles.css");
+  const sources = new Map(CSS_SOURCES.map((file) => [file, read(file)]));
+
+  /**
+   * The appearance layer declares custom properties that are NOT tokens and
+   * never will be (`--cv-section-measure`, `--cv-reveal-name`, `--cv-scrim`):
+   * they carry an editor's enum choice from the wrapper down to the section.
+   * Read as text rather than imported, because L0 may not depend on any
+   * package in the repo — and reading the GENERATED sheet instead would make
+   * this suite depend on a build having run.
+   */
+  const appearanceSource = read("packages/appearance/src/controls.ts");
+
+  const tokenCss = buildCss(doc);
+  const tokenNames = new Set([...tokenCss.matchAll(/(--cv-[A-Za-z0-9-]+)\s*:/g)].map((m) => m[1]));
+  const declared = new Set(tokenNames);
+  for (const text of [...sources.values(), appearanceSource]) {
+    for (const match of text.matchAll(/(--cv-[A-Za-z0-9-]+)\s*:/g)) declared.add(match[1]);
+  }
+
+  /** First path segment of every token name: space, color, font, measure… */
+  function group(name: string): string {
+    return name.split("-")[3] ?? "";
+  }
+
+  const TOKEN_GROUPS = new Set([...tokenNames].map((name) => group(name ?? "")));
+
+  /** Uses of `--cv-*`, split by whether a fallback softens a missing name. */
+  function usages(text: string): { name: string; hasFallback: boolean }[] {
+    return [...text.matchAll(/var\(\s*(--cv-[A-Za-z0-9-]+)\s*(,?)/g)].map((m) => ({
+      name: m[1] ?? "",
+      hasFallback: m[2] === ",",
+    }));
+  }
+
+  for (const [file, text] of sources) {
+    it(`${file}: nothing is read that nothing declares`, () => {
+      const unknown = [
+        ...new Set(usages(text).filter((u) => !u.hasFallback).map((u) => u.name)),
+      ].filter((name) => !declared.has(name));
+      expect(
+        unknown,
+        `${file} reads ${unknown.join(", ")} with no fallback and nothing declares it, ` +
+          `so the whole declaration is dropped at computed-value time`,
+      ).toEqual([]);
+    });
+
+    it(`${file}: nothing claims a step the scale does not have`, () => {
+      const offScale = [...new Set(usages(text).map((u) => u.name))].filter(
+        (name) => TOKEN_GROUPS.has(group(name)) && !tokenNames.has(name),
+      );
+      expect(offScale, `${file} references ${offScale.join(", ")}, absent from tokens.json`).toEqual(
+        [],
+      );
+    });
+  }
+});
+
+/**
+ * Three rules in the app shell that the section layer depends on and cannot
+ * enforce from its own package.
+ *
+ * A band deliberately has no width of its own — that is what lets a
+ * background bleed to the glass — so whoever wraps it decides how far it
+ * reaches. When `.page` capped every child at 1180px, no band could bleed
+ * and every composed page read as one column floating in the same colour.
+ * And with both the last band and the footer claiming the space between
+ * them, composed pages carried 128px of dead background.
+ *
+ * The link rule is here for the same reason: the `link` role has had a
+ * contrast test per theme since the beginning, and nothing read it, so every
+ * anchor outside the nav fell back to the user agent's #0000EE — 1.74:1 on
+ * surface. A token that no stylesheet consumes is a promise, not a colour.
+ */
+describe("the app shell keeps the promises the section layer relies on", () => {
+  const app = readFileSync(join(pkgRoot, "..", "..", "apps/web/app/(frontend)/app.css"), "utf8");
+  const ruleBody = (selector: string): string => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`, "m").exec(app)?.[1] ?? "";
+  };
+
+  it("reads the rules it is asserting on", () => {
+    // Without this, a selector rename would empty every body below and turn
+    // the whole block green while saying nothing.
+    expect(ruleBody(".page"), ".page not found").toContain("max-width");
   });
 
-  it("apps/web styles only reference declared tokens", () => {
-    assertVarsExist("apps/web/app/(frontend)/app.css");
+  it("a composed page does not cap the bands inside it", () => {
+    expect(ruleBody(".page--composed")).toMatch(/max-width:\s*none/);
+  });
+
+  it("only the last band owns the space above the footer", () => {
+    expect(ruleBody(".page--composed")).toMatch(/padding-block:\s*0/);
+    expect(ruleBody(".site-footer")).not.toMatch(/margin-block-start/);
+  });
+
+  it("gives every anchor the link role instead of the user agent's blue", () => {
+    expect(ruleBody("a")).toMatch(/color:\s*var\(--cv-color-link\)/);
   });
 });

@@ -7,6 +7,7 @@
  * the renderer's promises (a bad block never takes a page down, the anchor
  * comes from the block name) are asserted rather than described.
  */
+import { SECTION_INNER_CLASS } from "@courvia/appearance";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -213,5 +214,47 @@ describe("images negotiate size and format instead of shipping the master", () =
     expect(img).toMatch(/src="\/api\/media\/file\/tempo\.jpg"/);
     expect(img).not.toMatch(/srcset/i);
     expect(img).not.toMatch(/sizes=/i);
+  });
+});
+
+/**
+ * The stylesheet's half of the band/container split is asserted in
+ * @courvia/appearance; this is the other half. A generated rule that selects
+ * `[data-cv-section] > .cv-section-inner` matches nothing at all if the
+ * renderer forgets the element, and the page would keep rendering — just
+ * with no measure and no inline padding on any section, which reads as a
+ * layout accident rather than a missing div.
+ */
+describe("every section paints on a band and measures in a container", () => {
+  const inner = `<div class="${SECTION_INNER_CLASS}">`;
+
+  for (const [type, section] of Object.entries(SECTIONS)) {
+    it(`${type} wraps its body in exactly one container`, () => {
+      const html = render({ blockType: type, ...section.fixture });
+      // Directly under the band: the generated rule is a child combinator,
+      // so a wrapper anywhere else in the tree would not be selected. The
+      // match cannot be anchored at the start of the string — React hoists a
+      // <link rel="preload"> in front of a section carrying an eager image.
+      expect(html).toContain(`>${inner}`);
+      expect(html.slice(html.indexOf("<section"))).toMatch(
+        new RegExp(`^<section [^>]*><div class="${SECTION_INNER_CLASS}">`),
+      );
+      expect(html.split(SECTION_INNER_CLASS)).toHaveLength(2);
+      expect(html.endsWith("</div></section>")).toBe(true);
+    });
+  }
+
+  it("the preview diagnostic sits in the container too, so it keeps the measure", () => {
+    const html = render({ blockType: "notASection" }, previewCtx);
+    expect(html).toContain(`class="${SECTION_INNER_CLASS} cv-section-problem"`);
+  });
+
+  it("a section that renders nothing leaves no empty container behind", () => {
+    const { renderSpecTable: _omitted, ...withoutRenderer } = ctx;
+    const html = render(
+      { blockType: "specTable", ...SECTIONS.specTable?.fixture },
+      withoutRenderer as RenderContext,
+    );
+    expect(html).toBe("");
   });
 });

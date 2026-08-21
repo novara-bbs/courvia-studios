@@ -19,12 +19,21 @@ Plantilla canónica: `packages/sections/src/blocks/hero/index.tsx`. Léela antes
    - `fixture`: contenido de oro que satisface el propio contrato; lo parsean los tests y lo renderizan las previews.
    - `render`: función pura de `(content, ctx, placement)` → JSX con primitivas de `@courvia/ui` y clases `cv-*`. El rich text llega serializado por `ctx.renderRichText` (inyectado por la app); la sección nunca toca el formato del editor. `placement` trae la apariencia ya resuelta y la posición de la sección en la página: solo lo necesitan las secciones con imagen.
 2. **Si la sección muestra imágenes**, no escribas el `<img>` a mano: `imageAttrs(media, placement, frame)` (`dsl/image.ts`) emite `srcset` con las derivadas que Payload ya generó, el `sizes` que corresponde al layout, `width`/`height` y el par `loading`/`fetchpriority`. El `frame` describe la rejilla —cuántas celdas comparten fila (`columns`) y desde qué breakpoint (`from`)—, nunca una cadena de `sizes` copiada. Ninguna lista de anchos se escribe en el código: salen del propio documento, así que añadir un tamaño en la colección `Media` se refleja solo.
-3. **`packages/sections/src/sections.css`** — los estilos de la sección van en esta hoja centralizada (no hay CSS por sección). Solo tokens `--cv-*` y propiedades lógicas.
+3. **`packages/sections/src/sections.css`** — los estilos de la sección van en esta hoja centralizada (no hay CSS por sección). Solo tokens `--cv-*` y propiedades lógicas. Tres reglas que verifica `sections.css.test.ts`, no la revisión humana:
+   - **La medida de lectura es un token, no una fracción de la banda.** Usa `var(--cv-measure-prose)`; nunca `var(--cv-section-measure, …)`, que vale `none` cuando la sección es `width: full` y ahí el texto se quedaría sin tope. Una medida más estrecha y deliberada (28ch para un titular de escena) sí va literal.
+   - **Un titular lleva su propia interlínea y no baja de `lg`.** `--cv-font-lineHeight-tight` es 1.0 y solo vale para versales; en caja baja usa `snug`.
+   - **El `letter-spacing` sale de `--cv-font-tracking-wide|wider`.** Los chips de telemetría (12 px mono en versales) van todos a `wider`.
 4. **Regístrala en `packages/sections/src/registry.ts`** — importa la sección y añádela al array (`[hero, richText, ctaBand]`).
 5. **`packages/sections/src/registry.test.ts`** — añade el nuevo `type` a la lista esperada de tipos registrados. El resto del test es genérico: valida labels, fixture contra contrato y controles de ritmo de cada entrada.
 6. **Migración** — no hay nada que escribir en Payload (`blocks.ts` genera el bloque), pero un bloque nuevo crea tablas (`pages_blocks_<slug>…`) y el proyecto va con `push: false`. Desde la raíz: `pnpm migrate:new <nombre>`, luego `pnpm --filter @courvia/web migrate && pnpm --filter @courvia/web generate:types`. Commitea la migración (`.ts` y `.json`) y `src/migrations/index.ts`. A producción solo por CI (`.claude/rules/database.md`).
 
 El render en la tienda ya funciona sin más pasos: `SectionList` (`packages/sections/src/render`) lee el registro. Un bloque desconocido o con contenido inválido no tumba la página: no renderiza nada en producción y muestra un diagnóstico en preview.
+
+**Lo que envuelve tu render.** El renderer emite dos elementos, no uno: `<section data-cv-section>` es la **banda** (fondo, ritmo vertical, filete, altura, `data-*` de apariencia) y dentro va `<div class="cv-section-inner">`, el **contenedor** que lleva la medida y el padding lateral. Tu `render` devuelve lo que va dentro del contenedor. Consecuencias prácticas:
+
+- No pongas fondo ni `padding-block` en el elemento raíz de tu sección: eso es de la banda y lo elige el editor.
+- Si tu sección necesita sangrar hasta el borde de la banda (una escena a pantalla completa), sal del padding del contenedor con un inset lógico negativo, como hace `.cv-stage-media`, y dale al contenido su propia columna centrada; no dejes que el texto se vaya al borde del cristal.
+- `reveal` anima el **contenedor**, nunca la banda: mover el elemento que pinta abre una costura entre dos bandas contiguas.
 
 ## Prohibido
 

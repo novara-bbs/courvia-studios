@@ -42,6 +42,11 @@ export interface FlatToken {
 export function flattenGroup(group: TokenGroup, base = ""): FlatToken[] {
   const out: FlatToken[] = [];
   for (const [key, node] of Object.entries(group)) {
+    // DTCG reserves the `$` prefix for metadata ($description, $extensions).
+    // Without this a documented GROUP is walked as if it were a group of
+    // tokens, and `Object.entries("some prose")` hands back one entry per
+    // character — the document silently grows a token per letter.
+    if (key.startsWith("$")) continue;
     const path = base === "" ? key : `${base}.${key}`;
     if (isToken(node)) {
       out.push({ path, token: node });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildAppearanceCss } from "./build-css";
-import { CONTROLS, CONTROL_NAMES } from "./controls";
+import { CONTROLS, CONTROL_NAMES, SECTION_INNER_CLASS } from "./controls";
 import type { ControlDefinition } from "./controls";
 import { parseAppearance, resolveAppearance } from "./schema";
 
@@ -119,5 +119,69 @@ describe("CSS coverage — table and stylesheet cannot drift", () => {
         expect(control.values, `${name}: stale rule for '${value}'`).toContain(value);
       }
     }
+  });
+});
+
+/**
+ * A band that carries its own measure is not a band: it is a rectangle. The
+ * whole point of the split is that the painting element has NO inline size
+ * of its own, so `background: surface` runs as far as the page lets it and
+ * only the column inside stops at the measure. Asserted as an invariant over
+ * the generated sheet rather than as a spot check on today's declarations:
+ * any future control that puts an inline constraint back on the band fails
+ * here, which is how the property stays true after this session.
+ */
+describe("band and container are two elements", () => {
+  const css = buildAppearanceCss();
+
+  /** Leaf rules of the generated sheet: it has no nesting and no at-rules. */
+  const rules = [...css.matchAll(/([^{}\n]+)\{([^}]*)\}/g)].map((match) => ({
+    selector: (match[1] ?? "").trim(),
+    body: match[2] ?? "",
+  }));
+
+  /** Everything that can stop an element from being as wide as its parent. */
+  const INLINE_CONSTRAINTS = ["max-inline-size", "inline-size", "margin-inline", "padding-inline"];
+
+  const innerSelector = `[data-cv-section] > .${SECTION_INNER_CLASS}`;
+
+  it("emits a rule for the inner container, not just a class name in a comment", () => {
+    expect(rules.map((rule) => rule.selector)).toContain(innerSelector);
+  });
+
+  it("no rule constrains the inline size of the band", () => {
+    const offenders = rules
+      .filter((rule) => !rule.selector.includes(SECTION_INNER_CLASS))
+      .filter((rule) => INLINE_CONSTRAINTS.some((property) => rule.body.includes(`${property}:`)))
+      .map((rule) => rule.selector);
+    expect(
+      offenders,
+      `${offenders.join(", ")} would cap the element that paints the background, ` +
+        `so a full-width background could never reach the edge`,
+    ).toEqual([]);
+  });
+
+  it("the container is what carries the measure and the inline padding", () => {
+    const inner = rules.find((rule) => rule.selector === innerSelector);
+    expect(inner?.body).toContain("max-inline-size: var(--cv-section-measure");
+    expect(inner?.body).toContain("padding-inline: var(--cv-space-6)");
+    expect(inner?.body).toContain("margin-inline: auto");
+  });
+
+  it("only the container ever reads the measure", () => {
+    // --cv-section-measure may be `none` (width: full). Anything else that
+    // read it would silently lose its cap on a full-bleed section — which is
+    // exactly how running prose ended up 144 characters wide.
+    const readers = rules
+      .filter((rule) => rule.body.includes("var(--cv-section-measure"))
+      .map((rule) => rule.selector);
+    expect(readers).toEqual([innerSelector]);
+  });
+
+  it("the band still resolves the colour role it rebinds", () => {
+    // Moving `color` to the inner would freeze it before data-bg=inverse
+    // had a chance to rebind --cv-color-text on the band.
+    const band = rules.find((rule) => rule.selector === "[data-cv-section]");
+    expect(band?.body).toContain("color: var(--cv-color-text)");
   });
 });

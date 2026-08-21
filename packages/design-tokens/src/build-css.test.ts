@@ -6,6 +6,7 @@ import {
   buildCss,
   cssValue,
   cssVarName,
+  flattenGroup,
   lookupToken,
   resolveToken,
   themeValueCss,
@@ -176,5 +177,29 @@ describe("buildCss", () => {
         expect(block).not.toContain(`--cv-color-${role}: initial;`);
       }
     }
+  });
+});
+
+describe("flattenGroup", () => {
+  it("walks nested groups down to their tokens", () => {
+    const paths = flattenGroup({
+      space: { "1": { $type: "dimension", $value: "4px" } },
+      color: { court: { "950": { $type: "color", $value: "#081426" } } },
+    }).map(({ path }) => path);
+    expect(paths).toEqual(["space.1", "color.court.950"]);
+  });
+
+  it("treats a $-prefixed key as metadata, never as a token or a group", () => {
+    // DTCG lets any group carry `$description` / `$extensions`. Walked as if
+    // it were a group, `Object.entries("some prose")` yields one entry per
+    // CHARACTER, so a single documented group would compile into dozens of
+    // garbage custom properties named after string indices. tokens.json
+    // carries no group metadata today, which is exactly why this is asserted
+    // here rather than left to be discovered by the first person to add one.
+    const flat = flattenGroup({
+      $description: "Reading measure",
+      prose: { $type: "dimension", $value: "62ch" },
+    } as never);
+    expect(flat.map(({ path }) => path)).toEqual(["prose"]);
   });
 });

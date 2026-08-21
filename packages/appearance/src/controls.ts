@@ -11,6 +11,16 @@
  */
 import { THEME_ALIAS_LIST } from "@courvia/design-tokens";
 
+/**
+ * Class of the element INSIDE the section band that carries the measure and
+ * the inline padding (see build-css.ts for why the pair exists).
+ *
+ * Exported rather than typed twice: the renderer writes this class and the
+ * generated stylesheet selects on it, and a rename that reached only one of
+ * them would leave every section unmeasured with nothing failing.
+ */
+export const SECTION_INNER_CLASS = "cv-section-inner";
+
 export interface ControlDefinition {
   values: readonly string[];
   default: string;
@@ -68,13 +78,19 @@ export const CONTROLS = {
         "background: var(--cv-color-accent); --cv-color-text: var(--cv-color-accent-contrast); --cv-color-text-muted: var(--cv-color-accent-contrast); --cv-color-fill-accent: var(--cv-color-accent-contrast); --cv-color-on-fill-accent: var(--cv-color-accent);",
     },
   },
-  /** Content measure. */
+  /**
+   * How wide the section's CONTENT COLUMN is. Not how wide the band is: the
+   * band always spans its container, so `full` opens the column to the
+   * viewport rather than turning a background on. `none` is a legal measure
+   * here and nowhere else — anything that must never lose its cap (running
+   * prose) uses --cv-measure-prose instead of reading this variable.
+   */
   width: {
     values: ["prose", "content", "full"],
     default: "content",
     attribute: "data-width",
     css: {
-      prose: "--cv-section-measure: 62ch;",
+      prose: "--cv-section-measure: var(--cv-measure-prose);",
       content: "--cv-section-measure: var(--cv-breakpoint-xl);",
       full: "--cv-section-measure: none;",
     },
