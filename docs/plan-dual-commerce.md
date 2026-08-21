@@ -115,8 +115,13 @@ Ninguno se da por bueno sin un test que se haya visto en rojo.
 | Comprobar Vercel Preview | ✅ **diagnosticado**: faltan `DATABASE_URL` y `PAYLOAD_SECRET` en Preview |
 | Matriz de huecos basada en código | ✅ [`docs/matriz-huecos.md`](matriz-huecos.md) — 101 piezas |
 | ADR-029 | ✅ borrador, estado *propuesto* |
-| Reconciliar documentación contradictoria | 🔄 11 confirmadas de 37 |
-| TCO con fuentes y fecha | ⏳ |
+| Reconciliar documentación contradictoria | ✅ 11 arregladas de 37 confirmadas (26 refutadas) |
+| Aplicar ADR-022 al código | ✅ `4af73f8` — 12 sitios, dos visibles en el panel, + test que lo sujeta |
+| TCO con fuentes y fecha | ⏳ **pendiente** |
+
+**Fase 0 cerrada salvo el TCO.** Lo que queda de ella es el análisis de coste
+con fuentes y fecha, que depende de decisiones que no son mías: plan de Vercel,
+plan de Shopify y si Preview lleva su propia base.
 
 #### El diagnóstico de Vercel, cerrado
 
@@ -202,6 +207,34 @@ marketplace · promociones avanzadas.
 
 ---
 
+### Deuda de documentación que queda, y no es cosmética
+
+El barrido arregló las once confirmadas. Quedaron señaladas y **sin tocar**
+tres más, por respetar el alcance encargado:
+
+- **`docs/data-model.md`, «Bloques (definitivos)»** — cuatro líneas debajo de
+  la que se arregló, lista doce nombres de bloque que no existen
+  (`BentoGrid`, `SpecsTable`, `ProductComparator`, `VideoBlock`, `LeadForm`,
+  `TestimonialStrip`, `WarrantyBlock`, `MediaGallery`). El registro tiene 19
+  con otros nombres. Es la misma avería que `academyPosts`, a una línea de
+  distancia.
+- **`docs/gap-analysis.md:86, :87, :90`** siguen en «pendiente» aunque
+  `fab7019` acredita los tres.
+- **`docs/product.md` §12** dice `/robots/comparar`; la ruta viva es
+  `/{region}/comparar`.
+
+### Un hallazgo que no se reprodujo
+
+Se reportó que a dos fuentes les falta `preload: false` y que su
+`<link rel="preload">` viaja en todas las rutas, con ~71 KB por delante de la
+LCP. **Medido contra el servidor construido: `/es` sirve cero preloads de
+fuente.** `next/font` solo emite el preload de una familia que la ruta aplica,
+y `fontClassesFor` solo aplica las del tema activo. La inconsistencia existe
+en el fuente; el efecto medido hoy es ninguno. Queda anotado como guarda
+futura, no como mejora.
+
+---
+
 ## 6 · Trabajo del CMS heredado del plan anterior
 
 Sigue vivo y se integra en las fases 3 y siguientes.
@@ -247,3 +280,4 @@ secretos de pago.
 | 21 ago 2026 | Línea base verificada. `main` resulta ser ancestro normal, no historia rota. |
 | 21 ago 2026 | Vercel diagnosticado desde el log: faltan `DATABASE_URL` y `PAYLOAD_SECRET` en Preview. El Root Directory ya estaba bien. |
 | 21 ago 2026 | Matriz de huecos: 101 piezas, 6 `launch_blocked`, 28 inexistentes. 11 contradicciones de documentación confirmadas de 37 (26 refutadas). |
+| 21 ago 2026 | Las once arregladas (`a68aafc`). ADR-022 aplicado por fin al código, con test (`4af73f8`). Fase 0 cerrada salvo el TCO. |
