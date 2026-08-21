@@ -2,17 +2,21 @@ import { format, type Money } from "@courvia/commerce-domain";
 import { REGION_DEFINITIONS, isRegionId } from "@courvia/platform";
 import { LinkButton } from "@courvia/ui";
 import type { Metadata } from "next";
+import { draftMode } from "next/headers";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
-import { getRobot, listRobots } from "../../../../../src/catalog/get-catalog";
+import { getDraftRobot, getRobot, listRobots } from "../../../../../src/catalog/get-catalog";
 import { ProductCard } from "../../../../../src/catalog/product-card";
 import { makeRenderContext } from "../../../../../src/content/render-context";
 import { setRequestRegion } from "../../../../../src/i18n/request-region";
 import { LeadForm } from "../../../../../src/leads/lead-form";
+import { DraftModeBar } from "../../../../../src/preview/draft-mode-bar";
+import { RefreshRouteOnSave } from "../../../../../src/preview/refresh-route-on-save";
 import { ProductJsonLd } from "../../../../../src/seo/product-json-ld";
 import { regionAlternates } from "../../../../../src/seo/region-alternates";
+import { siteUrl } from "../../../../../src/seo/site-url";
 
 /** Where the buy rail's single action lands, and the id of the form. */
 const LEAD_ANCHOR = "lista-espera";
@@ -54,15 +58,20 @@ export default async function RobotDetailPage({ params }: PageArgs) {
   setRequestRegion(region);
 
   const def = REGION_DEFINITIONS[region];
+  // Draft mode is the admin's live preview (src/preview): it renders the
+  // autosaved version instead of the published one, and the proxy already
+  // steps aside for the draft cookie so an unpublished slug reaches this
+  // component at all.
+  const { isEnabled: draft } = await draftMode();
   const [t, detail, catalogue] = await Promise.all([
     getTranslations({ locale: def.locale, namespace: "catalog" }),
-    getRobot(slug, region),
+    draft ? getDraftRobot(slug, region) : getRobot(slug, region),
     listRobots(region),
   ]);
   if (detail === null) notFound();
 
   const { product, variants } = detail;
-  const ctx = makeRenderContext(false, region);
+  const ctx = makeRenderContext(draft, region);
   // waitlist = capturing interest, not selling: no price, no stock table.
   const status = product.launchStatus ?? "available";
   const fromPrice = variants.reduce<Money | null>(
@@ -80,202 +89,216 @@ export default async function RobotDetailPage({ params }: PageArgs) {
   const related = catalogue.filter((other) => other.slug !== product.slug);
 
   return (
-    <main className="page page--pdp">
-      {/* The buy rail: who this is, what state it is in, and ONE action. It
-          comes first in the document so a phone reads the title and the CTA
-          before the 1075px hero; on desktop the grid puts it back beside the
-          media and pins it (see .page--pdp in app.css). The form itself stays
-          full width below — a rail with a whole form in it is not a rail.
-          Two elements, like Dawn's info-wrapper/column-sticky: the outer one
-          is the grid cell, the inner one is what sticks. */}
-      <div className="pdp-rail">
-        <div className="pdp-rail-sticky">
-          <header className="pdp-head">
-            <p className="eyebrow">
-              {[
-                product.brand?.name,
-                product.sports.map((sport) => t(`sport.${sport}`)).join(" · "),
-              ]
-                .filter(Boolean)
-                .join(" — ")}
-            </p>
-            <h1>{product.title}</h1>
-            {status === "available" ? null : (
-              <p className="pdp-status">{t(`status.${status}`)}</p>
+    <>
+      {/* Editor chrome, and it stays OUTSIDE <main> for a layout reason, not
+          a purist one: .page--pdp is a two-column grid whose gallery and
+          rail claim row 1 by name, so a full-width bar dropped in as a third
+          grid item lands wherever auto-placement puts it. Before the main
+          element it is a block in normal flow, which is what a sticky bar
+          wants — and it is not page content either way. */}
+      {draft ? (
+        <>
+          <DraftModeBar exitPath={`/${region}/robots/${product.slug}`} />
+          <RefreshRouteOnSave serverUrl={siteUrl()} />
+        </>
+      ) : null}
+      <main className="page page--pdp">
+        {/* The buy rail: who this is, what state it is in, and ONE action. It
+            comes first in the document so a phone reads the title and the CTA
+            before the 1075px hero; on desktop the grid puts it back beside the
+            media and pins it (see .page--pdp in app.css). The form itself stays
+            full width below — a rail with a whole form in it is not a rail.
+            Two elements, like Dawn's info-wrapper/column-sticky: the outer one
+            is the grid cell, the inner one is what sticks. */}
+        <div className="pdp-rail">
+          <div className="pdp-rail-sticky">
+            <header className="pdp-head">
+              <p className="eyebrow">
+                {[
+                  product.brand?.name,
+                  product.sports.map((sport) => t(`sport.${sport}`)).join(" · "),
+                ]
+                  .filter(Boolean)
+                  .join(" — ")}
+              </p>
+              <h1>{product.title}</h1>
+              {status === "available" ? null : (
+                <p className="pdp-status">{t(`status.${status}`)}</p>
+              )}
+              {product.excerpt === undefined ? null : <p className="lead">{product.excerpt}</p>}
+              {fromPrice === null || status === "waitlist" ? null : (
+                <p className="pdp-price">{t("fromPrice", { price: format(fromPrice, def.hreflang) })}</p>
+              )}
+            </header>
+            {product.warrantyMonths === undefined ? null : (
+              <p className="pdp-warranty">{t("warranty", { months: product.warrantyMonths })}</p>
             )}
-            {product.excerpt === undefined ? null : <p className="lead">{product.excerpt}</p>}
-            {fromPrice === null || status === "waitlist" ? null : (
-              <p className="pdp-price">{t("fromPrice", { price: format(fromPrice, def.hreflang) })}</p>
-            )}
-          </header>
-          {product.warrantyMonths === undefined ? null : (
-            <p className="pdp-warranty">{t("warranty", { months: product.warrantyMonths })}</p>
-          )}
-          <LinkButton href={`#${LEAD_ANCHOR}`}>{askLabel}</LinkButton>
+            <LinkButton href={`#${LEAD_ANCHOR}`}>{askLabel}</LinkButton>
+          </div>
         </div>
-      </div>
 
-      {product.images === undefined || product.images.length === 0 ? null : (
-        // Canonical gallery (brand book §26): hero first and full-width, the
-        // rest in a two-up grid; every non-photographic asset carries the
-        // "render conceptual" label the evidence register mandates (E-028).
-        <section className="pdp-gallery" aria-label={t("galleryTitle")}>
-          {product.images.map((image, index) => (
-            <figure key={image.url} className="pdp-media">
-              <Image
-                src={image.url}
-                alt={image.alt}
-                width={image.width ?? 1600}
-                height={image.height ?? 1200}
-                sizes={
-                  index === 0 ? "(max-width: 860px) 100vw, 860px" : "(max-width: 860px) 100vw, 430px"
-                }
-                priority={index === 0}
-              />
-              {image.concept === true ? (
-                <span className="pdp-concept">{t("conceptRender")}</span>
-              ) : null}
-              {image.caption === undefined ? null : <figcaption>{image.caption}</figcaption>}
-            </figure>
-          ))}
-        </section>
-      )}
+        {product.images === undefined || product.images.length === 0 ? null : (
+          // Canonical gallery (brand book §26): hero first and full-width, the
+          // rest in a two-up grid; every non-photographic asset carries the
+          // "render conceptual" label the evidence register mandates (E-028).
+          <section className="pdp-gallery" aria-label={t("galleryTitle")}>
+            {product.images.map((image, index) => (
+              <figure key={image.url} className="pdp-media">
+                <Image
+                  src={image.url}
+                  alt={image.alt}
+                  width={image.width ?? 1600}
+                  height={image.height ?? 1200}
+                  sizes={
+                    index === 0 ? "(max-width: 860px) 100vw, 860px" : "(max-width: 860px) 100vw, 430px"
+                  }
+                  priority={index === 0}
+                />
+                {image.concept === true ? (
+                  <span className="pdp-concept">{t("conceptRender")}</span>
+                ) : null}
+                {image.caption === undefined ? null : <figcaption>{image.caption}</figcaption>}
+              </figure>
+            ))}
+          </section>
+        )}
 
-      {status === "waitlist" ? null : (
-      <section className="pdp-variants" aria-labelledby="pdp-variants-title">
-        <h2 id="pdp-variants-title">{t("variantsTitle")}</h2>
-        <div className="table-scroll">
-          <table>
-            <caption className="visually-hidden">{t("variantsTitle")}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t("variantSku")}</th>
-                <th scope="col">{t("variantSport")}</th>
-                <th scope="col">{t("variantPrice")}</th>
-                <th scope="col">{t("variantAvailability")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {variants.map((offer) => (
-                <tr key={offer.id}>
-                  <th scope="row">{offer.sku}</th>
-                  <td>{t(`sport.${offer.sport}`)}</td>
-                  <td>{offer.price === null ? "—" : format(offer.price, def.hreflang)}</td>
-                  <td>
-                    {offer.price === null ? (
-                      // Not sold in this market: stock is irrelevant, and
-                      // showing "in stock" for an unbuyable variant misleads.
-                      <span className="stock stock--out">{t("notSoldHere")}</span>
-                    ) : offer.available > 0 ? (
-                      <span className="stock stock--in">{t("inStock")}</span>
-                    ) : (
-                      <span className="stock stock--out">{t("outOfStock")}</span>
-                    )}
-                  </td>
+        {status === "waitlist" ? null : (
+        <section className="pdp-variants" aria-labelledby="pdp-variants-title">
+          <h2 id="pdp-variants-title">{t("variantsTitle")}</h2>
+          <div className="table-scroll">
+            <table>
+              <caption className="visually-hidden">{t("variantsTitle")}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t("variantSku")}</th>
+                  <th scope="col">{t("variantSport")}</th>
+                  <th scope="col">{t("variantPrice")}</th>
+                  <th scope="col">{t("variantAvailability")}</th>
                 </tr>
+              </thead>
+              <tbody>
+                {variants.map((offer) => (
+                  <tr key={offer.id}>
+                    <th scope="row">{offer.sku}</th>
+                    <td>{t(`sport.${offer.sport}`)}</td>
+                    <td>{offer.price === null ? "—" : format(offer.price, def.hreflang)}</td>
+                    <td>
+                      {offer.price === null ? (
+                        // Not sold in this market: stock is irrelevant, and
+                        // showing "in stock" for an unbuyable variant misleads.
+                        <span className="stock stock--out">{t("notSoldHere")}</span>
+                      ) : offer.available > 0 ? (
+                        <span className="stock stock--in">{t("inStock")}</span>
+                      ) : (
+                        <span className="stock stock--out">{t("outOfStock")}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        )}
+
+        {product.description === undefined || product.description === null ? null : (
+          <section className="pdp-description cv-prose">
+            {ctx.renderRichText(product.description)}
+          </section>
+        )}
+
+        {product.specs.length === 0 ? null : (
+          <section className="pdp-specs" aria-labelledby="pdp-specs-title">
+            <h2 id="pdp-specs-title">{t("specsTitle")}</h2>
+            <dl className="specs-list">
+              {product.specs.map((spec) => (
+                <div key={spec.key} className="specs-row">
+                  <dt>{spec.label}</dt>
+                  <dd>
+                    {spec.value}
+                    {spec.unit === undefined ? "" : ` ${spec.unit}`}
+                    {spec.evidence === undefined || spec.evidence === "published" ? null : (
+                      <>
+                        {/* An explicit space: without it the value and the chip
+                            are one word for line breaking, for a screen reader
+                            and for copy/paste. */}
+                        {" "}
+                        <span className="spec-evidence">{t(`evidence.${spec.evidence}`)}</span>
+                      </>
+                    )}
+                  </dd>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      )}
+            </dl>
+            {product.specs.some((spec) => spec.evidence !== undefined && spec.evidence !== "published") ? (
+              <p className="evidence-note">{t("evidenceNote")}</p>
+            ) : null}
+          </section>
+        )}
 
-      {product.description === undefined || product.description === null ? null : (
-        <section className="pdp-description cv-prose">
-          {ctx.renderRichText(product.description)}
-        </section>
-      )}
-
-      {product.specs.length === 0 ? null : (
-        <section className="pdp-specs" aria-labelledby="pdp-specs-title">
-          <h2 id="pdp-specs-title">{t("specsTitle")}</h2>
-          <dl className="specs-list">
-            {product.specs.map((spec) => (
-              <div key={spec.key} className="specs-row">
-                <dt>{spec.label}</dt>
-                <dd>
-                  {spec.value}
-                  {spec.unit === undefined ? "" : ` ${spec.unit}`}
-                  {spec.evidence === undefined || spec.evidence === "published" ? null : (
-                    <>
-                      {/* An explicit space: without it the value and the chip
-                          are one word for line breaking, for a screen reader
-                          and for copy/paste. */}
-                      {" "}
-                      <span className="spec-evidence">{t(`evidence.${spec.evidence}`)}</span>
-                    </>
-                  )}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          {product.specs.some((spec) => spec.evidence !== undefined && spec.evidence !== "published") ? (
-            <p className="evidence-note">{t("evidenceNote")}</p>
-          ) : null}
-        </section>
-      )}
-
-      <section className="pdp-lead" id={LEAD_ANCHOR} aria-label={t("leadTitle")}>
-        <LeadForm
-          region={region}
-          intent={status === "available" ? "demo" : status}
-          productId={product.id}
-          sourcePath={`/${region}/robots/${product.slug}`}
-          privacyHref={`/${region}/privacidad`}
-          variants={
-            status === "waitlist"
-              ? undefined
-              : variants
-                  .filter((offer) => offer.price !== null)
-                  .map((offer) => ({
-                    sku: offer.sku,
-                    label: `${offer.sku} · ${t(`sport.${offer.sport}`)}`,
-                  }))
-          }
-          labels={{
-            title:
+        <section className="pdp-lead" id={LEAD_ANCHOR} aria-label={t("leadTitle")}>
+          <LeadForm
+            region={region}
+            intent={status === "available" ? "demo" : status}
+            productId={product.id}
+            sourcePath={`/${region}/robots/${product.slug}`}
+            privacyHref={`/${region}/privacidad`}
+            variants={
               status === "waitlist"
-                ? t("waitlistTitle")
-                : status === "preorder"
-                  ? t("preorderTitle")
-                  : t("leadTitle"),
-            name: t("leadName"),
-            email: t("leadEmail"),
-            message: t("leadMessage"),
-            consent: t("leadConsent"),
-            privacy: t("leadPrivacy"),
-            submit:
-              status === "waitlist"
-                ? t("waitlistSubmit")
-                : status === "preorder"
-                  ? t("preorderSubmit")
-                  : t("leadSubmit"),
-            invalid: t("leadInvalid"),
-            throttled: t("leadThrottled"),
-            variant: t("leadVariant"),
-            variantAny: t("leadVariantAny"),
-          }}
-        />
-      </section>
-
-      {related.length === 0 ? null : (
-        // Dawn closes a PDP with product-recommendations; without it <main>
-        // held exactly one link (the privacy policy) and the page was a
-        // dead end for anyone the rail did not convince.
-        <section className="pdp-related" aria-labelledby="pdp-related-title">
-          <h2 id="pdp-related-title">{t("relatedTitle")}</h2>
-          <ul className="catalog-grid">
-            {related.map((other) => (
-              <li key={other.id}>
-                <ProductCard robot={other} region={region} headingLevel="h3" />
-              </li>
-            ))}
-          </ul>
+                ? undefined
+                : variants
+                    .filter((offer) => offer.price !== null)
+                    .map((offer) => ({
+                      sku: offer.sku,
+                      label: `${offer.sku} · ${t(`sport.${offer.sport}`)}`,
+                    }))
+            }
+            labels={{
+              title:
+                status === "waitlist"
+                  ? t("waitlistTitle")
+                  : status === "preorder"
+                    ? t("preorderTitle")
+                    : t("leadTitle"),
+              name: t("leadName"),
+              email: t("leadEmail"),
+              message: t("leadMessage"),
+              consent: t("leadConsent"),
+              privacy: t("leadPrivacy"),
+              submit:
+                status === "waitlist"
+                  ? t("waitlistSubmit")
+                  : status === "preorder"
+                    ? t("preorderSubmit")
+                    : t("leadSubmit"),
+              invalid: t("leadInvalid"),
+              throttled: t("leadThrottled"),
+              variant: t("leadVariant"),
+              variantAny: t("leadVariantAny"),
+            }}
+          />
         </section>
-      )}
 
-      <ProductJsonLd detail={detail} region={region} />
-    </main>
+        {related.length === 0 ? null : (
+          // Dawn closes a PDP with product-recommendations; without it <main>
+          // held exactly one link (the privacy policy) and the page was a
+          // dead end for anyone the rail did not convince.
+          <section className="pdp-related" aria-labelledby="pdp-related-title">
+            <h2 id="pdp-related-title">{t("relatedTitle")}</h2>
+            <ul className="catalog-grid">
+              {related.map((other) => (
+                <li key={other.id}>
+                  <ProductCard robot={other} region={region} headingLevel="h3" />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <ProductJsonLd detail={detail} region={region} />
+      </main>
+    </>
   );
 }
 

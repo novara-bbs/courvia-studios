@@ -17,6 +17,7 @@ import type { CollectionConfig, Field } from "payload";
 
 import { anyone, hiddenUnlessAdmin, isAdmin, isAuthenticated } from "./access";
 import { catalogHooks, revalidateCatalog } from "./catalog-revalidation";
+import { previewRegion, previewUrl } from "./preview";
 
 /** True once a document is (or has ever been) publicly visible. Draft
  *  autosaves — which never change what an anonymous reader sees — must not
@@ -131,6 +132,34 @@ export const Products: CollectionConfig = {
     defaultColumns: ["title", "slug", "sports", "launchStatus", "_status", "updatedAt"],
     description:
       "La familia (Drill Pro, Drill One…). La configuración por deporte vive en sus variantes (ADR-04).",
+    /**
+     * Preview of the PDP, and it is only honest because the route reads
+     * drafts.
+     *
+     * A `url` here is not a link: it ENABLES live preview for the
+     * collection (the breakpoints come from admin.livePreview at the root of
+     * payload.config.ts). Declaring it while the route still filtered
+     * `_status: published` would have put the published page in the iframe
+     * while the editor typed into an autosaved draft — a preview that shows
+     * the one version you are not editing. The draft branch lives in
+     * app/(frontend)/[region]/robots/[slug]/page.tsx and reads through
+     * getDraftRobot.
+     *
+     * Both entries go through previewUrl, so the site is only ever entered
+     * via /next/preview, which authenticates the Payload cookie and turns
+     * draft mode on. Same shape as Pages (src/payload/pages.ts): livePreview
+     * gets the locale as an object, `preview` as a string.
+     */
+    livePreview: {
+      url: ({ data, locale }) => {
+        const slug = typeof data.slug === "string" ? data.slug : "";
+        return previewUrl(`/${previewRegion(locale.code)}/robots/${slug}`);
+      },
+    },
+    preview: (data, { locale }) => {
+      const slug = typeof data.slug === "string" ? data.slug : "";
+      return previewUrl(`/${previewRegion(locale)}/robots/${slug}`);
+    },
   },
   versions: { drafts: { autosave: { interval: 375 } }, maxPerDoc: 50 },
   access: {
