@@ -144,8 +144,22 @@ Es el mensaje del propio guardián `isDatabaselessBuild`. Conclusiones:
   hace falta todavía.
 - **Producción nunca ha desplegado por otra razón**: la rama de producción es `main`, y
   `main` es solo el «Initial commit». Aunque se pongan las variables, desplegaría un README
-  vacío. `main` **es ancestro** de HEAD, así que fusionar es un avance rápido corriente —
-  pero es decisión del propietario.
+  vacío. Comprobado lanzando un despliegue de `main`: muere en el primer segundo con «The
+  specified Root Directory "apps/web" does not exist», porque ahí no existe. `main` **es
+  ancestro** de HEAD, así que fusionar es un avance rápido corriente — pero es decisión del
+  propietario.
+- **Y hay una cuarta cosa, encontrada el 21 ago con el MCP de Supabase ya autenticado: la
+  base de producción que la documentación nombra no está en esta cuenta.** CLAUDE.md §3 y
+  `docs/operations.md` (cuatro menciones) documentan el proyecto `xurdwzbefgxpfzgkbbkf`.
+  `list_projects` devuelve dos y ninguno es ese: `tdaihmsnglbebjpydswy` («novara-bbs's
+  Project», 344 tablas en `public` de un CRM de seguros — otra aplicación, y su esquema
+  `payload` está vacío) y `ufsuhglrjwqmmxuqfaaa` («rial-2-0», INACTIVE).
+
+  Lo que esto significa para la lista de acciones: **antes de poner un `DATABASE_URL` de
+  Production hay que tener una base de producción**. No se puede descartar que el
+  propietario tenga otra cuenta de Supabase con ese proyecto — el MCP solo ve una—, así que
+  esto se reporta como medición, no como conclusión. Pero la documentación no puede seguir
+  nombrando un ref que nadie puede verificar.
 
 #### Lo que el inventario cambió del diagnóstico
 
@@ -281,3 +295,4 @@ secretos de pago.
 | 21 ago 2026 | Vercel diagnosticado desde el log: faltan `DATABASE_URL` y `PAYLOAD_SECRET` en Preview. El Root Directory ya estaba bien. |
 | 21 ago 2026 | Matriz de huecos: 101 piezas, 6 `launch_blocked`, 28 inexistentes. 11 contradicciones de documentación confirmadas de 37 (26 refutadas). |
 | 21 ago 2026 | Las once arregladas (`a68aafc`). ADR-022 aplicado por fin al código, con test (`4af73f8`). Fase 0 cerrada salvo el TCO. |
+| 21 ago 2026 | Fase 1 arrancada (contratos de capabilities). Y el MCP de Supabase, ya autenticado, revela que el proyecto de producción documentado no existe en esta cuenta. |
