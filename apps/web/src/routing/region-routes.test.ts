@@ -163,6 +163,57 @@ describe("resolveRegionPath", () => {
     });
   });
 
+  /**
+   * "inicio" is left in the fixture's `pages` on purpose. The manifest no
+   * longer publishes it, but the resolver must not depend on that: a deploy
+   * in flight can still be serving the old JSON, and the alias has to be
+   * an alias either way.
+   */
+  it("sends the home's own slug to the region root, manifest or no manifest", () => {
+    expect(MANIFEST.pages).toContain("inicio");
+    expect(resolveRegionPath("/inicio", MANIFEST)).toEqual({ kind: "canonical", to: "/" });
+    expect(resolveRegionPath("/Inicio", MANIFEST)).toEqual({ kind: "canonical", to: "/" });
+  });
+
+  it("does not take the home's generated card down with it", () => {
+    expect(resolveRegionPath("/inicio/opengraph-image-1plxrj", MANIFEST)).toEqual({ kind: "pass" });
+  });
+
+  it("canonicalizes a path that only differs in case", () => {
+    expect(resolveRegionPath("/Robots", MANIFEST)).toEqual({ kind: "canonical", to: "/robots" });
+    expect(resolveRegionPath("/robots/Tempo-R1", MANIFEST)).toEqual({
+      kind: "canonical",
+      to: "/robots/tempo-r1",
+    });
+    expect(resolveRegionPath("/c/Robots", MANIFEST)).toEqual({ kind: "canonical", to: "/c/robots" });
+    expect(resolveRegionPath("/Privacidad", MANIFEST)).toEqual({
+      kind: "canonical",
+      to: "/privacidad",
+    });
+  });
+
+  it("refuses a path that does not exist in any case, rather than redirecting to a 404", () => {
+    // The line between "canonicalize" and "every capital is a redirect".
+    expect(resolveRegionPath("/NoExiste", MANIFEST)).toEqual({ kind: "not-found" });
+    expect(resolveRegionPath("/robots/NoExiste", MANIFEST)).toEqual({ kind: "not-found" });
+  });
+
+  it("leaves slashes to Next, which already answers them with its own 308", () => {
+    // Measured: /es/robots/ → 308 → /es/robots. Emitting a second redirect
+    // for the same shape would chain two hops for one URL.
+    expect(resolveRegionPath("/robots/", MANIFEST)).toEqual({ kind: "pass" });
+    expect(resolveRegionPath("robots", MANIFEST)).toEqual({ kind: "pass" });
+  });
+
+  it("still lets an editor's redirect win over canonicalization", () => {
+    // One hop, with the code the editor chose — not 308 to /vieja first.
+    expect(resolveRegionPath("/Vieja", MANIFEST)).toEqual({
+      kind: "redirect",
+      to: "/tecnologia",
+      code: "301",
+    });
+  });
+
   it("lets Next's generated metadata images through", () => {
     // Without this the proxy 404s the very Open Graph card it generates:
     // /es/privacidad/opengraph-image-1plxrj is a route, not content.

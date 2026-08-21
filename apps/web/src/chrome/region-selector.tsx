@@ -1,7 +1,9 @@
 import { PREPARED_REGIONS, PUBLISHED_REGIONS, REGION_DEFINITIONS } from "@courvia/platform";
 import type { RegionId } from "@courvia/platform";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+
+import { RegionSelectorLinks } from "./region-selector-links";
+import type { RegionLink } from "./region-selector-links";
 
 /**
  * Plain links, one per published region: crawlable, indexable, and they never
@@ -32,36 +34,37 @@ export const VISIBLE_REGIONS: readonly RegionId[] =
     ? PUBLISHED_REGIONS
     : [...PUBLISHED_REGIONS, ...PREPARED_REGIONS];
 
+/**
+ * Server half: it decides WHICH regions may be offered and what each is
+ * called. Where each link points needs the current URL, which no Server
+ * Component can read, so the anchors themselves are rendered by the client
+ * half — server-rendered into the same HTML, so the markup a crawler and a
+ * visitor without JavaScript receive already carries the right destination.
+ */
 export async function RegionSelector({ current, label }: { current: RegionId; label: string }) {
   const t = await getTranslations({
     locale: REGION_DEFINITIONS[current].locale,
     namespace: "regions",
   });
 
+  const links: RegionLink[] = VISIBLE_REGIONS.map((region) => {
+    const def = REGION_DEFINITIONS[region];
+    return {
+      region,
+      label: t(region),
+      // hrefLang states "this link is the alternate of this page in that
+      // language", so only a published region may carry it.
+      ...(def.status === "published" ? { hreflang: def.hreflang } : {}),
+      locale: def.locale,
+      dir: def.dir,
+      status: def.status,
+      current: region === current,
+    };
+  });
+
   return (
     <nav aria-label={label} className="region-selector">
-      {VISIBLE_REGIONS.map((region) => {
-        const def = REGION_DEFINITIONS[region];
-        return (
-          <Link
-            key={region}
-            href={`/${region}`}
-            // hrefLang states "this link is the alternate of this page in
-            // that language", so only a published region may carry it.
-            hrefLang={def.status === "published" ? def.hreflang : undefined}
-            lang={def.locale}
-            // Per-link dir, not the page's: a Latin-script endonym inside an
-            // RTL nav reorders its punctuation without it.
-            dir={def.dir}
-            // The status a test can read: the production footer must contain
-            // no prepared link at all.
-            data-region-status={def.status}
-            aria-current={region === current ? "true" : undefined}
-          >
-            {t(region)}
-          </Link>
-        );
-      })}
+      <RegionSelectorLinks links={links} />
     </nav>
   );
 }

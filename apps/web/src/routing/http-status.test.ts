@@ -57,6 +57,30 @@ async function status(path: string): Promise<number> {
   return response.status;
 }
 
+/** Status plus where it points, as the browser reads it. */
+async function landing(path: string): Promise<{ status: number; to: string | null }> {
+  const response = await fetch(`${BASE}${path}`, { redirect: "manual" });
+  await response.arrayBuffer();
+  const location = response.headers.get("location");
+  return {
+    status: response.status,
+    to: location === null ? null : new URL(location, BASE).pathname,
+  };
+}
+
+/**
+ * Every href in the footer's region selector, in document order.
+ *
+ * Keyed on `data-region-status`, which only those anchors carry, so this
+ * cannot accidentally pick up a navigation link that happens to point at a
+ * region root.
+ */
+function regionSelectorHrefs(html: string): string[] {
+  return [...html.matchAll(/<a[^>]*data-region-status="[^"]*"[^>]*>/g)].map(
+    (tag) => /href="([^"]*)"/.exec(tag[0])?.[1] ?? "",
+  );
+}
+
 describe.skipIf(!hasDb || !dbIsDisposable)("what the server actually answers", () => {
   beforeAll(async () => {
     if (!existsSync(`${APP_DIR}.next/BUILD_ID`)) {
@@ -104,6 +128,101 @@ describe.skipIf(!hasDb || !dbIsDisposable)("what the server actually answers", (
     expect(response.status).toBe(200);
     const manifest = (await response.json()) as { pages: string[] };
     expect(manifest.pages).toContain("privacidad");
+    // The home's slug is not a URL: the region root serves that document.
+    expect(manifest.pages).not.toContain("inicio");
+  });
+
+  /**
+   * The home document at its own slug, and any URL typed with a capital.
+   *
+   * Both were 200 with an empty `<html id="__next_error__">` body: the
+   * routing manifest listed "inicio" so the proxy passed, and every lookup
+   * ran on the lower-cased path so `/es/Robots` resolved and then handed
+   * Next a URL no route matches. In both cases the page's own
+   * permanentRedirect()/notFound() ran after the shell had gone out as a
+   * 200 (x-nextjs-postponed: 1), which is the ADR-026 limitation.
+   *
+   * Asserted over HTTP because that is the only place the claim exists:
+   * `resolveRegionPath` returning `{kind:"canonical"}` is not a redirect
+   * until the proxy turns it into one, and the proxy is not consulted until
+   * a request arrives.
+   */
+  it("sends the home's own slug back to the region root", async () => {
+    for (const region of ["es", "en-gb", "en-ae"]) {
+      expect(await landing(`/${region}/inicio`), region).toEqual({
+        status: 308,
+        to: `/${region}`,
+      });
+    }
+  });
+
+  it("answers a capitalized URL with the one lower-case URL that exists", async () => {
+    const cases = [
+      ["/es/Robots", "/es/robots"],
+      ["/es/ROBOTS", "/es/robots"],
+      ["/es/robots/Tempo-R1", "/es/robots/tempo-r1"],
+      // A capital in a LITERAL segment used to 404 by accident of route
+      // matching while a capital in a dynamic one returned 200. One answer
+      // now, whichever segment it lands in.
+      ["/es/ROBOTS/tempo-r1", "/es/robots/tempo-r1"],
+      ["/es/c/Robots", "/es/c/robots"],
+      ["/es/Privacidad", "/es/privacidad"],
+      ["/es/Inicio", "/es"],
+      ["/en-gb/Robots", "/en-gb/robots"],
+    ];
+    for (const [from, to] of cases) {
+      expect(await landing(String(from)), String(from)).toEqual({ status: 308, to });
+    }
+  });
+
+  it("does not turn every capital into a redirect", async () => {
+    // The guard that keeps the fix from degenerating into "any capital is a
+    // 308": canonicalizing happens only for a path that actually resolves,
+    // so a dead URL stays a dead URL instead of redirecting to one.
+    expect(await status("/es/NoExiste")).toBe(404);
+    expect(await status("/es/robots/NoExiste")).toBe(404);
+    expect(await status("/es/Uno/Dos/Tres")).toBe(404);
+  });
+
+  /**
+   * Switching market from a deep page keeps the page.
+   *
+   * Measured before the fix: from /es/robots/tempo-r1 every link in the
+   * footer selector pointed at the region ROOT, so a buyer who switched to
+   * UAE lost the product — and each anchor carried `hrefLang`, i.e. it
+   * declared the UK HOME to be the English alternate of the Tempo R1 page,
+   * contradicting the `<head>` of the same document on all 42 sitemap URLs.
+   */
+  it("keeps the page when the visitor switches market", async () => {
+    const page = await (await fetch(`${BASE}/es/robots/tempo-r1`)).text();
+    const hrefs = regionSelectorHrefs(page);
+
+    expect(hrefs.length).toBeGreaterThan(1);
+    for (const href of hrefs) expect(href).toMatch(/^\/[a-z-]+\/robots\/tempo-r1$/);
+  });
+
+  it("says the same thing in the footer as in the head", async () => {
+    const page = await (await fetch(`${BASE}/es/robots/tempo-r1`)).text();
+
+    const head = /<link rel="alternate" hrefLang="en-GB" href="([^"]+)"/.exec(page)?.[1];
+    expect(head, "the page declares no en-GB alternate").toBeDefined();
+    const footer = /<a[^>]*hrefLang="en-GB"[^>]*>/.exec(page)?.[0];
+    expect(footer, "the footer has no en-GB link").toBeDefined();
+
+    expect(/href="([^"]*)"/.exec(String(footer))?.[1]).toBe(new URL(String(head)).pathname);
+  });
+
+  it("still points at the region root from the region root", async () => {
+    const page = await (await fetch(`${BASE}/es`)).text();
+    expect([...regionSelectorHrefs(page)].sort()).toEqual(["/en-ae", "/en-gb", "/es"]);
+  });
+
+  it("leaves the 404's own region links on the region homes", async () => {
+    // There is no equivalent page to keep on a URL that does not exist, so
+    // global-not-found.tsx keeps its own list of region roots.
+    const page = await (await fetch(`${BASE}/es/no-existe`)).text();
+    expect(page).toContain('href="/en-ae"');
+    expect(page).toContain('href="/en-gb"');
   });
 
   /**

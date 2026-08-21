@@ -94,6 +94,17 @@ async function resolveInsideRegion(
     return NextResponse.redirect(url, Number(decision.code));
   }
 
+  // The same page under a second spelling. 308 and not 301 for two reasons
+  // that point the same way: it is the code this file already emits one
+  // segment earlier for `/ES/robots`, so a stray capital gets one answer
+  // wherever it lands; and 301 is the enum an EDITOR picks from
+  // (ADR-026 §3), which a redirect no human wrote has no business appearing
+  // in. Google treats 301 and 308 identically when choosing a canonical.
+  if (decision.kind === "canonical") {
+    url.pathname = `/${region}${decision.to === "/" ? "" : decision.to}`;
+    return NextResponse.redirect(url, 308);
+  }
+
   // The one rewrite in the app. Its destination answers 404 by itself; the
   // status of THIS response is discarded (measured — see region-routes.ts),
   // which is precisely why the destination has to be a route that already

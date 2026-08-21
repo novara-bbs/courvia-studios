@@ -19,6 +19,7 @@ import { getPayload } from "payload";
 
 import { listRobots } from "../catalog/get-catalog";
 import { listCategorySlugs } from "../catalog/get-category";
+import { withoutHome } from "../content/home-slug";
 import { listPublishedSlugs } from "../content/get-page";
 import { isDatabaselessBuild } from "../server/build-env";
 import { REDIRECT_CODES, normalizePath } from "./region-routes";
@@ -75,7 +76,15 @@ export async function getRoutingManifest(): Promise<RoutingManifest> {
   ]);
 
   return {
-    pages,
+    // The home's own slug is not a URL: the region root renders that
+    // document and `resolveRegionPath` sends the alias there with a 308.
+    // Publishing it here would advertise, to the one consumer whose whole
+    // job is "which URLs exist", an address that answers a redirect —
+    // sitemap.ts and llms.txt already subtract it for the same reason. This
+    // is consistency, not the defence: the resolver decides the alias
+    // before it ever reads this list, so an old manifest served by a deploy
+    // in flight cannot turn the alias back into a page.
+    pages: withoutHome(pages),
     products: products.map((product) => product.slug),
     categories,
     redirects,

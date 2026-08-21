@@ -59,6 +59,15 @@ export default async function CmsPage({ params }: PageArgs) {
   setRequestRegion(region);
   // The home page's content doc: it lives at the region root, never at a
   // second URL of its own (duplicate content).
+  //
+  // Not the line that produces the 301/308 any more, and kept anyway. Under
+  // `cacheComponents` this call cannot set a status — measured, /es/inicio
+  // answered 200 with x-nextjs-postponed: 1 and an error document in the
+  // body — so the proxy now resolves the alias before anything streams
+  // (src/routing/region-routes.ts). But the proxy returns early on the
+  // draft cookie (proxy.ts), so in PREVIEW this is the only redirect the
+  // alias gets: an editor who opens /es/inicio still lands on the home
+  // instead of on a second copy of it.
   if (slug === HOME_SLUG) permanentRedirect(`/${region}`);
 
   const { isEnabled: draft } = await draftMode();

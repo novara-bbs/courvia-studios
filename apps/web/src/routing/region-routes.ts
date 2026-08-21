@@ -21,6 +21,11 @@
  *
  * ADR-026 records the decision and the measurements.
  */
+// The one import, and it is two constants with no imports of their own: the
+// home's slug is a fact about the route tree ("this URL is an alias"), the
+// same class of knowledge as RESERVED_ROUTES, and the proxy bundle stays as
+// small as it was.
+import { HOME_SLUG } from "../content/home-slug";
 
 /**
  * Where the proxy sends a URL that does not exist.
@@ -92,7 +97,18 @@ export const RESERVED_ROUTES: Record<string, ReservedRoute> = {
 
 export type RouteDecision =
   | { kind: "pass" }
+  /** An editor moved this URL. `code` is the one they chose. */
   | { kind: "redirect"; to: string; code: RedirectCode }
+  /**
+   * The same page, spelled another way: `/Robots`, or the home's own slug.
+   * A separate variant rather than a `redirect` with `code: "301"` because
+   * REDIRECT_CODES is the EDITOR's enum — `src/payload/redirects.ts` paints
+   * that select in the admin, and ADR-026 §3 fixes it at `301 | 302`.
+   * Folding a machine-made canonicalization into it would make the two
+   * indistinguishable and would put the code this emits (308) into a
+   * dropdown a human picks from.
+   */
+  | { kind: "canonical"; to: string }
   | { kind: "not-found" };
 
 /** A path segment an editor can produce: kebab-case, no dots, no spaces. */
@@ -200,6 +216,37 @@ export function isReservedPath(path: string, manifest?: RoutingManifest): boolea
 }
 
 /**
+ * Does the app serve this path? Asked of an ALREADY normalized segment list,
+ * so that "does it exist" and "is it spelled the one canonical way" stay two
+ * questions with one answer each — and so the case check below inherits the
+ * reserved table and the manifest lookups instead of re-deriving them.
+ */
+function pathExists(segments: readonly string[], manifest: RoutingManifest): boolean {
+  const [head, tail] = segments;
+  if (head === undefined) return true; // the region home
+  const reserved = RESERVED_ROUTES[head];
+  if (segments.length === 1) {
+    return reserved === undefined ? manifest.pages.includes(head) : reserved.index;
+  }
+  if (segments.length === 2 && tail !== undefined && reserved?.child != null) {
+    return manifest[reserved.child].includes(tail);
+  }
+  // Three segments or more: nothing in the app router serves them.
+  return false;
+}
+
+/**
+ * The segments a visitor actually typed, for comparison against the
+ * normalized ones. The leading slash, a trailing slash and repeated slashes
+ * fall out of both sides on purpose: Next already answers those with a 308
+ * of its own (measured: /es/robots/ → 308 → /es/robots), so they must not be
+ * mistaken here for a difference in spelling.
+ */
+function rawSegments(path: string): string[] {
+  return path.trim().split("/").filter(Boolean);
+}
+
+/**
  * What the proxy should do with one region-relative path.
  *
  * Redirects are consulted first and unconditionally: a row that shadows a
@@ -216,24 +263,41 @@ export function resolveRegionPath(path: string, manifest: RoutingManifest): Rout
   }
 
   const segments = normalized.split("/").filter(Boolean);
-  const [head, tail] = segments;
+  const [head] = segments;
   if (head === undefined) return { kind: "pass" };
 
   // Framework-generated images belong to whatever segment declared them; if
-  // that segment is gone, Next answers 404 by itself.
+  // that segment is gone, Next answers 404 by itself. They are the
+  // framework's URLs and not ours, so they are not canonicalized either —
+  // the hash Next generates is lower case already (measured:
+  // /es/privacidad/opengraph-image-1plxrj).
   const last = segments[segments.length - 1];
   if (last !== undefined && METADATA_IMAGE.test(last)) return { kind: "pass" };
 
-  const reserved = RESERVED_ROUTES[head];
-  if (segments.length === 1) {
-    if (reserved !== undefined) return reserved.index ? { kind: "pass" } : { kind: "not-found" };
-    return manifest.pages.includes(head) ? { kind: "pass" } : { kind: "not-found" };
+  // The home is a page document like any other, so its slug is a real URL —
+  // and the region root renders the SAME document, which is duplicate
+  // content at two addresses. Decided here rather than in the page: the
+  // `permanentRedirect()` in [slug]/page.tsx arrives after the shell has
+  // already gone out as a 200 (measured before this line existed:
+  // /es/inicio → 200, x-nextjs-prerender: 1, x-nextjs-postponed: 1, body
+  // `<html id="__next_error__">`), which is the same limitation ADR-026
+  // documents for notFound(). Placed BEFORE any manifest lookup so it also
+  // holds while a deploy in flight still lists the slug in `pages`.
+  if (segments.length === 1 && head === HOME_SLUG) return { kind: "canonical", to: "/" };
+
+  if (!pathExists(segments, manifest)) return { kind: "not-found" };
+
+  // One page, one spelling. Everything above resolved the LOWER-CASED path,
+  // so /es/Robots matched perfectly and then handed Next a URL whose route
+  // it cannot match: a capital inside a dynamic segment reached the page,
+  // where notFound() is already too late (measured: /es/Robots and
+  // /es/robots/Tempo-R1 both 200), and a capital inside a literal segment
+  // matched no route at all (/es/ROBOTS/tempo-r1 → 404). Canonicalizing
+  // makes both answer the same thing, and only for a path that resolves:
+  // /es/NoExiste is still a 404 rather than a redirect to one.
+  if (rawSegments(path).join("/") !== segments.join("/")) {
+    return { kind: "canonical", to: normalized };
   }
 
-  if (segments.length === 2 && tail !== undefined && reserved?.child != null) {
-    return manifest[reserved.child].includes(tail) ? { kind: "pass" } : { kind: "not-found" };
-  }
-
-  // Three segments or more: nothing in the app router serves them.
-  return { kind: "not-found" };
+  return { kind: "pass" };
 }
