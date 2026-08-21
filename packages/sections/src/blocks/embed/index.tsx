@@ -26,13 +26,53 @@ type ProviderId = keyof typeof PROVIDERS;
 
 export const embed = defineSection({
   type: "embed",
-  labels: { es: "Vídeo incrustado", en: "Embedded video", ar: "فيديو مضمّن" },
+  labels: {
+    singular: { es: "Vídeo incrustado", en: "Embedded video", ar: "فيديو مضمّن" },
+    plural: { es: "Vídeos incrustados", en: "Embedded videos", ar: "فيديوهات مضمّنة" },
+  },
+  group: "content",
+  thumbnail: [
+    { role: "media", x: 1, y: 1, w: 10, h: 6, round: "soft" },
+    { role: "accent", x: 5.3, y: 3.4, w: 1.4, h: 1.2, round: "pill" },
+  ],
   fields: {
-    provider: { kind: "select", required: true, options: ["youtube", "vimeo"] },
+    provider: {
+      kind: "select",
+      required: true,
+      options: ["youtube", "vimeo"],
+      optionLabels: {
+        youtube: { es: "YouTube", en: "YouTube", ar: "يوتيوب" },
+        vimeo: { es: "Vimeo", en: "Vimeo", ar: "فيميو" },
+      },
+      row: "video",
+      label: { es: "Plataforma", en: "Platform", ar: "المنصة" },
+    },
     /** Just the id — "dQw4w9WgXcQ", not a URL and never markup. */
-    videoId: { kind: "text", required: true, max: 24 },
+    videoId: {
+      kind: "text",
+      required: true,
+      max: 24,
+      row: "video",
+      label: { es: "Identificador del vídeo", en: "Video id", ar: "معرّف الفيديو" },
+      help: {
+        es: "Solo el id, no la URL: en youtube.com/watch?v=aqz-KESearI es aqz-KESearI.",
+        en: "The id only, not the URL: in youtube.com/watch?v=aqz-KESearI it is aqz-KESearI.",
+        ar: "المعرّف فقط لا الرابط: في ‎youtube.com/watch?v=aqz-KESearI‎ هو aqz-KESearI.",
+      },
+    },
     /** Accessible name for the frame; screen readers announce it. */
-    title: { kind: "text", required: true, localized: true, max: 120 },
+    title: {
+      kind: "text",
+      required: true,
+      localized: true,
+      max: 120,
+      label: { es: "Nombre del vídeo", en: "Video name", ar: "اسم الفيديو" },
+      help: {
+        es: "Lo anuncian los lectores de pantalla. Di qué se ve, no «vídeo».",
+        en: "Screen readers announce it. Say what is on screen, not “video”.",
+        ar: "تنطق به قارئات الشاشة. صِف ما يظهر لا تقل «فيديو».",
+      },
+    },
   },
   appearance: ["spaceBlockStart", "spaceBlockEnd", "background", "width", "reveal", "themeScope"],
   fixture: { provider: "youtube", videoId: "aqz-KESearI", title: "Tempo R1 en pista" },

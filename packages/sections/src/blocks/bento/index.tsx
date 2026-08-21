@@ -21,20 +21,79 @@ const TILES_PER_ROW: Record<string, number> = { sm: 3, md: 2, lg: 1 };
  */
 export const bento = defineSection({
   type: "bento",
-  labels: { es: "Mosaico", en: "Bento", ar: "فسيفساء" },
+  labels: {
+    singular: { es: "Mosaico", en: "Bento", ar: "فسيفساء" },
+    plural: { es: "Mosaicos", en: "Bentos", ar: "لوحات فسيفساء" },
+  },
+  group: "content",
+  thumbnail: [
+    { role: "text", x: 0.8, y: 0.9, w: 4, h: 0.55 },
+    { role: "raised", x: 0.8, y: 2, w: 5.4, h: 4.6, round: "soft" },
+    { role: "raised", x: 6.6, y: 2, w: 4.6, h: 2.1, round: "soft" },
+    { role: "raised", x: 6.6, y: 4.5, w: 4.6, h: 2.1, round: "soft" },
+    { role: "accent", x: 1.3, y: 5.6, w: 1.6, h: 0.45, round: "pill" },
+  ],
   fields: {
-    heading: { kind: "text", localized: true, max: 90 },
+    heading: {
+      kind: "text",
+      localized: true,
+      max: 90,
+      label: { es: "Titular", en: "Headline", ar: "العنوان" },
+    },
     items: {
       kind: "array",
       required: true,
       min: 2,
       max: 8,
       of: {
-        span: { kind: "select", options: ["sm", "md", "lg"] },
-        image: { kind: "upload" },
-        eyebrow: { kind: "text", localized: true, max: 32 },
-        title: { kind: "text", required: true, localized: true, max: 70 },
-        body: { kind: "textarea", localized: true, max: 220 },
+        span: {
+          kind: "select",
+          options: ["sm", "md", "lg"],
+          optionLabels: {
+            sm: { es: "Pequeña · 1 columna", en: "Small · 1 column", ar: "صغيرة · عمود واحد" },
+            md: { es: "Media · 2 columnas", en: "Medium · 2 columns", ar: "متوسطة · عمودان" },
+            lg: { es: "Grande · 3 columnas", en: "Large · 3 columns", ar: "كبيرة · 3 أعمدة" },
+          },
+          label: { es: "Tamaño de la pieza", en: "Tile size", ar: "حجم البلاطة" },
+          help: {
+            es: "En móvil todas ocupan el ancho completo.",
+            en: "On mobile every tile takes the full width.",
+            ar: "على الجوال تأخذ كل بلاطة العرض الكامل.",
+          },
+        },
+        image: {
+          kind: "upload",
+          label: { es: "Imagen", en: "Image", ar: "الصورة" },
+        },
+        eyebrow: {
+          kind: "text",
+          localized: true,
+          max: 32,
+          label: { es: "Antetítulo", en: "Eyebrow", ar: "عنوان تمهيدي" },
+        },
+        title: {
+          kind: "text",
+          required: true,
+          localized: true,
+          max: 70,
+          label: { es: "Título", en: "Title", ar: "العنوان" },
+        },
+        body: {
+          kind: "textarea",
+          localized: true,
+          max: 220,
+          label: { es: "Texto", en: "Text", ar: "النص" },
+        },
+      },
+      label: { es: "Piezas", en: "Tiles", ar: "البلاطات" },
+      help: {
+        es: "Entre 2 y 8. Mezcla tamaños: un mosaico de piezas iguales es una rejilla.",
+        en: "Between 2 and 8. Mix the sizes: a bento of equal tiles is just a grid.",
+        ar: "بين 2 و8. نوّع الأحجام: فسيفساء بقطع متساوية مجرد شبكة.",
+      },
+      rowLabels: {
+        singular: { es: "Pieza", en: "Tile", ar: "بلاطة" },
+        plural: { es: "Piezas", en: "Tiles", ar: "بلاطات" },
       },
     },
   },

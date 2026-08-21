@@ -13,11 +13,42 @@ const FRAME: ImageFrame = { columns: 2, from: "lg" };
  */
 export const mediaText = defineSection({
   type: "mediaText",
-  labels: { es: "Imagen y texto", en: "Media & text", ar: "صورة ونص" },
+  labels: {
+    singular: { es: "Imagen y texto", en: "Media & text", ar: "صورة ونص" },
+    plural: { es: "Imágenes y texto", en: "Media & text blocks", ar: "صور ونصوص" },
+  },
+  group: "content",
+  thumbnail: [
+    { role: "media", x: 0.8, y: 1.4, w: 5, h: 5.2, round: "soft" },
+    { role: "text", x: 6.5, y: 2.2, w: 4, h: 0.6 },
+    { role: "muted", x: 6.5, y: 3.4, w: 4.6, h: 0.35 },
+    { role: "muted", x: 6.5, y: 4.1, w: 4.6, h: 0.35 },
+    { role: "muted", x: 6.5, y: 4.8, w: 4.6, h: 0.35 },
+    { role: "muted", x: 6.5, y: 5.5, w: 2.8, h: 0.35 },
+  ],
   fields: {
-    image: { kind: "upload", required: true },
-    heading: { kind: "text", localized: true, max: 90 },
-    body: { kind: "richText", required: true, localized: true },
+    image: {
+      kind: "upload",
+      required: true,
+      label: { es: "Imagen", en: "Image", ar: "الصورة" },
+      help: {
+        es: "Ocupa media banda. El lado se elige en Diseño y en árabe se invierte solo.",
+        en: "Takes half the band. The side is chosen under Design and flips by itself in Arabic.",
+        ar: "تشغل نصف الشريط. يُختار الجانب من التصميم وينعكس تلقائيًا في العربية.",
+      },
+    },
+    heading: {
+      kind: "text",
+      localized: true,
+      max: 90,
+      label: { es: "Titular", en: "Headline", ar: "العنوان" },
+    },
+    body: {
+      kind: "richText",
+      required: true,
+      localized: true,
+      label: { es: "Texto", en: "Text", ar: "النص" },
+    },
   },
   appearance: [
     "spaceBlockStart",

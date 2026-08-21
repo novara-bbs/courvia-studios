@@ -2,106 +2,268 @@
  * Projects the section registry into Payload block configs. Never
  * hand-written: the registry's neutral field DSL is the single source, so a
  * section's admin form, its Zod contract and its renderer cannot drift.
+ *
+ * Everything an editor READS is projected too — labels, help lines, option
+ * names, row headers, the picker's shelves and its thumbnails. None of it is
+ * typed here: a Spanish string in this file would be content living outside
+ * the package that owns it, and it would stay Spanish for an editor whose
+ * panel is in English or Arabic. This module only translates shapes.
  */
-import { CONTROLS } from "@courvia/appearance";
-import type { ControlDefinition, ControlName } from "@courvia/appearance";
-import { SECTIONS } from "@courvia/sections/registry";
-import type { FieldSpec } from "@courvia/sections/registry";
-import type { Block, Field } from "payload";
+import { APPEARANCE_GROUP_COPY, CONTROLS, CONTROL_COPY, controlOptions } from "@courvia/appearance";
+import type { ControlDefinition, ControlName, LocalizedText } from "@courvia/appearance";
+import {
+  LINK_CHILD_COPY,
+  SECTIONS,
+  SECTION_GROUP_COPY,
+  sketchDataUri,
+} from "@courvia/sections/registry";
+import type { FieldCopy, FieldSpec, Fields } from "@courvia/sections/registry";
+import type { Block, Field, LabelFunction } from "payload";
+
+/**
+ * A localized record, resolved by the panel's language.
+ *
+ * Payload's `getTranslation` already understands `Record<language, string>`,
+ * so labels, descriptions and group names need no function. Block labels do
+ * (see `localizedLabel`), because those are resolved once on the server when
+ * the client config is built.
+ */
+function localized(text: LocalizedText): Record<string, string> {
+  return text;
+}
+
+/**
+ * A block label as a function of the admin's i18n.
+ *
+ * `createClientBlocks` calls it server-side with the request's `i18n` and
+ * stores the result, so the panel gets the name in ITS language instead of
+ * the Spanish one this repo happens to write first. The fallback chain is
+ * explicit — an admin language we do not translate (Payload ships dozens)
+ * lands on English, never on `undefined`.
+ */
+function localizedLabel(text: LocalizedText): LabelFunction {
+  return ({ i18n }) => {
+    const language = i18n.language;
+    return (language in text ? text[language as keyof LocalizedText] : undefined) ?? text.en;
+  };
+}
+
+/** The copy for one option of a content select, or a loud failure. */
+function optionCopy(
+  field: string,
+  labels: Readonly<Record<string, LocalizedText>>,
+  value: string,
+): LocalizedText {
+  const copy = labels[value];
+  if (copy === undefined) {
+    throw new Error(`No editor copy for ${field}='${value}' — add it to the section's optionLabels`);
+  }
+  return copy;
+}
+
+/** The `admin` block of a field: label copy plus an optional help line. */
+function fieldAdmin(copy: FieldCopy): { description?: Record<string, string> } {
+  return copy.help === undefined ? {} : { description: localized(copy.help) };
+}
 
 function fieldToPayload(name: string, spec: FieldSpec): Field {
+  const label = localized(spec.label);
+  const admin = fieldAdmin(spec);
   switch (spec.kind) {
     case "text":
       return {
         name,
         type: "text",
+        label,
         required: spec.required ?? false,
         localized: spec.localized ?? false,
         ...(spec.max !== undefined ? { maxLength: spec.max } : {}),
+        admin,
       };
     case "textarea":
       return {
         name,
         type: "textarea",
+        label,
         required: spec.required ?? false,
         localized: spec.localized ?? false,
         ...(spec.max !== undefined ? { maxLength: spec.max } : {}),
+        admin,
       };
     case "richText":
       return {
         name,
         type: "richText",
+        label,
         required: spec.required ?? false,
         localized: spec.localized ?? false,
+        admin,
       };
     case "select":
       return {
         name,
         type: "select",
+        label,
         required: spec.required ?? false,
-        options: [...spec.options],
+        // The stored value is unchanged: this is a translation of the
+        // OPTION, not a widening of the enum. An option with no copy throws
+        // rather than falling back to something plausible — a fallback is
+        // indistinguishable from a deliberate label, which is how `h2` and
+        // `youtube` survived as option labels in the first place.
+        options: spec.options.map((value) => ({
+          label: localized(optionCopy(name, spec.optionLabels, value)),
+          value,
+        })),
+        admin,
       };
     case "array":
       return {
         name,
         type: "array",
+        label,
         required: spec.required ?? false,
+        // Payload prints `${singular} 01` in the row header, which is why
+        // every array on this site read "Item 01" — including the twelve
+        // rows of an FAQ.
+        labels: {
+          singular: localized(spec.rowLabels.singular),
+          plural: localized(spec.rowLabels.plural),
+        },
         ...(spec.min !== undefined ? { minRows: spec.min } : {}),
         ...(spec.max !== undefined ? { maxRows: spec.max } : {}),
-        fields: Object.entries(spec.of).map(([childName, child]) =>
-          fieldToPayload(childName, child),
-        ),
+        fields: fieldsToPayload(spec.of),
+        admin: {
+          ...admin,
+          // Rows arrive folded. An eight-row bento or a twelve-row FAQ
+          // expanded is a form nobody can see the shape of, and the row
+          // header now says what each one is.
+          initCollapsed: true,
+        },
       };
     case "link":
       return {
         name,
         type: "group",
-        fields: [
-          { name: "label", type: "text", required: true, localized: spec.localized ?? false },
-          { name: "href", type: "text", required: true },
-        ],
+        label,
+        fields: fieldsToPayload({
+          label: {
+            kind: "text",
+            required: true,
+            localized: spec.localized ?? false,
+            ...LINK_CHILD_COPY.label,
+          },
+          href: { kind: "text", required: true, ...LINK_CHILD_COPY.href },
+        }),
+        admin,
       };
     case "upload":
       return {
         name,
         type: "upload",
+        label,
         relationTo: "media",
         required: spec.required ?? false,
+        // The thumbnail of the chosen asset, in the field. Without it the
+        // control is a filename, and a filename is not how anyone
+        // recognises a photograph.
+        displayPreview: true,
+        admin,
       };
     case "products":
       return {
         name,
         type: "relationship",
+        label,
         relationTo: "products",
         hasMany: true,
         required: spec.required ?? false,
         ...(spec.max !== undefined ? { maxRows: spec.max } : {}),
-        admin: {
-          description:
-            "El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.",
-        },
+        admin,
       };
   }
 }
 
-function appearanceGroup(allowed: readonly ControlName[]): Field {
+/**
+ * A section's fields, with consecutive `row`-mates folded into one line.
+ *
+ * Only CONSECUTIVE fields are paired: a row key reused further down the
+ * declaration would otherwise produce two one-field rows, which looks like
+ * the grouping worked and is not a grouping. A registry test rejects that
+ * shape at the source instead of letting this function paper over it.
+ */
+function fieldsToPayload(fields: Fields): Field[] {
+  const out: Field[] = [];
+  let run: { key: string; fields: Field[] } | undefined;
+
+  const flush = (): void => {
+    if (run === undefined) return;
+    // One field alone is not a row; emitting it bare keeps its label on its
+    // own line where a lone input reads better.
+    out.push(
+      run.fields.length > 1 ? { type: "row", fields: run.fields } : (run.fields[0] as Field),
+    );
+    run = undefined;
+  };
+
+  for (const [name, spec] of Object.entries(fields)) {
+    const field = fieldToPayload(name, spec);
+    if (spec.row === undefined) {
+      flush();
+      out.push(field);
+      continue;
+    }
+    if (run !== undefined && run.key !== spec.row) flush();
+    run ??= { key: spec.row, fields: [] };
+    run.fields.push(field);
+  }
+  flush();
+  return out;
+}
+
+/**
+ * The design controls, folded away.
+ *
+ * A `collapsible` WRAPPING the named group rather than replacing it: the
+ * group owns the `appearance` key every stored block already carries and
+ * every renderer reads, so swapping it for a collapsible would move nine
+ * values to the top level of every block — a content migration in exchange
+ * for a fold. The collapsible is presentational and changes nothing stored.
+ */
+function appearanceSection(allowed: readonly ControlName[]): Field {
   return {
-    name: "appearance",
-    label: "Diseño",
-    type: "group",
+    type: "collapsible",
+    label: localized(APPEARANCE_GROUP_COPY.label),
     admin: {
-      description:
-        "Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.",
+      // Folded by default: the design controls are the LAST thing an editor
+      // touches and, expanded, nine selects push the content fields — the
+      // reason the block exists — off the screen.
+      initCollapsed: true,
+      description: localized(APPEARANCE_GROUP_COPY.help),
     },
-    fields: allowed.map((name) => {
-      const control: ControlDefinition = CONTROLS[name];
-      return {
-        name,
-        type: "select",
-        defaultValue: control.default,
-        options: control.values.map((value: string) => ({ label: value, value })),
-      };
-    }),
+    fields: [
+      {
+        name: "appearance",
+        type: "group",
+        // The collapsible already carries the name; repeating it would
+        // print "Diseño" twice, one line apart.
+        label: false,
+        fields: allowed.map((name) => {
+          const control: ControlDefinition = CONTROLS[name];
+          const copy = CONTROL_COPY[name];
+          return {
+            name,
+            type: "select",
+            label: localized(copy.label),
+            defaultValue: control.default,
+            options: controlOptions(name).map((option) => ({
+              label: localized(option.label),
+              value: option.value,
+            })),
+            admin: { description: localized(copy.help) },
+          } satisfies Field;
+        }),
+      },
+    ],
   };
 }
 
@@ -111,10 +273,20 @@ export function buildBlocks(): Block[] {
     // Postgres caps identifiers at 63 chars and versioned block tables
     // prefix heavily; long section types declare a compact db identity.
     ...(section.dbName === undefined ? {} : { dbName: section.dbName }),
-    labels: { singular: section.labels.es, plural: section.labels.es },
-    fields: [
-      ...Object.entries(section.fields).map(([name, spec]) => fieldToPayload(name, spec)),
-      appearanceGroup(section.appearance),
-    ],
+    labels: {
+      singular: localizedLabel(section.labels.singular),
+      plural: localizedLabel(section.labels.plural),
+    },
+    admin: {
+      group: localized(SECTION_GROUP_COPY[section.group]),
+      images: {
+        // Generated from the section's own sketch, so it cannot go stale.
+        // `alt` is empty on purpose: the drawer prints the block's name
+        // directly under the tile, and a duplicate is noise to a screen
+        // reader, not help.
+        thumbnail: { url: sketchDataUri(section.thumbnail), alt: "" },
+      },
+    },
+    fields: [...fieldsToPayload(section.fields), appearanceSection(section.appearance)],
   }));
 }

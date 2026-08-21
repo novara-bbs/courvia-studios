@@ -12,11 +12,53 @@ import { productSlugs } from "../../dsl/fields";
  */
 export const specTable = defineSection({
   type: "specTable",
-  labels: { es: "Tabla de specs", en: "Spec table", ar: "جدول المواصفات" },
+  labels: {
+    singular: { es: "Tabla de specs", en: "Spec table", ar: "جدول المواصفات" },
+    plural: { es: "Tablas de specs", en: "Spec tables", ar: "جداول المواصفات" },
+  },
+  group: "product",
+  thumbnail: [
+    { role: "surface", x: 0.7, y: 1, w: 10.6, h: 6, round: "soft" },
+    { role: "muted", x: 1.2, y: 1.6, w: 2.2, h: 0.4 },
+    { role: "text", x: 4.6, y: 1.6, w: 2, h: 0.4 },
+    { role: "text", x: 7.8, y: 1.6, w: 2, h: 0.4 },
+    { role: "rule", x: 0.7, y: 2.5, w: 10.6, h: 0.08 },
+    { role: "muted", x: 1.2, y: 3, w: 2.6, h: 0.32 },
+    { role: "text", x: 4.6, y: 3, w: 1.6, h: 0.32 },
+    { role: "text", x: 7.8, y: 3, w: 1.4, h: 0.32 },
+    { role: "rule", x: 0.7, y: 3.8, w: 10.6, h: 0.08 },
+    { role: "muted", x: 1.2, y: 4.3, w: 2.2, h: 0.32 },
+    { role: "text", x: 4.6, y: 4.3, w: 1.8, h: 0.32 },
+    { role: "text", x: 7.8, y: 4.3, w: 1.2, h: 0.32 },
+    { role: "rule", x: 0.7, y: 5.1, w: 10.6, h: 0.08 },
+    { role: "muted", x: 1.2, y: 5.6, w: 2.8, h: 0.32 },
+    { role: "text", x: 4.6, y: 5.6, w: 1.4, h: 0.32 },
+    { role: "accent", x: 7.8, y: 5.6, w: 1.6, h: 0.32 },
+  ],
   fields: {
-    heading: { kind: "text", localized: true, max: 90 },
-    lead: { kind: "textarea", localized: true, max: 240 },
-    products: { kind: "products", required: true, max: 4 },
+    heading: {
+      kind: "text",
+      localized: true,
+      max: 90,
+      label: { es: "Titular", en: "Headline", ar: "العنوان" },
+    },
+    lead: {
+      kind: "textarea",
+      localized: true,
+      max: 240,
+      label: { es: "Entradilla", en: "Lead", ar: "المقدمة" },
+    },
+    products: {
+      kind: "products",
+      required: true,
+      max: 4,
+      label: { es: "Productos a comparar", en: "Products to compare", ar: "المنتجات للمقارنة" },
+      help: {
+        es: "Hasta 4 columnas. Las cifras y su estado (medido, objetivo) salen del catálogo, no de aquí.",
+        en: "Up to 4 columns. The figures and their state (measured, target) come from the catalogue, not from here.",
+        ar: "حتى 4 أعمدة. الأرقام وحالتها (مقاس، هدف) تأتي من الكتالوج لا من هنا.",
+      },
+    },
   },
   appearance: [
     "spaceBlockStart",

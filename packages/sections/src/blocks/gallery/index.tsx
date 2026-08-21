@@ -9,17 +9,59 @@ import { imageAttrs } from "../../dsl/image";
  */
 export const gallery = defineSection({
   type: "gallery",
-  labels: { es: "Galería", en: "Gallery", ar: "معرض" },
+  labels: {
+    singular: { es: "Galería", en: "Gallery", ar: "معرض" },
+    plural: { es: "Galerías", en: "Galleries", ar: "معارض" },
+  },
+  group: "content",
+  thumbnail: [
+    { role: "text", x: 0.8, y: 0.9, w: 3.4, h: 0.5 },
+    { role: "media", x: 0.8, y: 2, w: 3.2, h: 3.2, round: "soft" },
+    { role: "muted", x: 0.8, y: 5.5, w: 2.4, h: 0.3 },
+    { role: "media", x: 4.4, y: 2, w: 3.2, h: 3.2, round: "soft" },
+    { role: "muted", x: 4.4, y: 5.5, w: 2.6, h: 0.3 },
+    { role: "media", x: 8, y: 2, w: 3.2, h: 3.2, round: "soft" },
+    { role: "muted", x: 8, y: 5.5, w: 2.2, h: 0.3 },
+  ],
   fields: {
-    heading: { kind: "text", localized: true, max: 90 },
+    heading: {
+      kind: "text",
+      localized: true,
+      max: 90,
+      label: { es: "Titular", en: "Headline", ar: "العنوان" },
+    },
     items: {
       kind: "array",
       required: true,
       min: 2,
       max: 8,
       of: {
-        image: { kind: "upload", required: true },
-        caption: { kind: "text", localized: true, max: 140 },
+        image: {
+          kind: "upload",
+          required: true,
+          label: { es: "Imagen", en: "Image", ar: "الصورة" },
+        },
+        caption: {
+          kind: "text",
+          localized: true,
+          max: 140,
+          label: { es: "Pie de foto", en: "Caption", ar: "التعليق" },
+          help: {
+            es: "Vacío = se usa el pie que tenga la imagen en la biblioteca.",
+            en: "Empty = the caption the image carries in the library is used.",
+            ar: "فارغ = يُستخدم التعليق المرفق بالصورة في المكتبة.",
+          },
+        },
+      },
+      label: { es: "Imágenes", en: "Images", ar: "الصور" },
+      help: {
+        es: "Entre 2 y 8. El número de columnas se elige en Diseño.",
+        en: "Between 2 and 8. The column count is chosen under Design.",
+        ar: "بين 2 و8. يُختار عدد الأعمدة من التصميم.",
+      },
+      rowLabels: {
+        singular: { es: "Imagen", en: "Image", ar: "صورة" },
+        plural: { es: "Imágenes", en: "Images", ar: "صور" },
       },
     },
   },

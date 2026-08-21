@@ -6,16 +6,64 @@ import { defineSection } from "../../dsl/define-section";
  */
 export const faq = defineSection({
   type: "faq",
-  labels: { es: "Preguntas frecuentes", en: "FAQ", ar: "الأسئلة الشائعة" },
+  labels: {
+    singular: { es: "Preguntas frecuentes", en: "FAQ", ar: "الأسئلة الشائعة" },
+    plural: { es: "Bloques de preguntas", en: "FAQ blocks", ar: "كتل الأسئلة الشائعة" },
+  },
+  group: "conversion",
+  thumbnail: [
+    { role: "text", x: 1, y: 0.8, w: 3.6, h: 0.5 },
+    { role: "surface", x: 1, y: 2, w: 10, h: 1.3, round: "soft" },
+    { role: "muted", x: 1.5, y: 2.5, w: 5, h: 0.35 },
+    { role: "accent", x: 10, y: 2.5, w: 0.5, h: 0.35 },
+    { role: "surface", x: 1, y: 3.6, w: 10, h: 1.3, round: "soft" },
+    { role: "muted", x: 1.5, y: 4.1, w: 6, h: 0.35 },
+    { role: "accent", x: 10, y: 4.1, w: 0.5, h: 0.35 },
+    { role: "surface", x: 1, y: 5.2, w: 10, h: 1.3, round: "soft" },
+    { role: "muted", x: 1.5, y: 5.7, w: 4.4, h: 0.35 },
+    { role: "accent", x: 10, y: 5.7, w: 0.5, h: 0.35 },
+  ],
   fields: {
-    heading: { kind: "text", required: true, localized: true, max: 90 },
+    heading: {
+      kind: "text",
+      required: true,
+      localized: true,
+      max: 90,
+      label: { es: "Titular", en: "Headline", ar: "العنوان" },
+    },
     items: {
       kind: "array",
       min: 1,
       max: 12,
       of: {
-        question: { kind: "text", required: true, localized: true, max: 160 },
-        answer: { kind: "richText", required: true, localized: true },
+        question: {
+          kind: "text",
+          required: true,
+          localized: true,
+          max: 160,
+          label: { es: "Pregunta", en: "Question", ar: "السؤال" },
+          help: {
+            es: "Escrita como la haría un cliente, no como la titularía marketing.",
+            en: "Written the way a customer would ask it, not the way marketing would title it.",
+            ar: "مصاغة كما يسألها العميل لا كما يعنونها التسويق.",
+          },
+        },
+        answer: {
+          kind: "richText",
+          required: true,
+          localized: true,
+          label: { es: "Respuesta", en: "Answer", ar: "الإجابة" },
+        },
+      },
+      label: { es: "Preguntas", en: "Questions", ar: "الأسئلة" },
+      help: {
+        es: "Hasta 12. Las que quitan miedo a comprar van primero.",
+        en: "Up to 12. The ones that remove the fear of buying go first.",
+        ar: "حتى 12. ما يزيل التردد في الشراء يأتي أولًا.",
+      },
+      rowLabels: {
+        singular: { es: "Pregunta", en: "Question", ar: "سؤال" },
+        plural: { es: "Preguntas", en: "Questions", ar: "أسئلة" },
       },
     },
   },

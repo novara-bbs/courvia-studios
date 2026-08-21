@@ -1,5 +1,6 @@
 import { Badge, LinkButton } from "@courvia/ui";
 
+import { CTA_ROW, CTA_ROW_LABELS, headingLevelField } from "../../dsl/common-fields";
 import { defineSection } from "../../dsl/define-section";
 import { mediaValue } from "../../dsl/fields";
 import type { Link } from "../../dsl/fields";
@@ -21,24 +22,89 @@ const FRAME: ImageFrame = { bleed: true };
  */
 export const stage = defineSection({
   type: "stage",
-  labels: { es: "Escena", en: "Stage", ar: "مشهد" },
+  labels: {
+    singular: { es: "Escena", en: "Stage", ar: "مشهد" },
+    plural: { es: "Escenas", en: "Stages", ar: "مشاهد" },
+  },
+  group: "opener",
+  thumbnail: [
+    { role: "media", x: 0, y: 0, w: 12, h: 8 },
+    { role: "accent", x: 1, y: 1.4, w: 2, h: 0.5, round: "pill" },
+    { role: "text", x: 1, y: 2.7, w: 8, h: 0.8 },
+    { role: "text", x: 1, y: 3.8, w: 5.4, h: 0.8 },
+    { role: "muted", x: 1, y: 5.1, w: 6, h: 0.4 },
+    { role: "accent", x: 1, y: 6, w: 2.8, h: 0.8, round: "pill" },
+  ],
   fields: {
-    media: { kind: "upload" },
-    eyebrow: { kind: "text", localized: true, max: 48 },
-    heading: { kind: "text", required: true, localized: true, max: 90 },
+    media: {
+      kind: "upload",
+      label: { es: "Imagen de fondo", en: "Background image", ar: "صورة الخلفية" },
+      help: {
+        es: "Ocupa la banda entera. Sube el velo si el texto encima pierde legibilidad.",
+        en: "Covers the whole band. Raise the scrim if the type over it stops being legible.",
+        ar: "تغطي الشريط بالكامل. ارفع الحجاب إذا فقد النص وضوحه فوقها.",
+      },
+    },
+    eyebrow: {
+      kind: "text",
+      localized: true,
+      max: 48,
+      label: { es: "Antetítulo", en: "Eyebrow", ar: "عنوان تمهيدي" },
+      help: {
+        es: "Dos o tres palabras sobre el titular: «Lanzamiento», «Pádel».",
+        en: "Two or three words above the headline: “Launch”, “Padel”.",
+        ar: "كلمتان أو ثلاث فوق العنوان: «إطلاق»، «بادل».",
+      },
+    },
+    heading: {
+      kind: "text",
+      required: true,
+      localized: true,
+      max: 90,
+      label: { es: "Titular", en: "Headline", ar: "العنوان" },
+      help: {
+        es: "En segunda persona y sobre el efecto en el jugador, no sobre el producto.",
+        en: "Second person, about the effect on the player rather than on the product.",
+        ar: "بصيغة المخاطب وعن أثره في اللاعب لا عن المنتج.",
+      },
+    },
     /** "h1" when the stage OPENS the page (home, landings); "h2" inside. */
-    level: { kind: "select", options: ["h2", "h1"] },
-    lead: { kind: "textarea", localized: true, max: 320 },
+    level: headingLevelField(),
+    lead: {
+      kind: "textarea",
+      localized: true,
+      max: 320,
+      label: { es: "Entradilla", en: "Lead", ar: "المقدمة" },
+      help: {
+        es: "Una o dos frases. Un dato con unidad convence más que un adjetivo.",
+        en: "One or two sentences. A figure with a unit convinces more than an adjective.",
+        ar: "جملة أو جملتان. رقم بوحدته أقنع من صفة.",
+      },
+    },
     ctas: {
       kind: "array",
-      of: {
-        label: { kind: "text", required: true, localized: true },
-        href: { kind: "text", required: true },
-      },
+      of: CTA_ROW,
       max: 2,
+      label: { es: "Botones", en: "Buttons", ar: "الأزرار" },
+      help: {
+        es: "El primero se pinta con el acento; el segundo, discreto. Dos como máximo.",
+        en: "The first is painted with the accent, the second stays quiet. Two at most.",
+        ar: "الأول باللون المميّز والثاني هادئ. اثنان كحد أقصى.",
+      },
+      rowLabels: CTA_ROW_LABELS,
     },
     /** Small print under the buttons: "sin pago ni compromiso". */
-    note: { kind: "text", localized: true, max: 120 },
+    note: {
+      kind: "text",
+      localized: true,
+      max: 120,
+      label: { es: "Letra pequeña", en: "Small print", ar: "ملاحظة صغيرة" },
+      help: {
+        es: "Debajo de los botones: «sin pago ni compromiso», plazo de entrega.",
+        en: "Under the buttons: “no payment, no commitment”, delivery window.",
+        ar: "تحت الأزرار: «بلا دفع ولا التزام»، مدة التسليم.",
+      },
+    },
   },
   appearance: [
     "spaceBlockStart",

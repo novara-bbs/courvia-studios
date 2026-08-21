@@ -1,9 +1,11 @@
-import type { Appearance, ControlName } from "@courvia/appearance";
+import type { Appearance, ControlName, LocalizedText } from "@courvia/appearance";
 import type { ReactNode } from "react";
 import type { z } from "zod";
 
 import { fieldsToZod } from "./fields";
 import type { Fields } from "./fields";
+import type { SectionGroup } from "./groups";
+import type { Sketch } from "./thumbnail";
 
 /**
  * Everything a section needs at render time that it may not import:
@@ -65,6 +67,12 @@ export interface SectionPlacement {
   index: number;
 }
 
+/** What the block picker and the block row call this section. */
+export interface SectionLabels {
+  singular: LocalizedText;
+  plural: LocalizedText;
+}
+
 export interface SectionDefinition {
   /** Stored in every content document — renaming it later is a migration. */
   type: string;
@@ -73,8 +81,18 @@ export interface SectionDefinition {
    *  long type needs a compact db identity. Renaming it later is a
    *  migration, exactly like `type`. */
   dbName?: string;
-  /** Admin labels per locale. */
-  labels: { es: string; en: string; ar: string };
+  /** Admin labels per locale, singular and plural. Plural is not decoration:
+   *  the projection used to emit the singular for both, and a value that
+   *  merely happens to be unused today is a value nobody will fix later. */
+  labels: SectionLabels;
+  /** Which shelf of the block picker this section belongs on. */
+  group: SectionGroup;
+  /**
+   * The picture the block picker shows. Required, not optional: an optional
+   * one is the one every new section forgets, and the drawer degrades to the
+   * generic placeholder for exactly the block nobody recognises yet.
+   */
+  thumbnail: Sketch;
   fields: Fields;
   /** Which appearance controls this section exposes, narrowed per section. */
   appearance: readonly ControlName[];
@@ -91,7 +109,9 @@ export interface SectionDefinition {
 export function defineSection(definition: {
   type: string;
   dbName?: string;
-  labels: { es: string; en: string; ar: string };
+  labels: SectionLabels;
+  group: SectionGroup;
+  thumbnail: Sketch;
   fields: Fields;
   appearance: readonly ControlName[];
   render: SectionDefinition["render"];

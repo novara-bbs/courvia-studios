@@ -51,9 +51,21 @@ export const SECTIONS: Record<string, SectionDefinition> = Object.fromEntries(
 export type {
   RenderContext,
   SectionDefinition,
+  SectionLabels,
   SectionPlacement,
 } from "./dsl/define-section";
-export { mediaValue, productSlugs } from "./dsl/fields";
-export type { FieldSpec, Fields, Link, MediaValue } from "./dsl/fields";
+export { LINK_CHILD_COPY, mediaValue, productSlugs } from "./dsl/fields";
+export type { FieldCopy, FieldSpec, Fields, Link, MediaValue } from "./dsl/fields";
+export { SECTION_GROUPS, SECTION_GROUP_COPY } from "./dsl/groups";
+export type { SectionGroup } from "./dsl/groups";
+export {
+  SKETCH_GRID,
+  SKETCH_ROLES,
+  THUMBNAIL_SIZE,
+  sketchColor,
+  sketchDataUri,
+  sketchSvg,
+} from "./dsl/thumbnail";
+export type { Sketch, SketchRole, SketchShape } from "./dsl/thumbnail";
 export { imageAttrs } from "./dsl/image";
 export type { ImageAttributes, ImageFrame } from "./dsl/image";

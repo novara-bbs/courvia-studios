@@ -5,16 +5,48 @@
  * trusts) and to a Payload block config in the CMS layer (what the editor
  * sees). A registry test keeps the projections honest.
  */
+import type { LocalizedText } from "@courvia/appearance";
 import { z } from "zod";
 
+/**
+ * What an editor reads next to a field, carried by the field itself.
+ *
+ * It lives in the DECLARATION rather than in the CMS projection for the same
+ * reason the Zod contract does: `apps/web/src/payload/blocks.ts` is
+ * generated, never hand-written, so a Spanish string typed there would be
+ * content living outside the system that owns it — and it would be Spanish
+ * for an English editor forever. `label` is required so a new field cannot
+ * reach the panel as `eyebrow` / `videoId` / `col`.
+ */
+export interface FieldCopy {
+  label: LocalizedText;
+  /** One line under the input. Present only where the name is not enough. */
+  help?: LocalizedText;
+  /**
+   * Pair this field with its neighbours on one line. Fields that share a
+   * key AND are adjacent in the declaration collapse into a Payload `row`:
+   * a CTA's label and href are one thought and read as two questions when
+   * stacked. Purely presentational — the stored shape is unchanged.
+   */
+  row?: string;
+}
+
 export type FieldSpec =
-  | { kind: "text"; required?: boolean; localized?: boolean; max?: number }
-  | { kind: "textarea"; required?: boolean; localized?: boolean; max?: number }
+  | ({ kind: "text"; required?: boolean; localized?: boolean; max?: number } & FieldCopy)
+  | ({ kind: "textarea"; required?: boolean; localized?: boolean; max?: number } & FieldCopy)
   /** Lexical rich text; the renderer receives it through an injected
    * serializer, so this package never touches the editor's format. */
-  | { kind: "richText"; required?: boolean; localized?: boolean }
-  | { kind: "select"; options: readonly string[]; required?: boolean }
-  | {
+  | ({ kind: "richText"; required?: boolean; localized?: boolean } & FieldCopy)
+  | ({
+      kind: "select";
+      options: readonly string[];
+      required?: boolean;
+      /** Editor-facing label per option, in the three admin languages. Like
+       *  the appearance controls, a content select must never be painted
+       *  with its stored value: `h1` and `youtube` are storage, not words. */
+      optionLabels: Readonly<Record<string, LocalizedText>>;
+    } & FieldCopy)
+  | ({
       kind: "array";
       of: Record<string, FieldSpec>;
       /** A section whose whole point is its rows (stats, milestones) is
@@ -24,18 +56,44 @@ export type FieldSpec =
       min?: number;
       max?: number;
       localized?: boolean;
-    }
-  | { kind: "link"; localized?: boolean }
+      /** Singular/plural for the row header: Payload prints
+       *  `${singular} 01`, which is why every array said "Item 01". */
+      rowLabels: { singular: LocalizedText; plural: LocalizedText };
+    } & FieldCopy)
+  | ({ kind: "link"; localized?: boolean } & FieldCopy)
   /** One image/video from the media library. Arrives populated (an object
    * with url/alt) at depth>=1, or as a bare id at depth 0 — mediaValue()
    * normalizes both; renderers must survive the id-only case. */
-  | { kind: "upload"; required?: boolean }
+  | ({ kind: "upload"; required?: boolean } & FieldCopy)
   /** Products picked from the catalog. Renderers never price these
    * themselves: they extract slugs (productSlugs()) and hand them to the
    * injected ctx.renderProductGrid, which prices per market. */
-  | { kind: "products"; required?: boolean; max?: number };
+  | ({ kind: "products"; required?: boolean; max?: number } & FieldCopy);
 
 export type Fields = Record<string, FieldSpec>;
+
+/**
+ * The two inputs a `link` field expands into.
+ *
+ * `link` produces a group whose children the DSL invents, so their copy has
+ * to be invented here too — the alternative is two Spanish strings hidden in
+ * the CMS projection, which is the thing this change removes.
+ */
+export const LINK_CHILD_COPY: Record<"label" | "href", FieldCopy> = {
+  label: {
+    label: { es: "Texto del enlace", en: "Link text", ar: "نص الرابط" },
+    row: "link",
+  },
+  href: {
+    label: { es: "Destino", en: "Destination", ar: "الوجهة" },
+    help: {
+      es: "Ruta relativa a la región: /robots/tempo-r1, no /es/robots/tempo-r1.",
+      en: "Region-relative path: /robots/tempo-r1, not /es/robots/tempo-r1.",
+      ar: "مسار نسبي للمنطقة: ‎/robots/tempo-r1‎ لا ‎/es/robots/tempo-r1‎.",
+    },
+    row: "link",
+  },
+};
 
 const LINK_SHAPE = z.object({
   label: z.string(),

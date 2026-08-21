@@ -196,6 +196,9 @@ export interface User {
  */
 export interface Media {
   id: number;
+  /**
+   * Lo que la imagen dice a quien no la ve. Es también el nombre con el que la mediateca lista este archivo.
+   */
   alt: string;
   /**
    * Pie visible bajo la imagen en la galería de producto (opcional).
@@ -274,38 +277,82 @@ export interface Media {
 export interface Page {
   id: number;
   title: string;
-  /**
-   * kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce.
-   */
-  slug: string;
   blocks?:
     | (
         | {
+            /**
+             * Covers the whole band. Raise the scrim if the type over it stops being legible.
+             */
             media?: (number | null) | Media;
+            /**
+             * Two or three words above the headline: “Launch”, “Padel”.
+             */
             eyebrow?: string | null;
+            /**
+             * Second person, about the effect on the player rather than on the product.
+             */
             heading: string;
+            /**
+             * Only one section per page may be the main headline.
+             */
             level?: ('h2' | 'h1') | null;
+            /**
+             * One or two sentences. A figure with a unit convinces more than an adjective.
+             */
             lead?: string | null;
+            /**
+             * The first is painted with the accent, the second stays quiet. Two at most.
+             */
             ctas?:
               | {
                   label: string;
+                  /**
+                   * Region-relative path: /robots/tempo-r1.
+                   */
                   href: string;
                   id?: string | null;
                 }[]
               | null;
-            note?: string | null;
             /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             * Under the buttons: “no payment, no commitment”, delivery window.
              */
+            note?: string | null;
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Reserves screen for one moment of the page. Everything else keeps the vertical rhythm.
+               */
               height?: ('auto' | 'tall' | 'full') | null;
+              /**
+               * Veils the media so type over it stays legible. The colour comes from the theme background.
+               */
               overlay?: ('none' | 'soft' | 'strong' | 'gradient') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
               align?: ('start' | 'center') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
               width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -313,25 +360,55 @@ export interface Page {
             blockType: 'stage';
           }
         | {
+            /**
+             * Two or three words above the headline.
+             */
             eyebrow?: string | null;
+            /**
+             * Second person, about the effect on the player.
+             */
             heading: string;
+            /**
+             * Only one section per page may be the main headline.
+             */
             level?: ('h2' | 'h1') | null;
+            /**
+             * One or two sentences. A figure with a unit convinces more than an adjective.
+             */
             lead?: string | null;
+            /**
+             * The first is painted with the accent, the second stays quiet. Two at most.
+             */
             ctas?:
               | {
                   label: string;
+                  /**
+                   * Region-relative path: /robots/tempo-r1.
+                   */
                   href: string;
                   id?: string | null;
                 }[]
               | null;
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
               align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -339,20 +416,41 @@ export interface Page {
             blockType: 'hero';
           }
         | {
+            /**
+             * Before the links: “On this page”. Empty = links only.
+             */
             label?: string | null;
+            /**
+             * Between 2 and 8. An index of one is not an index.
+             */
             items: {
               text: string;
+              /**
+               * The name you gave the target block, verbatim: the anchor is derived from it.
+               */
               anchor: string;
               id?: string | null;
             }[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
               hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -360,6 +458,9 @@ export interface Page {
             blockType: 'anchorNav';
           }
         | {
+            /**
+             * Prose with headings, lists and links. The column caps itself so it stays readable.
+             */
             body: {
               root: {
                 type: string;
@@ -375,13 +476,22 @@ export interface Page {
               };
               [k: string]: unknown;
             };
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
               width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -389,6 +499,9 @@ export interface Page {
             blockType: 'richText';
           }
         | {
+            /**
+             * Takes half the band. The side is chosen under Design and flips by itself in Arabic.
+             */
             image: number | Media;
             heading?: string | null;
             body: {
@@ -406,14 +519,26 @@ export interface Page {
               };
               [k: string]: unknown;
             };
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it swaps sides by itself in Arabic.
+               */
               mediaPosition?: ('start' | 'end') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -422,7 +547,13 @@ export interface Page {
           }
         | {
             heading?: string | null;
+            /**
+             * Between 2 and 8. Mix the sizes: a bento of equal tiles is just a grid.
+             */
             items: {
+              /**
+               * On mobile every tile takes the full width.
+               */
               span?: ('sm' | 'md' | 'lg') | null;
               image?: (number | null) | Media;
               eyebrow?: string | null;
@@ -430,16 +561,34 @@ export interface Page {
               body?: string | null;
               id?: string | null;
             }[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
               divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
               hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -448,21 +597,45 @@ export interface Page {
           }
         | {
             heading?: string | null;
+            /**
+             * Between 2 and 4. One figure is not a band; five do not get read.
+             */
             items: {
+              /**
+               * With its unit: “72 km/h”, “140 balls”.
+               */
               value: string;
               label: string;
+              /**
+               * “Measured on a sample”, “design target”. If it is not measured, it is not claimed.
+               */
               note?: string | null;
               id?: string | null;
             }[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
               align?: ('start' | 'center') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -471,22 +644,43 @@ export interface Page {
           }
         | {
             heading: string;
+            /**
+             * The column count is chosen under Design.
+             */
             items?:
               | {
                   title: string;
+                  /**
+                   * Sport-specific: a padel ball bounces differently and the copy knows it.
+                   */
                   body?: string | null;
                   id?: string | null;
                 }[]
               | null;
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Always collapses to one column on mobile.
+               */
               columns?: ('2' | '3' | '4') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
               align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -496,22 +690,46 @@ export interface Page {
         | {
             heading?: string | null;
             lead?: string | null;
+            /**
+             * They number themselves in the order of this list. Between 2 and 6.
+             */
             items: {
               title: string;
               body?: string | null;
               id?: string | null;
             }[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Always collapses to one column on mobile.
+               */
               columns?: ('2' | '3' | '4') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
               divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
               hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -521,21 +739,42 @@ export interface Page {
         | {
             heading?: string | null;
             lead?: string | null;
+            /**
+             * In chronological order, top to bottom. Between 2 and 6.
+             */
             items: {
+              /**
+               * Short and in caps: “EVT”, “DVT”, “Pilot”.
+               */
               label: string;
               title: string;
               body?: string | null;
+              /**
+               * Marks the dot on the rail. Only one should be in progress.
+               */
               state?: ('done' | 'current' | 'next') | null;
               id?: string | null;
             }[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -543,25 +782,55 @@ export interface Page {
             blockType: 'timeline';
           }
         | {
+            /**
+             * The machine on a material or on-court background. The pins go on top of it.
+             */
             image: number | Media;
             heading?: string | null;
+            /**
+             * Up to 8. Two pins on the same cell overlap.
+             */
             points: {
+              /**
+               * A 12-column grid over the image; 1 is the starting edge.
+               */
               col: '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
+              /**
+               * An 8-row grid over the image; 1 is the top.
+               */
               row: '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
               title: string;
               body?: string | null;
               id?: string | null;
             }[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
               width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
               hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -570,20 +839,41 @@ export interface Page {
           }
         | {
             heading?: string | null;
+            /**
+             * Between 2 and 8. The column count is chosen under Design.
+             */
             items: {
               image: number | Media;
+              /**
+               * Empty = the caption the image carries in the library is used.
+               */
               caption?: string | null;
               id?: string | null;
             }[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Always collapses to one column on mobile.
+               */
               columns?: ('2' | '3' | '4') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -593,17 +883,29 @@ export interface Page {
         | {
             heading?: string | null;
             /**
-             * El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.
+             * The block stores the reference only: price, currency and stock resolve live per market.
              */
             products: (number | Product)[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
               align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -614,19 +916,37 @@ export interface Page {
             heading?: string | null;
             lead?: string | null;
             /**
-             * El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.
+             * Up to 4 columns. The figures and their state (measured, target) come from the catalogue, not from here.
              */
             products: (number | Product)[];
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
               divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
               hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -635,17 +955,38 @@ export interface Page {
           }
         | {
             provider: 'youtube' | 'vimeo';
-            videoId: string;
-            title: string;
             /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
+             * The id only, not the URL: in youtube.com/watch?v=aqz-KESearI it is aqz-KESearI.
              */
+            videoId: string;
+            /**
+             * Screen readers announce it. Say what is on screen, not “video”.
+             */
+            title: string;
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
               width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
               reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -654,20 +995,38 @@ export interface Page {
           }
         | {
             heading: string;
+            /**
+             * Say what happens after sending: when you reply and what they get.
+             */
             body?: string | null;
+            /**
+             * It decides the fields, the confirmation email and how the lead enters the CRM.
+             */
             intent: 'waitlist' | 'preorder' | 'demo';
             /**
-             * El bloque solo guarda la referencia: precio y stock se resuelven en vivo por mercado.
+             * Optional. If set, the lead is attached to that product.
              */
             product?: (number | Product)[] | null;
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
               align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -676,8 +1035,14 @@ export interface Page {
           }
         | {
             heading: string;
+            /**
+             * Up to 12. The ones that remove the fear of buying go first.
+             */
             items?:
               | {
+                  /**
+                   * Written the way a customer would ask it, not the way marketing would title it.
+                   */
                   question: string;
                   answer: {
                     root: {
@@ -697,14 +1062,26 @@ export interface Page {
                   id?: string | null;
                 }[]
               | null;
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
               width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -712,17 +1089,32 @@ export interface Page {
             blockType: 'faq';
           }
         | {
+            /**
+             * Their own words, without quote marks: the design adds those.
+             */
             quote: string;
             author?: string | null;
             role?: string | null;
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
               align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -730,23 +1122,44 @@ export interface Page {
             blockType: 'quote';
           }
         | {
+            /**
+             * One sentence asking for the next action, not a slogan.
+             */
             heading: string;
             body?: string | null;
+            /**
+             * One only, on purpose: a band with two exits closes neither.
+             */
             cta?:
               | {
                   label: string;
+                  /**
+                   * Region-relative path: /robots/tempo-r1.
+                   */
                   href: string;
                   id?: string | null;
                 }[]
               | null;
-            /**
-             * Controles ligados a los tokens de marca. No hay valores libres: el sistema garantiza contraste y coherencia.
-             */
             appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
               spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
               spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
               background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
               align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
               themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
             };
             id?: string | null;
@@ -755,9 +1168,6 @@ export interface Page {
           }
       )[]
     | null;
-  /**
-   * Todo opcional. Vacío = el título de la página, su primer texto y una tarjeta generada con los colores del tema.
-   */
   seo?: {
     /**
      * Solo si el título de buscador debe diferir del de la página. Google corta sobre los 60 caracteres.
@@ -776,6 +1186,10 @@ export interface Page {
      */
     noIndex?: boolean | null;
   };
+  /**
+   * kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce.
+   */
+  slug: string;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -949,6 +1363,10 @@ export interface Variant {
 export interface Price {
   id: number;
   variant: number | Variant;
+  /**
+   * De la variante enlazada. No es una columna: renombrar el SKU lo cambia aquí también.
+   */
+  sku?: string | null;
   market: 'es' | 'uk' | 'ae';
   amount: number;
   /**
@@ -969,6 +1387,10 @@ export interface Price {
 export interface Inventory {
   id: number;
   variant: number | Variant;
+  /**
+   * De la variante enlazada. No es una columna: renombrar el SKU lo cambia aquí también.
+   */
+  sku?: string | null;
   qtyOnHand: number;
   qtyCommitted: number;
   updatedAt: string;
@@ -1235,6 +1657,10 @@ export interface Outbox {
 export interface Return {
   id: number;
   order: number | Order;
+  /**
+   * Del pedido enlazado. No es una columna.
+   */
+  customer?: string | null;
   status: 'requested' | 'received' | 'refunded' | 'rejected';
   lines: {
     sku: string;
@@ -1466,7 +1892,6 @@ export interface MediaSelect<T extends boolean = true> {
  */
 export interface PagesSelect<T extends boolean = true> {
   title?: T;
-  slug?: T;
   blocks?:
     | T
     | {
@@ -1915,6 +2340,7 @@ export interface PagesSelect<T extends boolean = true> {
         ogImage?: T;
         noIndex?: T;
       };
+  slug?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -2011,6 +2437,7 @@ export interface VariantsSelect<T extends boolean = true> {
  */
 export interface PricesSelect<T extends boolean = true> {
   variant?: T;
+  sku?: T;
   market?: T;
   amount?: T;
   compareAtAmount?: T;
@@ -2025,6 +2452,7 @@ export interface PricesSelect<T extends boolean = true> {
  */
 export interface InventorySelect<T extends boolean = true> {
   variant?: T;
+  sku?: T;
   qtyOnHand?: T;
   qtyCommitted?: T;
   updatedAt?: T;
@@ -2135,6 +2563,7 @@ export interface OutboxSelect<T extends boolean = true> {
  */
 export interface ReturnsSelect<T extends boolean = true> {
   order?: T;
+  customer?: T;
   status?: T;
   lines?:
     | T
@@ -2218,6 +2647,8 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   createdAt?: T;
 }
 /**
+ * Abre «Vista previa» para ver el sitio con lo ÚLTIMO GUARDADO: estos ajustes no tienen borrador, se publican al guardar.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "theme-settings".
  */
@@ -2231,6 +2662,8 @@ export interface ThemeSetting {
   createdAt?: string | null;
 }
 /**
+ * Qué pasarelas ofrece cada mercado y en qué orden. La moneda y el incoterm NO están aquí: son código (@courvia/platform).
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "market-settings".
  */
@@ -2242,6 +2675,9 @@ export interface MarketSetting {
   markets?:
     | {
         market: 'es' | 'uk' | 'ae';
+        /**
+         * Desmarcado = el checkout no ofrece este mercado.
+         */
         enabled?: boolean | null;
         /**
          * Orden de presentación en el checkout; el cliente elige.
@@ -2264,7 +2700,7 @@ export interface MarketSetting {
   createdAt?: string | null;
 }
 /**
- * Menú de cabecera y enlaces de pie. Rutas relativas a la región.
+ * Menú de cabecera y enlaces de pie. Rutas relativas a la región. «Vista previa» abre el sitio con lo último guardado: este global no tiene borrador.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "navigation".
