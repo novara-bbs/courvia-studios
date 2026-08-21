@@ -132,8 +132,8 @@ export class FakeCommerceService implements CommerceService {
 export function makeFakeCatalog(): FakeCatalog {
   const product: Product = {
     id: "prod_drill_pro",
-    slug: "drill-pro",
-    title: "Drill Pro",
+    slug: "tempo-r1",
+    title: "Tempo R1",
     sports: ["padel", "tenis"],
     excerpt: "Doble rueda, 140 pelotas, 6 h de sesión.",
     specs: [

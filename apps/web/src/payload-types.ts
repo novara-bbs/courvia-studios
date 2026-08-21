@@ -1195,7 +1195,7 @@ export interface Page {
   _status?: ('draft' | 'published') | null;
 }
 /**
- * La familia (Drill Pro, Drill One…). La configuración por deporte vive en sus variantes (ADR-04).
+ * La familia (Tempo, Go, Rally). La configuración por deporte vive en sus variantes (ADR-04).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "products".
@@ -1332,7 +1332,7 @@ export interface Redirect {
   createdAt: string;
 }
 /**
- * Un SKU por deporte y configuración (Drill Pro → T / P / PB).
+ * Un SKU por deporte y configuración (Rally Station → RLY-ST-T / RLY-ST-P).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "variants".

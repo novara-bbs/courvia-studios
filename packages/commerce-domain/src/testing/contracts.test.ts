@@ -83,7 +83,7 @@ describeCommerceServiceContract(
   "FakeCommerceService",
   () => new FakeCommerceService(makeFakeCatalog()),
   {
-    knownSlug: "drill-pro",
+    knownSlug: "tempo-r1",
     unknownSlug: "does-not-exist",
     knownSku: "DRL-PRO-P",
     unknownSku: "NOPE-1",

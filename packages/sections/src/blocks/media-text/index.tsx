@@ -58,7 +58,7 @@ export const mediaText = defineSection({
     "themeScope",
   ],
   fixture: {
-    image: { url: "/media/drill-pro.jpg", alt: "Drill Pro sobre pista" },
+    image: { url: "/media/tempo-r1.jpg", alt: "Tempo R1 sobre pista" },
     heading: "Cada unidad se calibra antes de salir",
     body: {
       root: {

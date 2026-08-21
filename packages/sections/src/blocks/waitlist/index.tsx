@@ -69,10 +69,10 @@ export const waitlist = defineSection({
   },
   appearance: ["spaceBlockStart", "spaceBlockEnd", "background", "align", "themeScope"],
   fixture: {
-    heading: "Drill Club llega en otoño",
+    heading: "Rally Station llega en otoño",
     body: "Chasis reforzado, tolva de 200 pelotas y panel de reservas para clubes.",
     intent: "waitlist",
-    product: [{ slug: "drill-club" }],
+    product: [{ slug: "rally-station" }],
   },
   render: (content, ctx) => {
     const heading = content.heading as string;

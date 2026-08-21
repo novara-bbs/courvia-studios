@@ -52,7 +52,7 @@ export const productShowcase = defineSection({
   appearance: ["spaceBlockStart", "spaceBlockEnd", "background", "align", "themeScope"],
   fixture: {
     heading: "Elige tu robot",
-    products: [{ slug: "drill-pro" }, { slug: "drill-one" }],
+    products: [{ slug: "tempo-r1" }, { slug: "rally-station" }],
   },
   render: (content, ctx) => {
     const heading = content.heading as string | null | undefined;

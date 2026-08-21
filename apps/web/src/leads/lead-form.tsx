@@ -49,7 +49,7 @@ export function LeadForm({
   sourcePath: string;
   sportInterest?: string;
   privacyHref: string;
-  /** Purchasable configurations of the product, so a "Drill Pro" lead keeps
+  /** Purchasable configurations of the product, so a "Tempo R1" lead keeps
    *  the T/P/PB intent the variants table just showed. */
   variants?: LeadFormVariant[];
   /** What the visitor is asking for: a demo, a waitlist spot or a preorder.

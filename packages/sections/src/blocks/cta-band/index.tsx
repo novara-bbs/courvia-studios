@@ -52,7 +52,7 @@ export const ctaBand = defineSection({
   appearance: ["spaceBlockStart", "spaceBlockEnd", "background", "align", "themeScope"],
   fixture: {
     heading: "200 voleas sin fallo",
-    body: "El reto de la semana, con la Drill Pro al 70 % de ritmo.",
+    body: "El reto de la semana, con la Tempo R1 al 70 % de ritmo.",
     cta: [{ label: "Empezar", href: "/robots" }],
   },
   render: (content, ctx) => {

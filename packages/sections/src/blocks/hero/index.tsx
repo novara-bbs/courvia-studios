@@ -74,7 +74,7 @@ export const hero = defineSection({
     eyebrow: "Robots de entrenamiento",
     heading: "Tu revés mejora esta semana",
     lead: "Rutinas programables, 140 pelotas por carga y hasta 6 horas de sesión.",
-    ctas: [{ label: "Reservar Drill Pro", href: "/robots/drill-pro" }],
+    ctas: [{ label: "Ver la Tempo R1", href: "/robots/tempo-r1" }],
   },
   render: (content, ctx) => {
     const eyebrow = content.eyebrow as string | null | undefined;

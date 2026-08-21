@@ -131,7 +131,7 @@ export const Products: CollectionConfig = {
     group: "Catálogo",
     defaultColumns: ["title", "slug", "sports", "launchStatus", "_status", "updatedAt"],
     description:
-      "La familia (Drill Pro, Drill One…). La configuración por deporte vive en sus variantes (ADR-04).",
+      "La familia (Tempo, Go, Rally). La configuración por deporte vive en sus variantes (ADR-04).",
     /**
      * Preview of the PDP, and it is only honest because the route reads
      * drafts.
@@ -279,7 +279,7 @@ export const Variants: CollectionConfig = {
     useAsTitle: "sku",
     group: "Catálogo",
     defaultColumns: ["sku", "product", "sport", "active"],
-    description: "Un SKU por deporte y configuración (Drill Pro → T / P / PB).",
+    description: "Un SKU por deporte y configuración (Rally Station → RLY-ST-T / RLY-ST-P).",
   },
   // Server-only: a variant has no draft state of its own, so public REST
   // would leak the SKUs/config of variants belonging to draft products. The
