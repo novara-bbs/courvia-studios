@@ -111,7 +111,9 @@ interface InventoryDoc {
   qtyCommitted: number;
 }
 
-function relationId(value: number | string | { id: number | string }): string {
+/** Exportado para el motor de capacidades del mismo paquete
+ *  (`native-commerce-engine.ts`); el comportamiento no cambia. */
+export function relationId(value: number | string | { id: number | string }): string {
   return typeof value === "object" ? String(value.id) : String(value);
 }
 

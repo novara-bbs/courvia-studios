@@ -1,4 +1,6 @@
 export { PayloadCommerceService } from "./payload-commerce-service";
+export { NativeCommerceEngine } from "./native-commerce-engine";
+export type { NativeCommerceEngineOptions } from "./native-commerce-engine";
 export { applyPaymentEvent } from "./payment-events";
 export type { ApplyOutcome } from "./payment-events";
 export type { PaymentProviderRegistry } from "./payload-commerce-service";

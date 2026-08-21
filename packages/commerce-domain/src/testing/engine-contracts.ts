@@ -54,35 +54,7 @@ import { ENGINE_EVENT_TYPES, EngineWebhookSignatureError } from "../engine-event
 import type { EngineEventIngest } from "../capabilities";
 import type { EngineWebhookAuthScheme, EngineWebhookDelivery } from "../engine-event";
 import { ORDER_STATUSES } from "../types";
-
-/**
- * Un `throw` síncrono escapa antes de que exista la promesa, así que quien
- * use `.catch()` no lo ve nunca. Los puertos lo exigen por escrito
- * (`payment.ts`, `capabilities.ts`); esto es lo que lo comprueba.
- *
- * Es gemelo del de `contracts.ts` y no el mismo por una regla de `pnpm arch`:
- * `testing-entry-is-test-only` prohíbe que nada que no sea un fichero de test
- * —o el propio `testing/index.ts`— importe de `src/testing/`, y esa
- * prohibición alcanza también a un módulo que ya vive dentro. La regla
- * protege algo real (importar la suite arrastra vitest al bundle), pero su
- * `pathNot` se escribió para el índice y no para el directorio. Mientras siga
- * así, compartir este ayudante rompe `pnpm arch`.
- */
-async function rejectsWithoutSyncThrow<T>(
-  label: string,
-  call: () => Promise<T>,
-  expected: new (...args: never[]) => Error,
-): Promise<void> {
-  let promise: Promise<T>;
-  try {
-    promise = call();
-  } catch (error) {
-    throw new Error(
-      `${label} lanzó de forma síncrona (${String(error)}); un .catch() del llamante nunca lo vería`,
-    );
-  }
-  await expect(promise).rejects.toBeInstanceOf(expected);
-}
+import { rejectsWithoutSyncThrow } from "./contracts";
 
 function hasMethod(subject: unknown, name: string): boolean {
   if (typeof subject !== "object" || subject === null) return false;

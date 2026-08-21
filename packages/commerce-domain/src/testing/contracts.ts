@@ -90,10 +90,15 @@ export interface PaymentProviderFixtures {
 
 /**
  * Un `throw` síncrono escapa antes de que exista la promesa, así que quien
- * use `.catch()` no lo ve nunca. El puerto lo exige por escrito
- * (payment.ts); esto es lo que lo comprueba.
+ * use `.catch()` no lo ve nunca. Los puertos lo exigen por escrito
+ * (`payment.ts`, `capabilities.ts`); esto es lo que lo comprueba.
+ *
+ * Exportado para `engine-contracts.ts`, que lo tuvo duplicado mientras
+ * `testing-entry-is-test-only` prohibía importar de `src/testing/` incluso
+ * desde dentro. No sale por `testing/index.ts`: es de la suite, no del
+ * consumidor.
  */
-async function rejectsWithoutSyncThrow<T>(
+export async function rejectsWithoutSyncThrow<T>(
   label: string,
   call: () => Promise<T>,
   expected: new (...args: never[]) => Error,

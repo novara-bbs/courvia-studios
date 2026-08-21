@@ -6,10 +6,31 @@
  * else.
  */
 import config from "@payload-config";
+import { DEFAULT_LOCALE } from "@courvia/platform";
 import type { LocaleId, PaymentProviderId } from "@courvia/platform";
-import type { CommerceService, PaymentEvent, PaymentProvider } from "@courvia/commerce-domain";
+import { CAPABILITY_METHODS, declaresCapability } from "@courvia/commerce-domain";
+import type {
+  AvailabilityRead,
+  CapabilityDeclaring,
+  CapabilityId,
+  CartWrite,
+  CatalogAdmin,
+  CatalogRead,
+  CheckoutStart,
+  CommerceOwner,
+  CommerceService,
+  CustomerOrderRead,
+  EngineCapabilities,
+  EngineEventIngest,
+  OrderRef,
+  PaymentEvent,
+  PaymentProvider,
+  ReturnWrite,
+  SiteKey,
+} from "@courvia/commerce-domain";
 import { FakePaymentProvider } from "@courvia/commerce-domain/fakes";
 import {
+  NativeCommerceEngine,
   PayloadCommerceService,
   applyPaymentEvent as applyPaymentEventToPayload,
 } from "@courvia/commerce-payload";
@@ -91,3 +112,192 @@ export async function applyPaymentEvent(event: PaymentEvent): Promise<ApplyOutco
   const payload = await getPayload({ config });
   return applyPaymentEventToPayload(payload, event);
 }
+
+/* ==========================================================================
+ * La fachada de commerce (ADR-029)
+ *
+ * Tres preguntas, tres respuestas distintas, y la diferencia entre ellas es
+ * literalmente el ADR:
+ *
+ *   forSite(siteKey)   → la conexión ACTIVA, para empezar algo nuevo.
+ *   forCart(cartId)    → la conexión GUARDADA EN EL CARRITO.
+ *   forOrder(orderRef) → el motor GUARDADO EN LA REFERENCIA DEL PEDIDO.
+ *
+ * Las dos últimas no pueden contestar «la activa». Cambiar la conexión activa
+ * no toca carritos ni pedidos existentes (invariantes 6 y 17), así que un
+ * `forOrder` que devolviera el motor activo mandaría una devolución de un
+ * pedido viejo al motor nuevo: dinero contado dos veces o ninguna. Es el
+ * fallo exacto que ADR-029 existe para impedir, y por eso aquí se prefiere
+ * fallar en voz alta antes que adivinar.
+ *
+ * --------------------------------------------------------------------------
+ * QUÉ HAY DE PROVISIONAL AQUÍ, Y QUÉ LO SUSTITUYE
+ *
+ * `CommerceConnection` y `CommerceBinding` son entidades de la Fase 2 y
+ * llevan migración: hoy NO existen. Mientras tanto:
+ *
+ *  - `NATIVE_CONNECTION` es la conexión activa escrita en configuración. Hay
+ *    una sola, es nativa, y esa constante es toda la "tabla" que existe. La
+ *    sustituye una consulta al binding activo del sitio.
+ *
+ *  - `forCart` **no puede** resolver nada: no hay carrito nativo (no existe
+ *    la colección) ni fila donde estuviera guardado su owner. Rechaza
+ *    siempre. La sustituye la lectura del binding guardado en el carrito.
+ *
+ *  - `forOrder` resuelve desde la propia referencia, que ya lleva `engine` y
+ *    `connectionKey`, y rechaza cualquier cosa que no sea la conexión
+ *    configurada. Ojo con la letra pequeña: **la referencia la trae quien
+ *    llama, así que no es prueba de a quién pertenece el pedido**. Con una
+ *    sola conexión no pueden discrepar; en cuanto haya una segunda, esto
+ *    tiene que leer el motor y la conexión de la FILA del pedido, y eso
+ *    necesita las columnas que trae la migración de la Fase 2. La revisión
+ *    del binding que se devuelve es la configurada, no la que tenía el
+ *    pedido al nacer: ADR-029 dice que la revisión es procedencia y no
+ *    permiso, así que ninguna autorización depende de ella.
+ * ========================================================================== */
+
+/**
+ * Por qué no hay motor que devolver. Código, no prosa: quien lo trate no debe
+ * leer el mensaje (misma disciplina que `CheckoutErrorCode`).
+ */
+export type CommerceRuntimeProblem =
+  /** El storefront pedido no está configurado. */
+  | "unknown_site"
+  /** No hay carrito ni binding donde mirar: entidades de la Fase 2. */
+  | "cart_binding_unavailable"
+  /** La referencia es de un motor que este despliegue no tiene montado. */
+  | "engine_not_configured"
+  /** Mismo motor, otra conexión: otra tienda, y no está configurada. */
+  | "unknown_connection"
+  /** El motor declara una capacidad cuyos métodos no existen. */
+  | "capability_not_implemented";
+
+export class CommerceRuntimeUnavailableError extends Error {
+  constructor(
+    public readonly problem: CommerceRuntimeProblem,
+    public readonly detail: string,
+  ) {
+    super(`${problem}: ${detail}`);
+    this.name = "CommerceRuntimeUnavailableError";
+  }
+}
+
+/**
+ * Un motor resuelto y sus capacidades, ya troceadas.
+ *
+ * Una ranura vale `null` exactamente cuando el motor **no declara** esa
+ * capacidad, así que el consumidor tiene que tratar la ausencia: es la
+ * diferencia entre "esta conexión no vende" y un método que lanza en
+ * producción.
+ */
+export interface CommerceRuntime {
+  readonly owner: CommerceOwner;
+  readonly capabilities: EngineCapabilities;
+  readonly catalog: CatalogRead | null;
+  readonly availability: AvailabilityRead | null;
+  readonly cart: CartWrite | null;
+  readonly checkout: CheckoutStart | null;
+  readonly customerOrders: CustomerOrderRead | null;
+  readonly returns: ReturnWrite | null;
+  readonly catalogAdmin: CatalogAdmin | null;
+  readonly events: EngineEventIngest | null;
+}
+
+export interface CommerceFacade {
+  /** La conexión ACTIVA del storefront: para crear un carrito nuevo. */
+  forSite(siteKey: SiteKey, locale?: LocaleId): Promise<CommerceRuntime>;
+  /** La conexión guardada EN EL CARRITO. Nunca la activa. */
+  forCart(cartSessionId: string, locale?: LocaleId): Promise<CommerceRuntime>;
+  /** El motor guardado EN LA REFERENCIA DEL PEDIDO. Nunca el activo. */
+  forOrder(orderRef: OrderRef, locale?: LocaleId): Promise<CommerceRuntime>;
+}
+
+/** La única conexión que existe. Provisional: ver el bloque de arriba. */
+const NATIVE_CONNECTION: CommerceOwner<"native"> = {
+  siteKey: "courvia",
+  engine: "native",
+  connectionKey: "native-primary",
+  bindingRevision: 1,
+};
+
+/**
+ * Estrecha el motor a una capacidad **solo si la declara**, y comprueba que
+ * los métodos existen de verdad antes de devolverlo. Sin esa comprobación el
+ * cast sería una promesa sin respaldo: una declaración optimista se
+ * convertiría en un `undefined is not a function` en la ruta, en vez de en un
+ * fallo con nombre aquí, que es donde se compone.
+ */
+function slot<T>(engine: CapabilityDeclaring, id: CapabilityId): T | null {
+  if (!declaresCapability(engine.capabilities, id)) return null;
+  const surface = engine as unknown as Record<string, unknown>;
+  for (const method of CAPABILITY_METHODS[id]) {
+    if (typeof surface[method] !== "function") {
+      throw new CommerceRuntimeUnavailableError(
+        "capability_not_implemented",
+        `${engine.owner.engine}:${engine.owner.connectionKey} declara ${id} sin ${method}()`,
+      );
+    }
+  }
+  return engine as unknown as T;
+}
+
+function runtimeOf(engine: CapabilityDeclaring): CommerceRuntime {
+  return {
+    owner: engine.owner,
+    capabilities: engine.capabilities,
+    catalog: slot<CatalogRead>(engine, "catalog_read"),
+    availability: slot<AvailabilityRead>(engine, "availability_read"),
+    cart: slot<CartWrite>(engine, "cart_write"),
+    checkout: slot<CheckoutStart>(engine, "checkout_start"),
+    customerOrders: slot<CustomerOrderRead>(engine, "customer_order_read"),
+    returns: slot<ReturnWrite>(engine, "return_write"),
+    catalogAdmin: slot<CatalogAdmin>(engine, "catalog_admin"),
+    events: slot<EngineEventIngest>(engine, "event_ingest"),
+  };
+}
+
+async function nativeRuntime(locale: LocaleId): Promise<CommerceRuntime> {
+  const payload = await getPayload({ config });
+  return runtimeOf(new NativeCommerceEngine({ payload, locale, owner: NATIVE_CONNECTION }));
+}
+
+export const commerce: CommerceFacade = {
+  async forSite(siteKey, locale = DEFAULT_LOCALE) {
+    if (siteKey !== NATIVE_CONNECTION.siteKey) {
+      throw new CommerceRuntimeUnavailableError("unknown_site", siteKey);
+    }
+    return nativeRuntime(locale);
+  },
+
+  /**
+   * Falla siempre, y a propósito. Devolver la conexión activa "mientras
+   * tanto" sería exactamente el atajo que ADR-029 prohíbe: en cuanto hubiera
+   * dos conexiones, un carrito nacido en la vieja seguiría en la nueva sin
+   * que nadie lo notara. Un error con nombre es peor de usar y mejor de
+   * tener.
+   */
+  forCart(cartSessionId) {
+    return Promise.reject(
+      new CommerceRuntimeUnavailableError(
+        "cart_binding_unavailable",
+        `no hay carrito nativo ni CommerceBinding donde mirar (${cartSessionId})`,
+      ),
+    );
+  },
+
+  async forOrder(orderRef, locale = DEFAULT_LOCALE) {
+    if (orderRef.engine !== NATIVE_CONNECTION.engine) {
+      throw new CommerceRuntimeUnavailableError(
+        "engine_not_configured",
+        `${orderRef.engine}:${orderRef.connectionKey}`,
+      );
+    }
+    if (orderRef.connectionKey !== NATIVE_CONNECTION.connectionKey) {
+      throw new CommerceRuntimeUnavailableError(
+        "unknown_connection",
+        `${orderRef.engine}:${orderRef.connectionKey}`,
+      );
+    }
+    return nativeRuntime(locale);
+  },
+};

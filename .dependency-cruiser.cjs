@@ -133,11 +133,19 @@ module.exports = {
       name: "adapters-are-not-imported-by-routes",
       severity: "error",
       comment:
-        "Only the composition root may name a concrete adapter (ADR-13/17). A route " +
+        "Only the composition root may name a concrete adapter (ADR-13/17/29). A route " +
         "importing payments-stripe re-creates the gateway lock-in the ports exist to " +
-        "prevent.",
+        "prevent; a route or component importing commerce-payload or commerce-shopify " +
+        "picks an ENGINE at the point of use, which is how a cart ends up in one engine " +
+        "and its order in another (ADR-29). The engine side of the `to` list is written " +
+        "as a pattern, not as two names: an adapter that does not exist yet " +
+        "(commerce-medusa) must be caught the day it is added, not the day someone " +
+        "remembers to widen this rule. @courvia/commerce-domain — the ports themselves — " +
+        "is what routes are SUPPOSED to depend on, hence the lookahead.",
       from: {
-        path: "^apps/web",
+        // Every app, not just this one: a second app would otherwise start
+        // life outside the boundary.
+        path: "^apps/",
         pathNot: [
           // The composition root. Naming adapters is its entire purpose.
           "^apps/web/src/server/container\\.ts$",
@@ -152,7 +160,7 @@ module.exports = {
         ],
       },
       to: {
-        path: workspace("payments-[a-z-]+", "commerce-payload", "commerce-shopify"),
+        path: workspace("payments-[a-z-]+", "commerce-(?!domain($|/))[a-z-]+"),
       },
     },
     {
@@ -174,8 +182,15 @@ module.exports = {
       from: {
         pathNot: [
           "\\.(test|spec)\\.[tj]sx?$",
-          // The entry itself re-exports the suites; that is its whole job.
-          "^packages/commerce-domain/src/testing/index\\.ts$",
+          // The whole directory, not just its index. What this rule protects
+          // is RUNTIME code reaching in; nothing inside src/testing/ is
+          // runtime code — it is only reachable from a test or from the
+          // /testing entry, which this same rule keeps out of the server
+          // bundle. Written as `index.ts` only, it also forbade one suite
+          // from importing its sibling, which bought nothing and cost a
+          // duplicated helper (`rejectsWithoutSyncThrow`, copied into
+          // engine-contracts.ts with the reason written on top of it).
+          "^packages/commerce-domain/src/testing/",
         ],
       },
       to: { path: "^packages/commerce-domain/src/testing/" },
