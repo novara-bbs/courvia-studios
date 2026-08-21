@@ -55,6 +55,7 @@ export type {
   SectionPlacement,
 } from "./dsl/define-section";
 export { LINK_CHILD_COPY, mediaValue, productSlugs } from "./dsl/fields";
+export { HREF_ERROR, isAuthoredHref } from "./dsl/href";
 export type { FieldCopy, FieldSpec, Fields, Link, MediaValue } from "./dsl/fields";
 export { SECTION_GROUPS, SECTION_GROUP_COPY } from "./dsl/groups";
 export type { SectionGroup } from "./dsl/groups";

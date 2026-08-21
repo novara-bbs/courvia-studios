@@ -32,7 +32,17 @@ export interface FieldCopy {
 }
 
 export type FieldSpec =
-  | ({ kind: "text"; required?: boolean; localized?: boolean; max?: number } & FieldCopy)
+  | ({
+      kind: "text";
+      required?: boolean;
+      localized?: boolean;
+      max?: number;
+      /** Refuse values a destination field must never hold. See `./href`: one
+       *  missing slash silently turns a CTA into a relative URL that resolves
+       *  against whatever page it was clicked on, and `javascript:` turns it
+       *  into script execution authored from the CMS. */
+      format?: "href";
+    } & FieldCopy)
   | ({ kind: "textarea"; required?: boolean; localized?: boolean; max?: number } & FieldCopy)
   /** Lexical rich text; the renderer receives it through an injected
    * serializer, so this package never touches the editor's format. */

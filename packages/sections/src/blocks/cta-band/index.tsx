@@ -53,7 +53,7 @@ export const ctaBand = defineSection({
   fixture: {
     heading: "200 voleas sin fallo",
     body: "El reto de la semana, con la Drill Pro al 70 % de ritmo.",
-    cta: [{ label: "Empezar", href: "/es/robots" }],
+    cta: [{ label: "Empezar", href: "/robots" }],
   },
   render: (content, ctx) => {
     const heading = content.heading as string;

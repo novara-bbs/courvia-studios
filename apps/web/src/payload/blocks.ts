@@ -12,9 +12,11 @@
 import { APPEARANCE_GROUP_COPY, CONTROLS, CONTROL_COPY, controlOptions } from "@courvia/appearance";
 import type { ControlDefinition, ControlName, LocalizedText } from "@courvia/appearance";
 import {
+  HREF_ERROR,
   LINK_CHILD_COPY,
   SECTIONS,
   SECTION_GROUP_COPY,
+  isAuthoredHref,
   sketchDataUri,
 } from "@courvia/sections/registry";
 import type { FieldCopy, FieldSpec, Fields } from "@courvia/sections/registry";
@@ -61,6 +63,32 @@ function optionCopy(
   return copy;
 }
 
+/** What Payload hands a `validate`, narrowed to the part this one reads. */
+type ValidateOptions = { req?: { i18n?: { language?: string } } };
+
+/**
+ * A `validate` for a destination field, in the panel's language.
+ *
+ * `req.i18n.language` is the language of the PANEL, not `req.locale`, which
+ * is the language of the content being edited. An editor filling in the
+ * Arabic version of a page with the panel in Spanish must read the refusal
+ * in Spanish.
+ */
+function hrefValidate(): (value: unknown, options: ValidateOptions) => true | string {
+  return (value, options) => {
+    // Emptiness is `required`'s business; this only judges shape. Refusing a
+    // blank optional field as an "invalid destination" would be a lie.
+    if (value === null || value === undefined || value === "") return true;
+    if (typeof value === "string" && isAuthoredHref(value)) return true;
+    const language = options.req?.i18n?.language;
+    const translated =
+      language !== undefined && language in HREF_ERROR
+        ? HREF_ERROR[language as keyof typeof HREF_ERROR]
+        : undefined;
+    return translated ?? HREF_ERROR.en;
+  };
+}
+
 /** The `admin` block of a field: label copy plus an optional help line. */
 function fieldAdmin(copy: FieldCopy): { description?: Record<string, string> } {
   return copy.help === undefined ? {} : { description: localized(copy.help) };
@@ -78,6 +106,7 @@ function fieldToPayload(name: string, spec: FieldSpec): Field {
         required: spec.required ?? false,
         localized: spec.localized ?? false,
         ...(spec.max !== undefined ? { maxLength: spec.max } : {}),
+        ...(spec.format === "href" ? { validate: hrefValidate() } : {}),
         admin,
       };
     case "textarea":
@@ -152,7 +181,7 @@ function fieldToPayload(name: string, spec: FieldSpec): Field {
             localized: spec.localized ?? false,
             ...LINK_CHILD_COPY.label,
           },
-          href: { kind: "text", required: true, ...LINK_CHILD_COPY.href },
+          href: { kind: "text", required: true, format: "href", ...LINK_CHILD_COPY.href },
         }),
         admin,
       };

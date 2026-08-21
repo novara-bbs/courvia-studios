@@ -23,6 +23,7 @@ export const CTA_ROW: Record<"label" | "href", FieldSpec> = {
   href: {
     kind: "text",
     required: true,
+    format: "href",
     row: "cta",
     label: { es: "Destino", en: "Destination", ar: "الوجهة" },
     help: {
