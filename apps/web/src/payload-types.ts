@@ -78,7 +78,11 @@ export interface Config {
     prices: Price;
     inventory: Inventory;
     leads: Lead;
+    'commerce-connections': CommerceConnection;
+    'commerce-bindings': CommerceBinding;
+    'commerce-product-refs': CommerceProductRef;
     orders: Order;
+    carts: Cart;
     payments: Payment;
     outbox: Outbox;
     returns: Return;
@@ -106,7 +110,11 @@ export interface Config {
     prices: PricesSelect<false> | PricesSelect<true>;
     inventory: InventorySelect<false> | InventorySelect<true>;
     leads: LeadsSelect<false> | LeadsSelect<true>;
+    'commerce-connections': CommerceConnectionsSelect<false> | CommerceConnectionsSelect<true>;
+    'commerce-bindings': CommerceBindingsSelect<false> | CommerceBindingsSelect<true>;
+    'commerce-product-refs': CommerceProductRefsSelect<false> | CommerceProductRefsSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
+    carts: CartsSelect<false> | CartsSelect<true>;
     payments: PaymentsSelect<false> | PaymentsSelect<true>;
     outbox: OutboxSelect<false> | OutboxSelect<true>;
     returns: ReturnsSelect<false> | ReturnsSelect<true>;
@@ -1204,6 +1212,10 @@ export interface Product {
   id: number;
   title: string;
   /**
+   * Identidad editorial estable. No es el id ni el slug: se genera una vez y sobrevive a renombrados y migraciones.
+   */
+  editorialKey?: string | null;
+  /**
    * Forma la URL /{región}/robots/{slug}. No se traduce.
    */
   slug: string;
@@ -1433,6 +1445,128 @@ export interface Lead {
   createdAt: string;
 }
 /**
+ * A qué motor está conectado un storefront. Metadatos y referencias a secretos — NUNCA el secreto. Activar una conexión requiere aprobación humana (plan §7).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "commerce-connections".
+ */
+export interface CommerceConnection {
+  id: number;
+  /**
+   * Identificador estable. No se renombra: los pedidos lo guardan.
+   */
+  key: string;
+  /**
+   * Storefront al que pertenece.
+   */
+  siteKey: string;
+  /**
+   * native = Payload + Supabase + PSP · shopify = headless.
+   */
+  engine: 'native' | 'shopify';
+  /**
+   * draft → configured → verified → active → draining → retired. A partir de verified solo avanza (lo impone un trigger).
+   */
+  status: 'draft' | 'configured' | 'verified' | 'active' | 'draining' | 'retired';
+  /**
+   * Solo motores externos. Formato 2026-07.
+   */
+  apiVersion?: string | null;
+  /**
+   * Solo Shopify. tienda.myshopify.com — sin https:// y sin token.
+   */
+  shopDomain?: string | null;
+  /**
+   * REFERENCIA al secreto, jamás el secreto: env:SHOPIFY_ADMIN_TOKEN, vault:courvia/stripe. La base de datos rechaza cualquier otra forma.
+   */
+  secretRef: string;
+  /**
+   * Para operar: quién la creó, qué catálogo sirve, qué falta.
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Qué conexión sirve los carritos NUEVOS de un sitio. El binding activo NO se edita: se crea una revisión nueva y la anterior pasa a draining (ADR-029).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "commerce-bindings".
+ */
+export interface CommerceBinding {
+  id: number;
+  /**
+   * Debe coincidir con el siteKey de la conexión (lo comprueba un trigger).
+   */
+  siteKey: string;
+  /**
+   * La conexión a la que apunta esta revisión. No se cambia: se crea otra.
+   */
+  connection: number | CommerceConnection;
+  /**
+   * De la conexión enlazada. No es una columna.
+   */
+  connectionKey?: string | null;
+  /**
+   * De la conexión enlazada. No es una columna.
+   */
+  engine?: string | null;
+  /**
+   * Entero que avanza. Cambiar de motor es insertar la siguiente revisión, no editar esta.
+   */
+  revision: number;
+  /**
+   * verified → active → draining → retired. Solo avanza, y solo puede haber UN active por sitio (índice único parcial).
+   */
+  status: 'verified' | 'active' | 'draining' | 'retired';
+  /**
+   * Cuándo empezó a servir carritos nuevos.
+   */
+  activatedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Enlaza un producto editorial con su producto en un motor. Se une por clave editorial y por id externo (GID en Shopify) — nunca por slug, handle o SKU.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "commerce-product-refs".
+ */
+export interface CommerceProductRef {
+  id: number;
+  /**
+   * El producto editorial. La unión real es su editorialKey, no su slug.
+   */
+  product: number | Product;
+  /**
+   * Clave editorial del producto enlazado. No es una columna.
+   */
+  editorialProductId?: string | null;
+  /**
+   * En qué conexión vive el producto externo.
+   */
+  connection: number | CommerceConnection;
+  /**
+   * De la conexión enlazada. No es una columna.
+   */
+  connectionKey?: string | null;
+  /**
+   * De la conexión enlazada. No es una columna.
+   */
+  engine?: string | null;
+  /**
+   * Id opaco en el motor. Shopify: el GID completo (gid://shopify/Product/123) — un handle o un SKU NO valen y la base de datos los rechaza.
+   */
+  externalProductId: string;
+  status: 'draft' | 'verified' | 'active' | 'retired';
+  /**
+   * Cuándo se comprobó que el id externo existe y es ese producto.
+   */
+  verifiedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (docs/orders-state-machine.md).
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1500,6 +1634,22 @@ export interface Order {
    * Id del pago en la pasarela; llega al crear la sesión.
    */
   providerPaymentId?: string | null;
+  /**
+   * Storefront del que salió. Se fija al crear.
+   */
+  siteKey?: string | null;
+  /**
+   * Motor propietario. Inmutable.
+   */
+  engine?: ('native' | 'shopify') | null;
+  /**
+   * Conexión propietaria. Inmutable, y la operación va por ella.
+   */
+  connectionKey?: string | null;
+  /**
+   * Revisión del binding vigente al nacer. Procedencia, no permiso.
+   */
+  bindingRevision?: number | null;
   /**
    * El envío de este pedido, si ya se abrió.
    */
@@ -1582,6 +1732,37 @@ export interface Carrier {
    * Desmarcar retira el transportista sin borrar los envíos que lo usaron.
    */
   active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * SOLO SERVIDOR. Fase 2: únicamente la propiedad (qué conexión manda sobre este carrito). Las líneas y el flujo llegan en la Fase 4.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "carts".
+ */
+export interface Cart {
+  id: number;
+  /**
+   * Identificador opaco de la sesión de compra. Ni un id de usuario ni un email.
+   */
+  sessionId: string;
+  /**
+   * Storefront del que salió. Se fija al crear.
+   */
+  siteKey?: string | null;
+  /**
+   * Motor propietario. Inmutable.
+   */
+  engine?: ('native' | 'shopify') | null;
+  /**
+   * Conexión propietaria. Inmutable, y la operación va por ella.
+   */
+  connectionKey?: string | null;
+  /**
+   * Revisión del binding vigente al nacer. Procedencia, no permiso.
+   */
+  bindingRevision?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1741,8 +1922,24 @@ export interface PayloadLockedDocument {
         value: number | Lead;
       } | null)
     | ({
+        relationTo: 'commerce-connections';
+        value: number | CommerceConnection;
+      } | null)
+    | ({
+        relationTo: 'commerce-bindings';
+        value: number | CommerceBinding;
+      } | null)
+    | ({
+        relationTo: 'commerce-product-refs';
+        value: number | CommerceProductRef;
+      } | null)
+    | ({
         relationTo: 'orders';
         value: number | Order;
+      } | null)
+    | ({
+        relationTo: 'carts';
+        value: number | Cart;
       } | null)
     | ({
         relationTo: 'payments';
@@ -2388,6 +2585,7 @@ export interface CategoriesSelect<T extends boolean = true> {
  */
 export interface ProductsSelect<T extends boolean = true> {
   title?: T;
+  editorialKey?: T;
   slug?: T;
   sports?: T;
   category?: T;
@@ -2481,6 +2679,53 @@ export interface LeadsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "commerce-connections_select".
+ */
+export interface CommerceConnectionsSelect<T extends boolean = true> {
+  key?: T;
+  siteKey?: T;
+  engine?: T;
+  status?: T;
+  apiVersion?: T;
+  shopDomain?: T;
+  secretRef?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "commerce-bindings_select".
+ */
+export interface CommerceBindingsSelect<T extends boolean = true> {
+  siteKey?: T;
+  connection?: T;
+  connectionKey?: T;
+  engine?: T;
+  revision?: T;
+  status?: T;
+  activatedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "commerce-product-refs_select".
+ */
+export interface CommerceProductRefsSelect<T extends boolean = true> {
+  product?: T;
+  editorialProductId?: T;
+  connection?: T;
+  connectionKey?: T;
+  engine?: T;
+  externalProductId?: T;
+  status?: T;
+  verifiedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "orders_select".
  */
 export interface OrdersSelect<T extends boolean = true> {
@@ -2522,7 +2767,24 @@ export interface OrdersSelect<T extends boolean = true> {
       };
   provider?: T;
   providerPaymentId?: T;
+  siteKey?: T;
+  engine?: T;
+  connectionKey?: T;
+  bindingRevision?: T;
   shipment?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "carts_select".
+ */
+export interface CartsSelect<T extends boolean = true> {
+  sessionId?: T;
+  siteKey?: T;
+  engine?: T;
+  connectionKey?: T;
+  bindingRevision?: T;
   updatedAt?: T;
   createdAt?: T;
 }

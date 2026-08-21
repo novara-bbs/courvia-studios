@@ -246,3 +246,45 @@ export const Returns: CollectionConfig = {
     { name: "refundAmount", type: "number", min: 0, validate: minorUnits },
   ],
 };
+
+/**
+ * El carrito, y solo su esqueleto de propiedad.
+ *
+ * **Esto NO es el carrito.** No tiene líneas, ni totales, ni caducidad, ni
+ * casos de uso: eso es la Fase 4 del plan. Lo que existe aquí es la fila
+ * donde vive el dueño, y existe ahora por un motivo concreto: ADR-029 dice
+ * que el owner se fija **al crear el carrito** y viaja con él hasta el final
+ * de su vida. Un carrito que naciera sin esas columnas obligaría a añadirlas
+ * después a filas que ya existen, y «después» es donde se cuelan los
+ * carritos huérfanos que la Fase 4 tendría que adivinar a quién pertenecen.
+ *
+ * `withCommerceOwner` (src/payload/commerce-connections.ts) añade siteKey,
+ * engine, connectionKey y bindingRevision, y los rellena desde el binding
+ * activo al crear. La inmutabilidad no la da esta declaración: la da un
+ * trigger en Postgres, porque `overrideAccess: true` —que es como escribe
+ * todo el dominio— se salta el acceso por campo por diseño.
+ */
+export const Carts: CollectionConfig = {
+  slug: "carts",
+  labels: { singular: "Carrito", plural: "Carritos" },
+  admin: {
+    useAsTitle: "sessionId",
+    group: "Comercio",
+    defaultColumns: ["sessionId", "engine", "connectionKey", "createdAt"],
+    description:
+      "SOLO SERVIDOR. Fase 2: únicamente la propiedad (qué conexión manda sobre este carrito). Las líneas y el flujo llegan en la Fase 4.",
+  },
+  access: serverOnly,
+  fields: [
+    {
+      name: "sessionId",
+      type: "text",
+      required: true,
+      unique: true,
+      index: true,
+      admin: {
+        description: "Identificador opaco de la sesión de compra. Ni un id de usuario ni un email.",
+      },
+    },
+  ],
+};

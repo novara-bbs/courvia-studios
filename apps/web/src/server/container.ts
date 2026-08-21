@@ -8,7 +8,7 @@
 import config from "@payload-config";
 import { DEFAULT_LOCALE } from "@courvia/platform";
 import type { LocaleId, PaymentProviderId } from "@courvia/platform";
-import { CAPABILITY_METHODS, declaresCapability } from "@courvia/commerce-domain";
+import { CAPABILITY_METHODS, declaresCapability, refKey } from "@courvia/commerce-domain";
 import type {
   AvailabilityRead,
   CapabilityDeclaring,
@@ -22,6 +22,7 @@ import type {
   CustomerOrderRead,
   EngineCapabilities,
   EngineEventIngest,
+  EngineKind,
   OrderRef,
   PaymentEvent,
   PaymentProvider,
@@ -40,6 +41,10 @@ import { StripePaymentProvider } from "@courvia/payments-stripe";
 import { TabbyPaymentProvider } from "@courvia/payments-tabby";
 import { TamaraPaymentProvider } from "@courvia/payments-tamara";
 import { getPayload } from "payload";
+import type { Where } from "payload";
+
+import { findActiveOwner, findConnection } from "../payload/commerce-connections";
+import type { ResolvedOwner } from "../payload/commerce-connections";
 
 /**
  * Gateways available to this deployment, resolved from environment config —
@@ -120,40 +125,42 @@ export async function applyPaymentEvent(event: PaymentEvent): Promise<ApplyOutco
  * literalmente el ADR:
  *
  *   forSite(siteKey)   → la conexión ACTIVA, para empezar algo nuevo.
- *   forCart(cartId)    → la conexión GUARDADA EN EL CARRITO.
- *   forOrder(orderRef) → el motor GUARDADO EN LA REFERENCIA DEL PEDIDO.
+ *   forCart(cartId)    → la conexión GUARDADA EN LA FILA DEL CARRITO.
+ *   forOrder(orderRef) → la conexión GUARDADA EN LA FILA DEL PEDIDO.
  *
  * Las dos últimas no pueden contestar «la activa». Cambiar la conexión activa
  * no toca carritos ni pedidos existentes (invariantes 6 y 17), así que un
  * `forOrder` que devolviera el motor activo mandaría una devolución de un
  * pedido viejo al motor nuevo: dinero contado dos veces o ninguna. Es el
- * fallo exacto que ADR-029 existe para impedir, y por eso aquí se prefiere
- * fallar en voz alta antes que adivinar.
+ * fallo exacto que ADR-029 existe para impedir.
  *
  * --------------------------------------------------------------------------
- * QUÉ HAY DE PROVISIONAL AQUÍ, Y QUÉ LO SUSTITUYE
+ * LO QUE ERA PROVISIONAL AQUÍ Y YA NO LO ES (Fase 2)
  *
- * `CommerceConnection` y `CommerceBinding` son entidades de la Fase 2 y
- * llevan migración: hoy NO existen. Mientras tanto:
+ * Hasta la migración `20260821_214924_commerce_ownership` este bloque decía
+ * que `NATIVE_CONNECTION` era una constante «que sustituye una consulta al
+ * binding activo del sitio», que `forCart` no podía resolver nada, y que la
+ * referencia que trae quien llama «no es prueba de a quién pertenece el
+ * pedido». Las tres cosas han dejado de ser ciertas:
  *
- *  - `NATIVE_CONNECTION` es la conexión activa escrita en configuración. Hay
- *    una sola, es nativa, y esa constante es toda la "tabla" que existe. La
- *    sustituye una consulta al binding activo del sitio.
+ *  - `forSite` lee el binding ACTIVO de `commerce-bindings`. Un sitio sin
+ *    binding activo no vende, y eso se dice en voz alta en vez de devolver
+ *    la única conexión que hubiera a mano.
  *
- *  - `forCart` **no puede** resolver nada: no hay carrito nativo (no existe
- *    la colección) ni fila donde estuviera guardado su owner. Rechaza
- *    siempre. La sustituye la lectura del binding guardado en el carrito.
+ *  - `forCart` lee la fila de `carts`. Esa tabla existe hoy con lo mínimo
+ *    —sesión y dueño—: el carrito de verdad es la Fase 4, pero su propiedad
+ *    ya está donde tiene que estar.
  *
- *  - `forOrder` resuelve desde la propia referencia, que ya lleva `engine` y
- *    `connectionKey`, y rechaza cualquier cosa que no sea la conexión
- *    configurada. Ojo con la letra pequeña: **la referencia la trae quien
- *    llama, así que no es prueba de a quién pertenece el pedido**. Con una
- *    sola conexión no pueden discrepar; en cuanto haya una segunda, esto
- *    tiene que leer el motor y la conexión de la FILA del pedido, y eso
- *    necesita las columnas que trae la migración de la Fase 2. La revisión
- *    del binding que se devuelve es la configurada, no la que tenía el
- *    pedido al nacer: ADR-029 dice que la revisión es procedencia y no
- *    permiso, así que ninguna autorización depende de ella.
+ *  - `forOrder` lee la FILA del pedido. La referencia que llega de fuera se
+ *    comprueba contra ella y no la sustituye: si un llamante dice una
+ *    conexión y la fila dice otra, se rechaza. La revisión del binding que
+ *    se devuelve es la que el pedido guardó al nacer —procedencia, no
+ *    permiso—, y por eso un pedido de una conexión en `draining` se sigue
+ *    operando por ella (invariante 17).
+ *
+ * Shopify sigue sin montarse: `ENGINE_RUNTIMES` solo tiene `native`, así que
+ * una referencia Shopify falla con `engine_not_configured` aunque su fila de
+ * conexión exista. Activarlo es la Fase 6 y requiere aprobación humana.
  * ========================================================================== */
 
 /**
@@ -161,14 +168,18 @@ export async function applyPaymentEvent(event: PaymentEvent): Promise<ApplyOutco
  * leer el mensaje (misma disciplina que `CheckoutErrorCode`).
  */
 export type CommerceRuntimeProblem =
-  /** El storefront pedido no está configurado. */
+  /** El storefront pedido no tiene ninguna conexión sirviendo carritos nuevos. */
   | "unknown_site"
-  /** No hay carrito ni binding donde mirar: entidades de la Fase 2. */
+  /** No existe ese carrito: no hay fila donde leer su dueño. */
   | "cart_binding_unavailable"
+  /** No existe ese pedido. */
+  | "unknown_order"
   /** La referencia es de un motor que este despliegue no tiene montado. */
   | "engine_not_configured"
   /** Mismo motor, otra conexión: otra tienda, y no está configurada. */
   | "unknown_connection"
+  /** La fila pertenece a otra conexión que la que dice quien llama. */
+  | "owner_mismatch"
   /** El motor declara una capacidad cuyos métodos no existen. */
   | "capability_not_implemented";
 
@@ -206,19 +217,11 @@ export interface CommerceRuntime {
 export interface CommerceFacade {
   /** La conexión ACTIVA del storefront: para crear un carrito nuevo. */
   forSite(siteKey: SiteKey, locale?: LocaleId): Promise<CommerceRuntime>;
-  /** La conexión guardada EN EL CARRITO. Nunca la activa. */
+  /** La conexión guardada EN LA FILA DEL CARRITO. Nunca la activa. */
   forCart(cartSessionId: string, locale?: LocaleId): Promise<CommerceRuntime>;
-  /** El motor guardado EN LA REFERENCIA DEL PEDIDO. Nunca el activo. */
+  /** La conexión guardada EN LA FILA DEL PEDIDO. Nunca la activa. */
   forOrder(orderRef: OrderRef, locale?: LocaleId): Promise<CommerceRuntime>;
 }
-
-/** La única conexión que existe. Provisional: ver el bloque de arriba. */
-const NATIVE_CONNECTION: CommerceOwner<"native"> = {
-  siteKey: "courvia",
-  engine: "native",
-  connectionKey: "native-primary",
-  bindingRevision: 1,
-};
 
 /**
  * Estrecha el motor a una capacidad **solo si la declara**, y comprueba que
@@ -256,48 +259,138 @@ function runtimeOf(engine: CapabilityDeclaring): CommerceRuntime {
   };
 }
 
-async function nativeRuntime(locale: LocaleId): Promise<CommerceRuntime> {
+/**
+ * Qué motores sabe montar ESTE despliegue.
+ *
+ * Un mapa y no un `if`, porque la ausencia tiene que ser explícita: `shopify`
+ * no está aquí, así que ninguna fila —ni siquiera una conexión Shopify en la
+ * base de datos— puede hacer que una ruta acabe hablando con Shopify. Montarlo
+ * es añadir una entrada, y eso es la Fase 6.
+ */
+const ENGINE_RUNTIMES: Partial<
+  Record<EngineKind, (owner: CommerceOwner, locale: LocaleId) => Promise<CommerceRuntime>>
+> = {
+  native: async (owner, locale) => {
+    const payload = await getPayload({ config });
+    return runtimeOf(
+      new NativeCommerceEngine({ payload, locale, owner: owner as CommerceOwner<"native"> }),
+    );
+  },
+};
+
+/** Un owner leído de una fila → el runtime que lo sirve, o un fallo con nombre. */
+async function runtimeFor(owner: ResolvedOwner, locale: LocaleId): Promise<CommerceRuntime> {
+  const build = ENGINE_RUNTIMES[owner.engine as EngineKind];
+  if (build === undefined) {
+    throw new CommerceRuntimeUnavailableError(
+      "engine_not_configured",
+      `${owner.engine}:${owner.connectionKey}`,
+    );
+  }
+  return build(
+    {
+      siteKey: owner.siteKey,
+      engine: owner.engine as EngineKind,
+      connectionKey: owner.connectionKey,
+      bindingRevision: owner.bindingRevision,
+    },
+    locale,
+  );
+}
+
+/**
+ * Comprueba que la referencia que trae quien llama describe la MISMA conexión
+ * que la fila. La fila manda siempre; esto solo decide si el llamante se
+ * llevará el runtime o un error.
+ */
+function assertRefMatchesRow(ref: OrderRef, row: ResolvedOwner): void {
+  if (ref.engine !== row.engine || ref.connectionKey !== row.connectionKey) {
+    throw new CommerceRuntimeUnavailableError(
+      "owner_mismatch",
+      `la referencia dice ${ref.engine}:${ref.connectionKey} y la fila dice ${row.engine}:${row.connectionKey}`,
+    );
+  }
+}
+
+/** El dueño guardado en una fila de `orders` / `carts`, o null si no existe. */
+async function ownerOfRow(
+  collection: "orders" | "carts",
+  where: Where,
+): Promise<ResolvedOwner | null> {
   const payload = await getPayload({ config });
-  return runtimeOf(new NativeCommerceEngine({ payload, locale, owner: NATIVE_CONNECTION }));
+  const found = await payload.find({ collection, where, limit: 1, depth: 0, overrideAccess: true });
+  const row = found.docs[0];
+  if (row === undefined) return null;
+  // NOT NULL en Postgres desde la migración de la Fase 2; el guardia está por
+  // si alguien afloja la columna, no por si Payload miente.
+  if (
+    typeof row.siteKey !== "string" ||
+    typeof row.engine !== "string" ||
+    typeof row.connectionKey !== "string" ||
+    typeof row.bindingRevision !== "number"
+  ) {
+    throw new CommerceRuntimeUnavailableError(
+      "owner_mismatch",
+      `la fila ${collection}:${String(row.id)} no lleva dueño`,
+    );
+  }
+  return {
+    siteKey: row.siteKey,
+    engine: row.engine,
+    connectionKey: row.connectionKey,
+    bindingRevision: row.bindingRevision,
+  };
 }
 
 export const commerce: CommerceFacade = {
   async forSite(siteKey, locale = DEFAULT_LOCALE) {
-    if (siteKey !== NATIVE_CONNECTION.siteKey) {
+    const payload = await getPayload({ config });
+    const owner = await findActiveOwner(payload, siteKey);
+    if (owner === null) {
       throw new CommerceRuntimeUnavailableError("unknown_site", siteKey);
     }
-    return nativeRuntime(locale);
+    return runtimeFor(owner, locale);
   },
 
   /**
-   * Falla siempre, y a propósito. Devolver la conexión activa "mientras
-   * tanto" sería exactamente el atajo que ADR-029 prohíbe: en cuanto hubiera
-   * dos conexiones, un carrito nacido en la vieja seguiría en la nueva sin
-   * que nadie lo notara. Un error con nombre es peor de usar y mejor de
-   * tener.
+   * El dueño del carrito, leído de su fila. Nunca el activo: un carrito
+   * nacido en la conexión vieja se termina en la conexión vieja, aunque
+   * mientras tanto se haya activado otra (invariante 6).
    */
-  forCart(cartSessionId) {
-    return Promise.reject(
-      new CommerceRuntimeUnavailableError(
+  async forCart(cartSessionId, locale = DEFAULT_LOCALE) {
+    const owner = await ownerOfRow("carts", { sessionId: { equals: cartSessionId } });
+    if (owner === null) {
+      throw new CommerceRuntimeUnavailableError(
         "cart_binding_unavailable",
-        `no hay carrito nativo ni CommerceBinding donde mirar (${cartSessionId})`,
-      ),
-    );
+        `no hay carrito con sesión ${cartSessionId}`,
+      );
+    }
+    return runtimeFor(owner, locale);
   },
 
   async forOrder(orderRef, locale = DEFAULT_LOCALE) {
-    if (orderRef.engine !== NATIVE_CONNECTION.engine) {
+    // 1. ¿Sabe este despliegue hablar ese motor? Shopify no está montado.
+    if (ENGINE_RUNTIMES[orderRef.engine] === undefined) {
       throw new CommerceRuntimeUnavailableError(
         "engine_not_configured",
         `${orderRef.engine}:${orderRef.connectionKey}`,
       );
     }
-    if (orderRef.connectionKey !== NATIVE_CONNECTION.connectionKey) {
+    // 2. ¿Existe siquiera esa conexión? Si no, el llamante se ha inventado
+    //    una tienda y no hace falta ir a buscar el pedido.
+    const payload = await getPayload({ config });
+    if ((await findConnection(payload, orderRef.connectionKey)) === null) {
       throw new CommerceRuntimeUnavailableError(
         "unknown_connection",
         `${orderRef.engine}:${orderRef.connectionKey}`,
       );
     }
-    return nativeRuntime(locale);
+    // 3. La fila. Aquí es donde deja de importar lo que traiga quien llama.
+    const owner = await ownerOfRow("orders", { id: { equals: orderRef.externalId } });
+    if (owner === null) {
+      throw new CommerceRuntimeUnavailableError("unknown_order", refKey(orderRef));
+    }
+    assertRefMatchesRow(orderRef, owner);
+    return runtimeFor(owner, locale);
   },
 };

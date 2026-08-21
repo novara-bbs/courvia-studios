@@ -1,11 +1,21 @@
 /**
- * Cached, market-aware catalog reads. Routes call these, never the port
- * directly, so every page shares one tagging scheme:
+ * Cached, market- AND connection-aware catalog reads. Routes call these,
+ * never the port directly, so every page shares one tagging scheme:
  *
- *   "catalog"        — any product/variant/price/inventory change
- *   "product:{slug}" — one PDP
+ *   "catalog:{fuente}"        — any product/variant/price/inventory change
+ *   "product:{fuente}:{slug}" — one PDP
  *
  * The catalog collections' afterChange hooks revalidate those tags.
+ *
+ * WHAT CHANGED IN PHASE 2, AND WHY IT IS NOT COSMETIC. Every function here
+ * used to be keyed by region alone. With two engines that is not enough: the
+ * key `("es")` would keep serving whatever connection filled the cache, even
+ * after another one became active — a catalogue from a different business,
+ * served under the right URL. So each cached read now takes the engine and
+ * the connection as arguments (arguments ARE the key under `"use cache"`),
+ * and the public functions resolve them from the active binding before
+ * delegating. The tags name the SOURCE OF TRUTH rather than the connection —
+ * see src/catalog/cache-tags.ts for why those are not the same thing.
  *
  * The one exception is getDraftRobot at the bottom: preview is neither
  * cached nor published, and it says at length why it does not go through
@@ -26,13 +36,54 @@ import { MARKET_DEFINITIONS, REGION_DEFINITIONS, type RegionId } from "@courvia/
 import { cacheLife, cacheTag } from "next/cache";
 import { getPayload } from "payload";
 
+import { DEFAULT_SITE_KEY, findActiveOwner } from "../payload/commerce-connections";
 import { assertNoFixtureData, isDatabaselessBuild } from "../server/build-env";
 import { getCommerce } from "../server/container";
+import { bindingTag, catalogTag, productTag } from "./cache-tags";
 
-export async function listRobots(region: RegionId): Promise<ProductSummary[]> {
+/**
+ * Qué conexión sirve el catálogo de este storefront, ahora mismo.
+ *
+ * Cacheada aparte y con su propia etiqueta: la respuesta cambia una vez por
+ * cutover y la consultan todas las lecturas de abajo, así que cachearla evita
+ * una consulta por página sin dejar de reaccionar a una revisión nueva del
+ * binding (el hook de `commerce-bindings` invalida `bindingTag`).
+ *
+ * `null` significa "no hay base de datos en este build", nunca "no hay
+ * conexión": un sitio sin binding activo es un error de configuración y se
+ * propaga como tal.
+ */
+async function activeCatalogScope(): Promise<{ engine: string; connectionKey: string } | null> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog", "media");
+  cacheTag(bindingTag(DEFAULT_SITE_KEY));
+  try {
+    const payload = await getPayload({ config });
+    const owner = await findActiveOwner(payload, DEFAULT_SITE_KEY);
+    if (owner === null) {
+      throw new Error(`el sitio "${DEFAULT_SITE_KEY}" no tiene ninguna conexión activa`);
+    }
+    return { engine: owner.engine, connectionKey: owner.connectionKey };
+  } catch (error) {
+    console.error("active commerce binding lookup failed", error);
+    if (isDatabaselessBuild("the active commerce connection", error)) return null;
+    throw error;
+  }
+}
+
+export async function listRobots(region: RegionId): Promise<ProductSummary[]> {
+  const scope = await activeCatalogScope();
+  return scope === null ? [] : listRobotsIn(scope.engine, scope.connectionKey, region);
+}
+
+async function listRobotsIn(
+  engine: string,
+  connectionKey: string,
+  region: RegionId,
+): Promise<ProductSummary[]> {
+  "use cache";
+  cacheLife("max");
+  cacheTag(catalogTag({ engine, connectionKey }), "media");
   const { locale, market } = REGION_DEFINITIONS[region];
   let products: ProductSummary[];
   try {
@@ -59,9 +110,21 @@ export async function listRobotsInCategory(
   categoryId: string,
   region: RegionId,
 ): Promise<ProductSummary[]> {
+  const scope = await activeCatalogScope();
+  return scope === null
+    ? []
+    : listRobotsInCategoryIn(scope.engine, scope.connectionKey, categoryId, region);
+}
+
+async function listRobotsInCategoryIn(
+  engine: string,
+  connectionKey: string,
+  categoryId: string,
+  region: RegionId,
+): Promise<ProductSummary[]> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog", "media");
+  cacheTag(catalogTag({ engine, connectionKey }), "media");
   const { locale, market } = REGION_DEFINITIONS[region];
   try {
     const commerce = await getCommerce(locale);
@@ -79,10 +142,20 @@ export async function listRobotsBySlugs(
   slugs: string[],
   region: RegionId,
 ): Promise<ProductSummary[]> {
+  if (slugs.length === 0) return [];
+  const scope = await activeCatalogScope();
+  return scope === null ? [] : listRobotsBySlugsIn(scope.engine, scope.connectionKey, slugs, region);
+}
+
+async function listRobotsBySlugsIn(
+  engine: string,
+  connectionKey: string,
+  slugs: string[],
+  region: RegionId,
+): Promise<ProductSummary[]> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog", "media");
-  if (slugs.length === 0) return [];
+  cacheTag(catalogTag({ engine, connectionKey }), "media");
   const { locale, market } = REGION_DEFINITIONS[region];
   try {
     const commerce = await getCommerce(locale);
@@ -100,9 +173,20 @@ export async function listRobotsBySlugs(
 }
 
 export async function getRobot(slug: string, region: RegionId): Promise<ProductDetail | null> {
+  const scope = await activeCatalogScope();
+  return scope === null ? null : getRobotIn(scope.engine, scope.connectionKey, slug, region);
+}
+
+async function getRobotIn(
+  engine: string,
+  connectionKey: string,
+  slug: string,
+  region: RegionId,
+): Promise<ProductDetail | null> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog", `product:${slug}`, "media");
+  const scope = { engine, connectionKey };
+  cacheTag(catalogTag(scope), productTag(scope, slug), "media");
   const { locale, market } = REGION_DEFINITIONS[region];
   try {
     const commerce = await getCommerce(locale);

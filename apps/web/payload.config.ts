@@ -16,7 +16,13 @@ import { courviaAdminTranslations } from "./src/admin/translations";
 import { emailAdapter } from "./src/email/adapter";
 import { withAdminPasswordReset } from "./src/email/admin-password-reset";
 import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
-import { Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
+import { Carts, Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
+import {
+  CommerceBindings,
+  CommerceConnections,
+  CommerceProductReferences,
+  withCommerceOwner,
+} from "./src/payload/commerce-connections";
 import { Media } from "./src/payload/media";
 import { Carriers, Shipments, withFulfilment } from "./src/payload/orders-fulfilment";
 import { Pages } from "./src/payload/pages";
@@ -218,10 +224,17 @@ export default buildConfig({
     Prices,
     Inventory,
     Leads,
-    // `withFulfilment` adds the fulfilment view of an order (read-only
-    // status, its shipment) without the commerce collections having to know
-    // about shipping — see src/payload/orders-fulfilment.ts.
-    withFulfilment(Orders),
+    // Quién manda sobre una transacción (ADR-029, Fase 2). Van antes de
+    // pedidos y carritos a propósito: son la tabla que esas dos consultan.
+    CommerceConnections,
+    CommerceBindings,
+    CommerceProductReferences,
+    // `withCommerceOwner` añade siteKey/engine/connectionKey/bindingRevision
+    // y los rellena desde el binding activo al crear; `withFulfilment` añade
+    // la vista de envío (estado de solo lectura, su envío) sin que las
+    // colecciones de comercio tengan que saber de logística.
+    withFulfilment(withCommerceOwner(Orders)),
+    withCommerceOwner(Carts),
     Payments,
     Outbox,
     Returns,

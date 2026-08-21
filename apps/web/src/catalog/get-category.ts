@@ -1,7 +1,11 @@
 /**
  * Category reads for the dynamic category pages (/{región}/c/{slug}).
- * Categories are catalog navigation surface: cached under the same
- * "catalog" tag their afterChange hook revalidates.
+ *
+ * Categories are catalog navigation surface AND they are editorial: they live
+ * in Payload whatever engine is selling, so they are cached under the native
+ * catalog tag their afterChange hook revalidates, and — unlike the product
+ * readers next door — they take no connection in their key, because their
+ * answer does not depend on one.
  */
 import config from "@payload-config";
 import type { LocaleId } from "@courvia/platform";
@@ -9,6 +13,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { getPayload } from "payload";
 
 import { isDatabaselessBuild } from "../server/build-env";
+import { NATIVE_CATALOG_SCOPE, catalogTag } from "./cache-tags";
 
 export interface CategoryView {
   id: string;
@@ -24,7 +29,7 @@ export async function getCategory(slug: string, locale: LocaleId): Promise<Categ
   // "media" as well: the category header is an upload, and replacing that
   // file has to show up here too. listCategorySlugs below does not need it
   // — it selects the slug and nothing else.
-  cacheTag("catalog", "media");
+  cacheTag(catalogTag(NATIVE_CATALOG_SCOPE), "media");
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({
@@ -69,7 +74,7 @@ export async function getCategory(slug: string, locale: LocaleId): Promise<Categ
 export async function listCategorySlugs(): Promise<string[]> {
   "use cache";
   cacheLife("max");
-  cacheTag("catalog");
+  cacheTag(catalogTag(NATIVE_CATALOG_SCOPE));
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({

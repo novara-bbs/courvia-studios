@@ -1,11 +1,24 @@
 import { revalidateTag } from "next/cache";
 import type { BasePayload, CollectionAfterChangeHook, CollectionAfterDeleteHook } from "payload";
 
-/** Marks the whole catalog stale plus, when known, one product's tag. */
+import { NATIVE_CATALOG_SCOPE, catalogTag, productTag } from "../catalog/cache-tags";
+
+/**
+ * Marks the whole catalog stale plus, when known, one product's tag.
+ *
+ * The scope is fixed to `native`, and that is the point rather than a
+ * shortcut: what just changed is a row in THIS Payload database, which is the
+ * native engine's source of truth and nothing else's. A Shopify-backed
+ * connection's catalogue is invalidated by its own webhooks, and inventing a
+ * connection loop here would invalidate other people's shops for free. See
+ * src/catalog/cache-tags.ts.
+ */
 export function revalidateCatalog(productSlug?: string): void {
   try {
-    revalidateTag("catalog", "max");
-    if (productSlug !== undefined) revalidateTag(`product:${productSlug}`, "max");
+    revalidateTag(catalogTag(NATIVE_CATALOG_SCOPE), "max");
+    if (productSlug !== undefined) {
+      revalidateTag(productTag(NATIVE_CATALOG_SCOPE, productSlug), "max");
+    }
   } catch {
     // Outside the Next runtime (CLI, seeds) there is no cache to mark.
   }

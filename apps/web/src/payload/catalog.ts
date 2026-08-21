@@ -17,6 +17,7 @@ import type { CollectionConfig, Field } from "payload";
 
 import { anyone, hiddenUnlessAdmin, isAdmin, isAuthenticated } from "./access";
 import { catalogHooks, revalidateCatalog } from "./catalog-revalidation";
+import { editorialKeyField } from "./commerce-connections";
 import { previewRegion, previewUrl } from "./preview";
 
 /** True once a document is (or has ever been) publicly visible. Draft
@@ -182,6 +183,13 @@ export const Products: CollectionConfig = {
   },
   fields: [
     { name: "title", type: "text", required: true, localized: true },
+    /*
+     * La identidad que NO se renombra. El slug de abajo forma la URL y por
+     * eso cambia —`redirectOnSlugChange` existe para recogerlo—, así que no
+     * puede ser la clave por la que un motor externo reconoce este producto.
+     * Ver `editorialKeyField` en src/payload/commerce-connections.ts.
+     */
+    editorialKeyField(),
     {
       name: "slug",
       type: "text",

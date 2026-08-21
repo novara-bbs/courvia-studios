@@ -14,6 +14,7 @@ import * as migration_20260820_165317_landing_vocabulary from './20260820_165317
 import * as migration_20260820_210000_rls_lockdown from './20260820_210000_rls_lockdown';
 import * as migration_20260820_215618_page_seo_and_redirects from './20260820_215618_page_seo_and_redirects';
 import * as migration_20260820_224603_fulfilment_shipments from './20260820_224603_fulfilment_shipments';
+import * as migration_20260821_214924_commerce_ownership from './20260821_214924_commerce_ownership';
 
 export const migrations = [
   {
@@ -94,6 +95,11 @@ export const migrations = [
   {
     up: migration_20260820_224603_fulfilment_shipments.up,
     down: migration_20260820_224603_fulfilment_shipments.down,
-    name: '20260820_224603_fulfilment_shipments'
+    name: '20260820_224603_fulfilment_shipments',
+  },
+  {
+    up: migration_20260821_214924_commerce_ownership.up,
+    down: migration_20260821_214924_commerce_ownership.down,
+    name: '20260821_214924_commerce_ownership'
   },
 ];
