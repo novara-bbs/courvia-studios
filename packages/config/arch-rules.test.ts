@@ -115,6 +115,7 @@ describe("architectural rules can actually fail", () => {
         "no-circular",
         "no-deep-package-imports",
         "no-orphans",
+        "no-persistence-to-gateway",
         "platform-is-a-leaf",
         "sections-are-pure",
         "testing-entry-is-test-only",

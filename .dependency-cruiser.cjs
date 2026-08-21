@@ -166,9 +166,27 @@ module.exports = {
     {
       name: "no-adapter-to-adapter",
       severity: "error",
-      comment: "A gateway adapter must never reach into persistence, or vice versa.",
+      comment:
+        "A gateway adapter must never reach into persistence. Its twin below covers " +
+        "the other direction, because dependency-cruiser matches one `from` against " +
+        "one `to`: a single rule naming both packages on both sides would also flag " +
+        "every import a package makes into itself.",
       from: { path: "^packages/payments-" },
       to: { path: workspace("commerce-payload") },
+    },
+    {
+      name: "no-persistence-to-gateway",
+      severity: "error",
+      comment:
+        "…and persistence must never reach into a gateway adapter. This is the half " +
+        "the comment above used to promise (\"or vice versa\") without anyone " +
+        "enforcing it: `from` was only `^packages/payments-`, so " +
+        "commerce-payload → payments-stripe was unguarded. Nothing violated it when " +
+        "the rule was added — the point is Fase 5, where wiring a real checkout is " +
+        "exactly the moment someone reaches for the concrete gateway instead of the " +
+        "PaymentProvider port it is handed (ADR-13).",
+      from: { path: "^packages/commerce-payload" },
+      to: { path: workspace("payments-[a-z-]+") },
     },
     {
       name: "testing-entry-is-test-only",
