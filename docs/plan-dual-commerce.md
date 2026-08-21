@@ -87,11 +87,11 @@ Ninguno se da por bueno sin un test que se haya visto en rojo.
 | 1 | Un carrito tiene un único `siteKey`/`engine`/`connectionKey`/revisión | | `not_started` |
 | 2 | Ese owner se fija al **crear** el carrito | | `not_started` |
 | 3 | Todas las líneas pertenecen al mismo owner | | `not_started` |
-| 4 | Variante Shopify no entra en carrito nativo | | `not_started` |
-| 5 | Variante nativa no entra en carrito Shopify | | `not_started` |
+| 4 | Variante Shopify no entra en carrito nativo | `cart.ts` + suite de carrito (tipo: `CartRef<E>`) | `code_complete` |
+| 5 | Variante nativa no entra en carrito Shopify | idem, por el parámetro de motor | `code_complete` |
 | 6 | Cambiar la conexión activa no toca carritos existentes | | `not_started` |
 | 7 | Un pedido se opera por su conexión **original** | | `not_started` |
-| 8 | Checkout Shopify crea **cero** filas en `orders` nativa | | `not_started` |
+| 8 | Checkout Shopify crea **cero** filas en `orders` nativa | `ShopifyHostedHandoff` sin `orderRef` (`orderRef?: never`) | `code_complete` |
 | 9 | Checkout nativo hace **cero** llamadas a Shopify | | `not_started` |
 | 10 | No existe fallback automático | | `not_started` |
 | 11 | No existe A/B transaccional entre motores | | `not_started` |
@@ -99,7 +99,7 @@ Ninguno se da por bueno sin un test que se haya visto en rojo.
 | 13 | Ningún importe del cliente es autoritativo | parcial: ya en dominio nativo | `code_complete` |
 | 14 | Ningún webhook sin auth + dedupe + validación | parcial: nativo sí | `code_complete` |
 | 15 | Ningún secreto en bundle, Payload, logs ni fixtures | | `not_started` |
-| 16 | Disponibilidad booleana **nunca** se pinta como cantidad | | `not_started` |
+| 16 | Disponibilidad booleana **nunca** se pinta como cantidad | `availability.ts` + `engine-type-rules.test.ts` + forma de la vista en `commerce-shopify` | `code_complete` |
 | 17 | Los pedidos históricos siguen operables tras un cambio de engine | | `not_started` |
 
 ---
@@ -180,7 +180,7 @@ Consecuencia para el plan: el motor nativo no llega a `sandbox_verified` conecta
 Necesita, en este orden: bloqueo correcto → carrito → totales con envío e impuestos →
 Stripe → handlers de outbox → cadencia de cron decente.
 
-### Fase 1 — Capabilities sin cambio visual · `not_started`
+### Fase 1 — Capabilities sin cambio visual · **en curso**
 Contratos nuevos, disponibilidad honesta, `CheckoutHandoff` discriminado, fachada,
 adaptador nativo compatible, estudio Shopify compatible, tests de aislamiento.
 **Cero cambio visible. Cero migración productiva.**
@@ -236,6 +236,19 @@ tres más, por respetar el alcance encargado:
   `fab7019` acredita los tres.
 - **`docs/product.md` §12** dice `/robots/comparar`; la ruta viva es
   `/{region}/comparar`.
+
+### Un límite del diseño de capabilities, medido
+
+El tipo condicional de `AvailabilityView` y su gemelo en runtime `isAllowedUnder`
+acotan la **familia de formas** que una conexión puede devolver. Ninguno de los dos
+sabe si el número que va dentro de una vista exacta se contó o se inventó.
+Comprobado: poner `availableForSale ? 1 : 0` **solo dentro de la rama exacta**
+respeta el techo, pasa el tipo y **pasa las tres suites de contrato**. Lo cazan
+únicamente los tests que afirman la forma concreta de la vista.
+
+Importa para la Fase 6: cuando el cliente real de la Storefront API sustituya a las
+fixtures, la trampa sigue en el mismo sitio y la red no la cierra. Está escrito
+encima de `viewUnder` en `packages/commerce-shopify/src/mapping.ts`.
 
 ### Un hallazgo que no se reprodujo
 
@@ -296,3 +309,4 @@ secretos de pago.
 | 21 ago 2026 | Matriz de huecos: 101 piezas, 6 `launch_blocked`, 28 inexistentes. 11 contradicciones de documentación confirmadas de 37 (26 refutadas). |
 | 21 ago 2026 | Las once arregladas (`a68aafc`). ADR-022 aplicado por fin al código, con test (`4af73f8`). Fase 0 cerrada salvo el TCO. |
 | 21 ago 2026 | Fase 1 arrancada (contratos de capabilities). Y el MCP de Supabase, ya autenticado, revela que el proyecto de producción documentado no existe en esta cuenta. |
+| 21 ago 2026 | Fase 1: dominio (`53495e3`) y Shopify honesto (`0ad4fa8`). Falta el nativo, la fachada y la frontera de arch. |
