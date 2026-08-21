@@ -14,10 +14,13 @@
  * The third test is the one that ages well. The preview path assembles a
  * ProductDetail without the commerce port (get-catalog.ts says why), so for
  * a product nobody has touched the two paths must produce the same product.
- * The witness is the schema.org block, not the page: it is one string built
- * from the whole ProductDetail — title, excerpt, brand, every image URL, and
- * one offer per variant with its SKU, price, currency and availability — so
- * a mapping that drifts anywhere changes it. Comparing rendered documents
+ * The witnesses are three fragments, not the page. The schema.org block is
+ * one string built from most of the ProductDetail — title, excerpt, brand,
+ * every image URL, and one offer per variant with its SKU, price, currency
+ * and availability. It carries URLs alone, though, so `alt`, `caption` and
+ * the "render conceptual" label of an unpublished asset could drift under
+ * it without moving a byte: the gallery fragment covers those, and the spec
+ * list covers the specs. Comparing rendered documents
  * instead would compare Next's streaming: under PPR the public response
  * leaves the lead form and the cross-sell as holes inside <main> and appends
  * them after it, while a draft render — uncached by definition — writes them
@@ -67,6 +70,9 @@ const ACCOUNTS = [EDITOR.email, ADMIN.email];
 
 let payload: BasePayload;
 let server: ChildProcess | null = null;
+/** Filename of the `blocked` asset attached to UNTOUCHED, which must appear
+ *  in neither the published page nor the preview. */
+let blockedFilename = "";
 
 async function loadPayload(): Promise<BasePayload> {
   const { getPayload } = await import("payload");
@@ -305,6 +311,20 @@ function specsOf(document: string): string {
   if (found === null) throw new Error("no specs list in the response");
   return found[0];
 }
+/**
+ * The gallery, which is where the image mapping becomes visible.
+ *
+ * The schema.org block carries only image URLs, so it cannot witness `alt`,
+ * `caption`, or the "render conceptual" label an unpublished asset must
+ * wear (E-028). Those live here. Stable to compare: `next/image` renders
+ * deterministically for a given source, and `priority` only adds a preload
+ * link in the <head>, outside this fragment.
+ */
+function galleryOf(document: string): string {
+  const found = /<section class="pdp-gallery"[\s\S]*?<\/section>/.exec(document);
+  if (found === null) throw new Error("no gallery in the response");
+  return found[0];
+}
 
 describe.skipIf(!hasDb || !dbIsDisposable)("the draft a product editor is writing", () => {
   beforeAll(async () => {
@@ -317,9 +337,15 @@ describe.skipIf(!hasDb || !dbIsDisposable)("the draft a product editor is writin
     payload = await loadPayload();
     await cleanUp();
 
-    // An image and a brand off the seed, so the two mappings that carry
-    // rules of their own — the concept-render label and the brand line —
-    // are exercised rather than left null in both paths.
+    // Images and a brand off the seed, so the mappings that carry rules of
+    // their own are exercised rather than left null in both paths.
+    //
+    // TWO images on purpose, and the second one is `blocked`. `draftImage`
+    // drops a blocked asset and labels an unpublished one, and neither rule
+    // was reachable before: the fixture asked for a non-blocked asset, so
+    // the filter's branch never ran in any test in this repository, and the
+    // label lives in markup no assertion looked at. A rule with no failing
+    // input is a comment.
     const media = await payload.find({
       collection: "media",
       where: { evidenceStatus: { not_equals: "blocked" } },
@@ -328,6 +354,24 @@ describe.skipIf(!hasDb || !dbIsDisposable)("the draft a product editor is writin
       depth: 0,
       overrideAccess: true,
     });
+    const blocked = await payload.find({
+      collection: "media",
+      where: { evidenceStatus: { equals: "blocked" } },
+      sort: "id",
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    });
+    // Loud rather than silently weaker: without these two rows the run below
+    // would still pass while covering less, which is the failure mode this
+    // whole file exists to argue against.
+    if (media.docs[0] === undefined) {
+      throw new Error("the media library has no unblocked asset — run `pnpm seed`");
+    }
+    if (blocked.docs[0] === undefined) {
+      throw new Error("the media library has no blocked asset — run `pnpm seed`");
+    }
+    blockedFilename = String(blocked.docs[0].filename);
     const brands = await payload.find({
       collection: "brands",
       sort: "id",
@@ -335,7 +379,7 @@ describe.skipIf(!hasDb || !dbIsDisposable)("the draft a product editor is writin
       depth: 0,
       overrideAccess: true,
     });
-    const images = media.docs.map((doc) => Number(doc.id));
+    const images = [...media.docs, ...blocked.docs].map((doc) => Number(doc.id));
     const brand = brands.docs[0] === undefined ? undefined : Number(brands.docs[0].id);
 
     // The two accounts. These ARE written from here: an account is not
@@ -435,13 +479,32 @@ describe.skipIf(!hasDb || !dbIsDisposable)("the draft a product editor is writin
     const path = `/es/robots/${UNTOUCHED.slug}`;
     const published = await html(path);
     const previewed = await html(path, await enterPreview(path));
-    // The whole ProductDetail, in one string: name, url, description, brand,
-    // every image and every offer with its SKU, price, currency and stock.
+    // Name, url, description, brand, every image URL, and every offer with
+    // its SKU, price, currency and availability.
     expect(productJsonLd(previewed)).toBe(productJsonLd(published));
-    // …and the two things the schema.org block does not carry.
+    // The gallery, which is the only witness for `alt`, `caption` and the
+    // "render conceptual" label — the schema.org block carries URLs alone,
+    // so those three could drift under it without moving a byte.
+    expect(galleryOf(previewed)).toBe(galleryOf(published));
     expect(specsOf(previewed)).toBe(specsOf(published));
     expect(previewed).toContain("24 meses");
     expect(published).toContain("24 meses");
+  });
+
+  it("drops a blocked asset from the preview as well as from the public page", async () => {
+    // ADR-023 §5: the preview is the one place in the app where an editor
+    // could see a blocked asset and conclude it was publishable. Equality
+    // between the two pages does NOT cover this on its own — an image that
+    // leaked into both would still make them equal.
+    const path = `/es/robots/${UNTOUCHED.slug}`;
+    const published = await html(path);
+    const previewed = await html(path, await enterPreview(path));
+    expect(blockedFilename).not.toBe("");
+    expect(published).not.toContain(blockedFilename);
+    expect(previewed).not.toContain(blockedFilename);
+    // And the asset that is NOT blocked did arrive, so the assertions above
+    // are about the filter and not about an empty gallery.
+    expect(galleryOf(previewed)).toContain("<img");
   });
 });
 

@@ -133,10 +133,20 @@ export async function getRobot(slug: string, region: RegionId): Promise<ProductD
  * adapter rather than as a second catalogue.
  *
  * The mapping below therefore repeats the adapter's, and repetition drifts.
- * It is pinned: product-preview.test.ts asks the running server for the
- * same product twice — once published, once through preview — and fails if
- * the two pages differ by anything but the draft bar. An editor must not be
- * shown a page different from the one they are about to publish.
+ * It is pinned by product-preview.test.ts, which asks the running server for
+ * the same untouched product twice — once published, once through preview —
+ * and compares three fragments: the schema.org block (name, excerpt, brand,
+ * image URLs, and per variant the SKU, price, currency and availability),
+ * the gallery (alt, caption and the "render conceptual" label), and the spec
+ * list. A separate test asserts a `blocked` asset reaches neither page.
+ *
+ * Named precisely on purpose. This comment used to promise that the test
+ * "fails if the two pages differ by anything but the draft bar", which was
+ * not true — whole pages are never compared, because under PPR the public
+ * response streams holes that an uncached draft render writes inline. Two
+ * correct pages, different bytes. What IS true is the list above; what it
+ * still does not cover is the rich-text description and the variants'
+ * `attributes`/`weightKg`.
  */
 export async function getDraftRobot(slug: string, region: RegionId): Promise<ProductDetail | null> {
   const { locale, market } = REGION_DEFINITIONS[region];

@@ -2,7 +2,7 @@
 
 Una sección es **una declaración** (`defineSection`) de la que se derivan las cuatro caras: el contrato Zod que valida el contenido, el bloque de Payload que ve el editor —con su balda y su miniatura—, el render y la fixture de tests. La config de Payload **no se escribe a mano**: `apps/web/src/payload/blocks.ts` la genera desde el registro.
 
-Plantilla canónica: `packages/sections/src/blocks/quote/index.tsx` — la más corta que declara todo lo obligatorio. Está copiada entera más abajo. Para casos con más piezas: `hero` (media + CTAs), `faq` (array), `embed` (select).
+Plantilla canónica: `packages/sections/src/blocks/quote/index.tsx` — declara las ocho claves obligatorias con más de un campo, que es lo que hace falta para ver cómo encajan. (`rich-text` es veinte líneas más corta, pero tiene un solo campo y enseña menos.) Está copiada entera más abajo. Para casos con más piezas: `hero` (media + CTAs), `faq` (array), `embed` (select).
 
 ## Decisiones previas
 
