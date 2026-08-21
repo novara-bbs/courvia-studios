@@ -261,15 +261,20 @@ describe("headers a review found missing", () => {
     expect(find(entries, "/api/:path*", "X-Robots-Tag")).toBe("noindex, nofollow");
   });
 
-  it("exempts the upload file route, and declares it before the API rule", async () => {
+  it("exempts the upload file route, and declares it AFTER the API rule", async () => {
     const entries = await securityHeaders();
     expect(find(entries, "/api/media/file/:path*", "X-Robots-Tag")).toBe("all");
-    // Order is the mechanism, not a coincidence: a later matching entry
-    // would be the one a file ends up with.
+    // Order is the mechanism, and the first version of this test had it
+    // backwards: Next applies the LAST matching entry for a repeated header
+    // key, so the exception must come after the general rule. Asserting the
+    // order at all is only half the check — this file cannot see what the
+    // browser receives, and the array said one thing while every product
+    // photograph shipped `noindex`. The real contract is over HTTP, in
+    // src/routing/http-status.test.ts; this is the cheap early warning.
     const fileAt = entries.findIndex((e) => e.source === "/api/media/file/:path*");
     const apiAt = entries.findIndex((e) => e.source === "/api/:path*");
-    expect(fileAt).toBeGreaterThanOrEqual(0);
-    expect(apiAt).toBeGreaterThan(fileAt);
+    expect(apiAt).toBeGreaterThanOrEqual(0);
+    expect(fileAt).toBeGreaterThan(apiAt);
   });
 
   it("still sandboxes every upload path, file route included", async () => {

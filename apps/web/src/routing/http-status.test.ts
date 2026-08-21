@@ -106,6 +106,45 @@ describe.skipIf(!hasDb || !dbIsDisposable)("what the server actually answers", (
     expect(manifest.pages).toContain("privacidad");
   });
 
+  /**
+   * Headers, as the browser receives them — not as next.config.ts lists them.
+   *
+   * This exists because reading the array lied. `securityHeaders()` declared
+   * `X-Robots-Tag: all` for the upload FILE route and `noindex, nofollow`
+   * for `/api/:path*`, and a unit test asserted the order of those entries
+   * and passed. Over HTTP, every product photograph came back
+   * `noindex, nofollow`: Next applies the LAST matching entry for a repeated
+   * header key, so the exception has to be declared after the general rule,
+   * not before it. A header outranks robots.txt, so that was a stronger
+   * version of the very problem robots.ts was written to fix.
+   *
+   * The lesson is the assertion, not the ordering: a header contract can
+   * only be checked on a real response.
+   */
+  it("lets crawlers index an uploaded file, and nothing else under /api", async () => {
+    const page = await (await fetch(`${BASE}/es/robots/tempo-r1`)).text();
+    const file = /\/api\/media\/file\/[A-Za-z0-9._-]+/.exec(page)?.[0];
+    expect(file, "the PDP rendered no uploaded file to check").toBeDefined();
+
+    const asset = await fetch(`${BASE}${String(file)}`);
+    expect(asset.status).toBe(200);
+    expect(asset.headers.get("x-robots-tag")).toBe("all");
+    // Still sandboxed: an uploaded SVG must not run as a document.
+    expect(asset.headers.get("content-security-policy")).toContain("default-src 'none'");
+
+    // The JSON around it stays out of the index.
+    const rest = await fetch(`${BASE}/api/pages?limit=1`);
+    expect(rest.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+  });
+
+  it("hardens the admin without losing the shared base", async () => {
+    const csp = (await fetch(`${BASE}/admin`)).headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("frame-ancestors 'none'");
+    // The half that a partial policy silently dropped.
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("base-uri 'self'");
+  });
+
   it("serves the generated Open Graph card as a PNG", async () => {
     const page = await (await fetch(`${BASE}/es/privacidad`)).text();
     const src = /property="og:image" content="([^"]+)"/.exec(page)?.[1];

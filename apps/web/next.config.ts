@@ -196,9 +196,26 @@ export async function securityHeaders(): Promise<
       headers: [{ key: "Content-Security-Policy", value: ADMIN_POLICY }],
     },
     {
-      // Where Payload serves every uploaded file. Listed BEFORE the /api
-      // rule below so a file gets this X-Robots-Tag: product photographs
-      // are the point of the page and have to stay indexable.
+      // robots.txt asks crawlers not to FETCH the REST API; this tells the
+      // ones that fetched it anyway — or that learned a URL from a link —
+      // not to INDEX it. `/api/pages?depth=2` is a byte-for-byte duplicate
+      // of a real page, and a duplicate with no canonical is the version
+      // Google may decide to keep.
+      //
+      // Declared FIRST on purpose. Next applies the LAST matching entry for
+      // a repeated header key, which is the opposite of what this file
+      // assumed on the first attempt: the exception below has to come after
+      // the general rule, not before it, or every product photograph ships
+      // `noindex` — the exact failure robots.ts exists to prevent, and a
+      // header outranks robots.txt. Verified over HTTP, not by reading the
+      // array: see src/deploy/response-headers.test.ts.
+      source: "/api/:path*",
+      headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+    },
+    {
+      // Where Payload serves every uploaded file: sandboxed like the rest of
+      // the upload route, and explicitly indexable — the photographs are the
+      // point of the page.
       source: "/api/media/file/:path*",
       headers: [
         { key: "Content-Security-Policy", value: UPLOADS_POLICY },
@@ -206,20 +223,10 @@ export async function securityHeaders(): Promise<
       ],
     },
     {
-      // The rest of the upload route keeps the same sandbox, without the
-      // indexing opinion.
+      // The rest of the upload route keeps the same sandbox and the noindex
+      // it inherits from the /api rule above.
       source: "/api/media/:path*",
       headers: [{ key: "Content-Security-Policy", value: UPLOADS_POLICY }],
-    },
-    {
-      // robots.txt asks crawlers not to FETCH the REST API; this tells the
-      // ones that fetched it anyway — or that learned a URL from a link —
-      // not to INDEX it. The two are different mechanisms and only the pair
-      // closes the hole: `/api/pages?depth=2` is a byte-for-byte duplicate
-      // of a real page, and a duplicate with no canonical is the version
-      // Google may decide to keep.
-      source: "/api/:path*",
-      headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
     },
   ];
 }
