@@ -57,6 +57,48 @@ Ordenado. Cada punto es aproximadamente una sesión.
 
 ---
 
+## Acabado — la segunda auditoría, la que mira la pantalla
+
+> 21 ago 2026. Seis lentes midiendo en el navegador contra un build de
+> producción, un verificador por hallazgo. 35 de 36 en pie. Esta auditoría
+> nació de una frase del propietario —«aún le falta mucho para que tenga el
+> detalle o estilo»— y resultó tener razón donde la primera auditoría dijo
+> que el diseño no era el problema.
+
+**La causa de raíz, ya arreglada:** la banda y el contenedor eran el mismo
+elemento. Fondo, medida de lectura y padding vivían juntos, así que `width:
+full` no sangraba —el contenedor de página capaba todo a 1180 px—, no existía
+la banda ancha con texto estrecho, y la prosa se leía a **144 caracteres por
+línea**. Separados en dos capas, la prosa baja a ~72 caracteres y las bandas
+llegan al cristal.
+
+| Qué | Medida | Estado |
+|---|---|---|
+| Banda ≠ contenedor; bandas a sangre; medida de lectura propia | 144 → ~72 caracteres por línea | **hecho** |
+| `--cv-space-5` no existía: `featureGrid` y `bento` con padding 0 | 0 → 24 px | **hecho** |
+| Ninguna regla `a`: todo enlace fuera del nav en `#0000EE` | 1,74:1 → 7,7:1 | **hecho** |
+| `lineHeight.tight` (1.0) sobre texto de caja baja | 20/20 → 20/25 | **hecho** |
+| Costura de 24 px entre fondos por el `reveal`; 128 px muertos sobre el footer | 24 → 0 px | **hecho** |
+| Titulares usando 2 de los 7 pasos de la escala | h3 de tarjeta 16 → 20 px | **hecho** |
+| `/{región}/inicio` 200; mayúsculas 200; selector de región mintiendo | 200 → 308 | **hecho** |
+| **La PDP no tiene columna de compra** | CTA al 76 % de la página; 3,9 pantallas en móvil | pendiente |
+| **No hay navegación móvil** | la cabecera se parte en una fila de texto a 390 px | pendiente |
+| 12 de 18 roles enfocables con el anillo por defecto de Chrome | — | pendiente |
+| `<button>` dentro de `<a>` en tres secciones | HTML inválido, doble parada de tabulador | pendiente |
+| Anclas que aterrizan bajo la cabecera pegajosa | 140 px en móvil | pendiente |
+| Tabla comparativa sin etiquetas de fila al desplazarla en móvil | — | pendiente |
+| FAQ con el triángulo por defecto del navegador | — | pendiente |
+
+**La regla que salió de aquí, y que ya ha cazado cuatro tests inútiles:** un
+test que afirma la intención declarada en vez del efecto observable pasa con
+el código roto. Cuatro aparecieron en una sola sesión —tres del propio
+agente— y todos tenían la misma forma: comprobar el array de cabeceras en vez
+de la respuesta, el orden de las entradas en vez de lo que recibe el
+navegador, la cadena de CSS que uno acaba de escribir en vez de la
+declaración que aplica. **Ningún test se da por bueno sin verlo en rojo.**
+
+---
+
 ## Extras — lo que lo lleva por delante de Webflow una vez el núcleo aguante
 
 | # | Qué | Nota |

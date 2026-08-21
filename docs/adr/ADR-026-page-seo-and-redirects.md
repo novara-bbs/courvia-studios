@@ -165,6 +165,31 @@ part of the URL», `next build`), y un segmento es además la verdad del modelo:
 una página tiene un slug plano y único. Las URLs más profundas ya no casan con
 ninguna ruta, que es como consiguen su 404 gratis.
 
+**Enmienda del 21 ago 2026 — una cuarta respuesta: `canonical`.** A las tres
+de arriba se añade `{ kind: "canonical" }`, que responde **308** a la única
+URL válida equivalente. La decide la máquina y por eso **no** usa el enum de
+códigos de redirección: ése es el desplegable que ve un editor en el admin, y
+ADR-026 §3 lo fija en 301 o 302. Una canonicalización automática no puede
+quedar indistinguible de una fila que escribió una persona.
+
+Cubre dos casos que en producción respondían 200:
+
+- **El alias de la portada.** `/{región}/inicio` estaba en el manifiesto —el
+  slug es una página real— así que el proxy lo dejaba pasar y el
+  `permanentRedirect()` de la ruta llegaba tarde: bajo cacheComponents una
+  página no puede fijar el estado, la misma limitación que §5 ya describe para
+  `notFound()`. Salía un 200 con canonical apuntándose a sí mismo. **Quitarlo
+  del manifiesto lo habría empeorado**: el proxy lo habría reescrito a
+  `/_not-found` y la portada tendría un 404 en su propio alias. Por eso la
+  regla del alias va **antes** de consultar el manifiesto, y así aguanta
+  incluso mientras un despliegue en vuelo sigue publicando el slug.
+- **La capitalización.** Un slug es minúsculas por construcción, así que una
+  mayúscula es una variante ortográfica y nunca un recurso distinto. El proxy
+  ya hacía esto un segmento antes con la región; hacerlo aquí también evita
+  que la misma errata sea inofensiva o fatal según dónde caiga. No puede
+  degenerar en una redirección hacia un 404 porque solo dispara cuando la
+  forma en minúsculas **resuelve**.
+
 ## Justificación
 
 **Por qué no `redirects()` de `next.config`.** Es estático: un editor no puede
