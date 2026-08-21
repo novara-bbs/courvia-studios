@@ -21,7 +21,7 @@ Ejecutado el 21 ago 2026 sobre `claude/courvia-foundation-setup-ajbn6a`:
 
 | Comprobación | Resultado |
 |---|---|
-| `git rev-parse HEAD` | `0732582` |
+| `git rev-parse HEAD` | `5637676` (era `0732582` al abrir la Fase 0) |
 | `git merge-base --is-ancestor 933d5e4 HEAD` | **sí** — nada posterior se ha perdido |
 | Commits sobre `933d5e4` | 3: `0e12526`, `53d4a03`, `0732582` |
 | Worktree | limpio, en sync con `origin` |
@@ -36,10 +36,11 @@ Ejecutado el 21 ago 2026 sobre `claude/courvia-foundation-setup-ajbn6a`:
 historia normal con la rama de trabajo». Es falso: `main` **es ancestro** de HEAD, con 83
 commits encima. Un futuro PR a `main` es una fusión normal, no un injerto.
 
-**Bloqueador que no es de código.** Los despliegues siguen rojos y la herramienta que lee
-el log de build pide una aprobación que esta sesión no puede conceder. Sin ese log no se
-puede distinguir entre «faltan variables de entorno en Preview» y otra causa. **Requiere
-acción del propietario.**
+**Bloqueador que no es de código, y ya está diagnosticado.** Los despliegues están rojos
+porque faltan `DATABASE_URL` y `PAYLOAD_SECRET` en el ámbito Preview; el detalle y sus
+consecuencias están en la Fase 0, más abajo. **Requiere acción del propietario**, y no es
+copiar la variable de producción: eso convertiría cada preview en escritura sobre
+producción, que el §18 del encargo prohíbe expresamente.
 
 ---
 
@@ -111,11 +112,54 @@ Ninguno se da por bueno sin un test que se haya visto en rojo.
 |---|---|
 | Verificar repo, SHA, worktree, relación con `main` | ✅ hecho |
 | `pnpm verify` sobre HEAD | ✅ 44/44 |
-| Comprobar Vercel Preview | ✅ comprobado: **rojo**, log bloqueado por aprobación |
-| Matriz de huecos basada en código | 🔄 inventario en marcha |
-| ADR-029 | 🔄 borrador |
-| Reconciliar documentación contradictoria | ⏳ tras la matriz |
+| Comprobar Vercel Preview | ✅ **diagnosticado**: faltan `DATABASE_URL` y `PAYLOAD_SECRET` en Preview |
+| Matriz de huecos basada en código | ✅ [`docs/matriz-huecos.md`](matriz-huecos.md) — 101 piezas |
+| ADR-029 | ✅ borrador, estado *propuesto* |
+| Reconciliar documentación contradictoria | 🔄 11 confirmadas de 37 |
 | TCO con fuentes y fecha | ⏳ |
+
+#### El diagnóstico de Vercel, cerrado
+
+El log del build dice, literal:
+
+    DATABASE_URL is not set in this production build… (VERCEL_ENV=preview)
+    [cause]: Error: missing secret key. A secret key is needed to secure Payload.
+
+Es el mensaje del propio guardián `isDatabaselessBuild`. Conclusiones:
+
+- **El Root Directory está bien**: el build corre desde `/vercel/path0/apps/web` y llega al
+  prerenderizado.
+- Faltan **dos** variables en Preview: `DATABASE_URL` y `PAYLOAD_SECRET`.
+  `NEXT_PUBLIC_SITE_URL` llega sola en Vercel, y ningún proveedor de pago hace falta para
+  compilar (`getPaymentProviders` devuelve vacío sin lanzar).
+- **El arreglo obvio viola el §18 del encargo.** Copiar el `DATABASE_URL` de producción a
+  Preview convierte cada `/admin` de cada preview en escritura sobre producción. Preview
+  necesita **su propia base**: un segundo proyecto Supabase de staging, con las 16
+  migraciones aplicadas por CI. El branching de Supabase es más elegante y más caro; no
+  hace falta todavía.
+- **Producción nunca ha desplegado por otra razón**: la rama de producción es `main`, y
+  `main` es solo el «Initial commit». Aunque se pongan las variables, desplegaría un README
+  vacío. `main` **es ancestro** de HEAD, así que fusionar es un avance rápido corriente —
+  pero es decisión del propietario.
+
+#### Lo que el inventario cambió del diagnóstico
+
+El motor nativo está **más lejos** de lo que decía el encargo, y por un motivo que no era
+«falta conectar Stripe»:
+
+1. **El idioma de bloqueo está medido como roto en este mismo repositorio.**
+   `apps/web/src/server/outbox.ts:29-34` documenta que se intentó exactamente eso para el
+   outbox y falló su test de concurrencia. El mismo idioma está en la reserva de stock, en
+   `adjustStock` y en `lockOrderRow`. El de `lockOrderRow` es el peor: puede no haber lock
+   en absoluto, y entonces un `paid` queda reescrito por un webhook concurrente.
+   **Toca pagos → aprobación humana explícita antes de cambiar nada.**
+2. **Un handler de outbox registrado, de quince efectos que la máquina emite.**
+3. **El cron diario define el peor caso de todo el motor**: 24 h para un correo de
+   confirmación, ~25 h para soltar la reserva de un checkout abandonado.
+
+Consecuencia para el plan: el motor nativo no llega a `sandbox_verified` conectando Stripe.
+Necesita, en este orden: bloqueo correcto → carrito → totales con envío e impuestos →
+Stripe → handlers de outbox → cadencia de cron decente.
 
 ### Fase 1 — Capabilities sin cambio visual · `not_started`
 Contratos nuevos, disponibilidad honesta, `CheckoutHandoff` discriminado, fachada,
@@ -200,4 +244,6 @@ secretos de pago.
 
 | Fecha | Qué |
 |---|---|
-| 21 ago 2026 | Línea base verificada. `main` resulta ser ancestro normal, no historia rota. Inventario de huecos lanzado. |
+| 21 ago 2026 | Línea base verificada. `main` resulta ser ancestro normal, no historia rota. |
+| 21 ago 2026 | Vercel diagnosticado desde el log: faltan `DATABASE_URL` y `PAYLOAD_SECRET` en Preview. El Root Directory ya estaba bien. |
+| 21 ago 2026 | Matriz de huecos: 101 piezas, 6 `launch_blocked`, 28 inexistentes. 11 contradicciones de documentación confirmadas de 37 (26 refutadas). |
