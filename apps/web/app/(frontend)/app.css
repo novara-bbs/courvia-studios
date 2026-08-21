@@ -628,6 +628,21 @@ a {
     grid-row: 1;
   }
 
+  /* The rail is TWO elements, and that is the whole trick.
+   *
+   * The obvious version — make the rail itself `position: sticky` and give
+   * the grid `align-items: start` — looks right at the top of the page and
+   * is wrong further down: Chromium clamps a sticky GRID ITEM to the grid
+   * container, not to its own cell, so the rail travelled the entire page
+   * and ended up painted over the cross-sell at the bottom. Measured, after
+   * nearly being shipped: at scroll 3000 the rail was still pinned at top
+   * 80 while its own column had ended 1500px earlier.
+   *
+   * So the cell stretches and the CHILD sticks, which is what Dawn's
+   * `.product__column-sticky` does. Now the rail pins at 80, then stops with
+   * its column: fondo 1504 at every deeper scroll, never reaching the
+   * cross-sell. `align-items: start` stays on the container — it keeps the
+   * gallery from stretching — but it was never what held the sticky up. */
   .page--pdp:has(.pdp-gallery) > .pdp-rail {
     grid-column: 2;
     grid-row: 1;
