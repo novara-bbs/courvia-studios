@@ -2,7 +2,7 @@ import { STARTERS, starterBlockTypes } from "@courvia/sections/starters";
 import { SECTIONS } from "@courvia/sections/registry";
 import type { LocalizedText } from "@courvia/appearance";
 import { revalidateTag } from "next/cache";
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, PayloadRequest } from "payload";
 
 import { isAdmin, isAuthenticated } from "./access";
 import { buildBlocks } from "./blocks";
@@ -30,6 +30,75 @@ function starterSectionLabels(): Record<string, LocalizedText[]> {
   );
 }
 
+/** The alphabet the URL is allowed to use. Named once so the validation and
+ *  the derivation below cannot drift apart. */
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** How far the de-duplication counts before giving up (`-2` … `-20`). */
+const SLUG_SUFFIX_LIMIT = 20;
+
+/**
+ * A title, as a URL. Accents are folded rather than dropped: "Robots de
+ * pádel" is `robots-de-padel`, not `robots-de-pdel`.
+ *
+ * A title with no Latin letters at all (an Arabic one, say) yields "" and
+ * nothing is derived — the slug is NOT localized, so there is no honest way
+ * to invent a Latin URL from Arabic prose. The editor types it.
+ */
+function toSlug(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "");
+}
+
+/**
+ * The title as it arrives. A request carrying a locale gives a plain string;
+ * `locale=all` (the API, a duplicate, a script) gives one string per locale,
+ * and then the default locale is the one that names the URL.
+ */
+function titleForSlug(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) {
+    const byLocale = value as Record<string, unknown>;
+    for (const locale of ["es", "en"]) {
+      const candidate = byLocale[locale];
+      if (typeof candidate === "string" && candidate !== "") return candidate;
+    }
+  }
+  return "";
+}
+
+/**
+ * `base`, or the first free `base-N`. One indexed query, not N: the whole
+ * candidate list goes in a single `in`.
+ *
+ * Runs on the caller's `req`, so it reads inside the same transaction that
+ * is about to write — a page created in the same request is already visible.
+ * If all twenty are taken the base is returned unchanged and Payload's
+ * unique validation speaks: an editor with twenty pages of the same name is
+ * being told something true.
+ */
+async function freeSlug(base: string, req: PayloadRequest): Promise<string> {
+  const candidates = [base];
+  for (let suffix = 2; suffix <= SLUG_SUFFIX_LIMIT; suffix += 1) {
+    candidates.push(`${base}-${String(suffix)}`);
+  }
+  const taken = await req.payload.find({
+    collection: "pages",
+    depth: 0,
+    overrideAccess: true,
+    pagination: false,
+    req,
+    where: { slug: { in: candidates } },
+  });
+  const used = new Set(taken.docs.map((doc) => doc.slug));
+  return candidates.find((candidate) => !used.has(candidate)) ?? base;
+}
+
 /**
  * Editable pages: a slug plus a stack of registered sections. The layout is
  * shared across locales; the text fields inside each block are localized —
@@ -54,8 +123,29 @@ export const Pages: CollectionConfig = {
       return previewUrl(`/${previewRegion(locale)}/${slug}`);
     },
   },
+  /**
+   * `validate: true` is the half of this config that stops a page from
+   * existing without an address.
+   *
+   * A draft save skips field validation unless this flag is on
+   * (payload/dist/collections/operations/create.js: `skipValidation:
+   * isSavingDraft && !hasDraftValidationEnabled(...)`), and the panel has
+   * exactly one request that takes that path — the draft save behind ⌘/Ctrl+S
+   * on a brand-new page (@payloadcms/ui PublishButton `saveDraft`, which
+   * submits with `skipValidation: true`). So `title` and `slug` were required
+   * on paper and optional in practice: the reflex keystroke every editor has
+   * wrote a `pages` row with `slug = ''`, invisible on the storefront, and
+   * the SECOND one came back as "El valor debe ser único" on a field nobody
+   * had typed in.
+   *
+   * With the flag on, the same keystroke either saves a real page or names
+   * the empty field — and the panel swaps the autosave indicator for an
+   * explicit "Guardar borrador" until the document exists
+   * (@payloadcms/ui DocumentControls, `unsavedDraftWithValidations`).
+   * Autosave itself is unchanged once the page has an id.
+   */
   versions: {
-    drafts: { autosave: { interval: 375 } },
+    drafts: { autosave: { interval: 375 }, validate: true },
     maxPerDoc: 50,
   },
   access: {
@@ -248,12 +338,73 @@ export const Pages: CollectionConfig = {
               unique: true,
               index: true,
               admin: {
-                description: "kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce.",
+                description:
+                  "kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce. Si lo dejas vacío al crear la página, se deriva del título.",
               },
-              validate: (value: string | null | undefined) =>
-                typeof value === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)
+              /**
+               * The address, derived — the way WordPress, Shopify and Webflow
+               * all do it, and the reason none of them ask an editor to open a
+               * third tab before they can save.
+               *
+               * Three rules, and the second and third are what keep this from
+               * being a URL that moves on its own:
+               *
+               *   1. A slug the editor typed is never touched.
+               *   2. A page that already HAS a slug keeps it, even if the
+               *      field arrives empty and even if the title changed.
+               *      Re-deriving would silently move a live URL and make
+               *      `redirectOnSlugChange` write a redirect for a rename
+               *      nobody asked for.
+               *   3. No title, no derivation. The `required` below then fails
+               *      on a field that is the first one on the first tab,
+               *      instead of on the slug three tabs away.
+               *
+               * A field `beforeValidate` hook runs on every write — REST,
+               * Local API, seeds, autosave — and BEFORE validation, so it
+               * cannot be skipped by the draft path the way `validate` could.
+               */
+              hooks: {
+                /**
+                 * Duplicating a page has to produce a page.
+                 *
+                 * Payload installs a default `beforeDuplicate` on every unique
+                 * text field that appends " - Copy"
+                 * (payload/dist/fields/setDefaultBeforeDuplicate.js) — a space
+                 * and two capitals, which this field's own validation refuses.
+                 * So the panel's Duplicate button answered "Solo minúsculas,
+                 * números y guiones" on a slug the editor never wrote, and the
+                 * three seeded templates ("Duplícala, cambia el slug y publica
+                 * la copia") could not be duplicated at all.
+                 *
+                 * The counter is the same one two pages with the same title
+                 * get, rather than a word: a slug is a URL, it is not
+                 * translated, and "-2" needs no vocabulary in three languages.
+                 */
+                beforeDuplicate: [
+                  async ({ req, value }) => {
+                    if (typeof value !== "string" || value === "") return value;
+                    return freeSlug(value, req);
+                  },
+                ],
+                beforeValidate: [
+                  async ({ data, originalDoc, req, value }) => {
+                    if (typeof value === "string" && value.trim() !== "") return value;
+                    const current = (originalDoc as { slug?: unknown } | undefined)?.slug;
+                    if (typeof current === "string" && current !== "") return current;
+                    const base = toSlug(titleForSlug((data as { title?: unknown })?.title));
+                    if (!SLUG_PATTERN.test(base)) return value;
+                    return freeSlug(base, req);
+                  },
+                ],
+              },
+              validate: (value: string | null | undefined) => {
+                if (typeof value !== "string" || value === "") {
+                  return "Escribe la dirección, o pon un título y se deriva de él.";
+                }
+                return SLUG_PATTERN.test(value)
                   ? true
-                  : "Solo minúsculas, números y guiones (kebab-case).",
+                  : "Solo minúsculas, números y guiones (kebab-case).";
+              },
             },
           ],
         },

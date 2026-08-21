@@ -1187,7 +1187,7 @@ export interface Page {
     noIndex?: boolean | null;
   };
   /**
-   * kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce.
+   * kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce. Si lo dejas vacío al crear la página, se deriva del título.
    */
   slug: string;
   updatedAt: string;

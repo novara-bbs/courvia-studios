@@ -530,7 +530,6 @@ await seedComposedPage(
       blockType: "productShowcase",
       heading: "Tres ritmos. Una dirección.",
       products: allProducts,
-      appearance: { reveal: "rise" },
     },
     // A mediaText without its image is INVALID content (the field is
     // required), so a media-less database drops the whole block instead of
@@ -545,7 +544,7 @@ await seedComposedPage(
               "Tolva, collar, tapa y batería los cambia el propio cliente; el hub sustituye alimentador, lanzador y electrónica. Tornillería cautiva, conectores ciegos y enclavamientos: cada pieza que se desgasta tiene número y recambio.",
             ),
             image: mediaIds.get("tempo-r1-hero-a002.webp"),
-            appearance: { mediaPosition: "end", reveal: "rise" },
+            appearance: { mediaPosition: "end" },
           },
         ]
       : []),
@@ -604,7 +603,6 @@ await seedComposedPage(
           body: "Cada cifra publicada lleva su estado: objetivo de diseño, dato de fábrica o verificado en banco.",
         },
       ],
-      appearance: { reveal: "rise" },
     },
     {
       blockType: "faq",
@@ -676,7 +674,6 @@ await seedComposedPage(
       blockType: "productShowcase",
       heading: "Three tempos. One direction.",
       products: allProducts,
-      appearance: { reveal: "rise" },
     },
     // A mediaText without its image is INVALID content (the field is
     // required), so a media-less database drops the whole block instead of
@@ -691,7 +688,7 @@ await seedComposedPage(
               "Hopper, collar, lid and battery are customer-replaceable; the hub swaps feeder, launcher and electronics. Captive fasteners, blind connectors and interlocks: every wearing part has a number and a spare.",
             ),
             image: mediaIds.get("tempo-r1-hero-a002.webp"),
-            appearance: { mediaPosition: "end", reveal: "rise" },
+            appearance: { mediaPosition: "end" },
           },
         ]
       : []),
@@ -750,7 +747,6 @@ await seedComposedPage(
           body: "Every published figure carries its state: design target, factory claim or bench-verified.",
         },
       ],
-      appearance: { reveal: "rise" },
     },
     {
       blockType: "faq",
@@ -1095,7 +1091,6 @@ await seedComposedPage(
         { title: "Herramientas normales", body: "Nada de tornillería propietaria ni adhesivos estructurales en las piezas de desgaste." },
         { title: "Garantía legal de tres años", body: "En España respondemos con la garantía que marca la ley. El detalle de servicio por línea se publica con el lanzamiento." },
       ],
-      appearance: { divider: "hairline" },
     },
     {
       blockType: "ctaBand",
@@ -1197,7 +1192,6 @@ await seedComposedPage(
         { title: "Ordinary tools", body: "No proprietary fasteners and no structural adhesive on the wear parts." },
         { title: "Three-year statutory warranty", body: "In Spain we answer with the warranty the law sets. Per-line service details are published at launch." },
       ],
-      appearance: { divider: "hairline" },
     },
     {
       blockType: "ctaBand",
@@ -1511,7 +1505,6 @@ await seedComposedPage(
           answer: richTextP("Garantía, repuestos y plazo suelen ser la segunda y la tercera."),
         },
       ],
-      appearance: { divider: "hairline" },
     },
     {
       blockType: "ctaBand",
@@ -1609,7 +1602,6 @@ await seedComposedPage(
           answer: richTextP("Warranty, spare parts and lead time are usually second and third."),
         },
       ],
-      appearance: { divider: "hairline" },
     },
     {
       blockType: "ctaBand",
@@ -1647,7 +1639,7 @@ await seedComposedPage(
         { value: "—", label: "Segunda cifra", note: "objetivo de diseño" },
         { value: "—", label: "Tercera cifra", note: "objetivo de diseño" },
       ],
-      appearance: { background: "surface", divider: "hairline" },
+      appearance: { background: "surface" },
     },
     {
       blockType: "timeline",
@@ -1658,7 +1650,6 @@ await seedComposedPage(
         { label: "FASE 2", title: "En curso", body: "Lo que se está haciendo ahora.", state: "current" },
         { label: "FASE 3", title: "Siguiente", body: "Lo que viene, sin fecha si no la hay.", state: "next" },
       ],
-      appearance: { divider: "hairline" },
     },
     {
       blockType: "waitlist",
@@ -1682,7 +1673,6 @@ await seedComposedPage(
           answer: richTextP("Si no hay precio, dilo. Un precio que luego cambia cuesta más que no darlo."),
         },
       ],
-      appearance: { divider: "hairline" },
     },
   ],
   [
@@ -1706,7 +1696,7 @@ await seedComposedPage(
         { value: "—", label: "Second figure", note: "design target" },
         { value: "—", label: "Third figure", note: "design target" },
       ],
-      appearance: { background: "surface", divider: "hairline" },
+      appearance: { background: "surface" },
     },
     {
       blockType: "timeline",
@@ -1717,7 +1707,6 @@ await seedComposedPage(
         { label: "PHASE 2", title: "In progress", body: "What is being done now.", state: "current" },
         { label: "PHASE 3", title: "Next", body: "What comes next, with no date if there is none.", state: "next" },
       ],
-      appearance: { divider: "hairline" },
     },
     {
       blockType: "waitlist",
@@ -1741,7 +1730,6 @@ await seedComposedPage(
           answer: richTextP("If there is no price, say so. A price that later changes costs more than no price."),
         },
       ],
-      appearance: { divider: "hairline" },
     },
   ],
   "draft",
@@ -1769,7 +1757,7 @@ await seedComposedPage(
         { title: "Otro principio", body: "Tres bastan. Cinco ya nadie los lee." },
         { title: "El tercero", body: "Si vale para cualquier empresa, sobra." },
       ],
-      appearance: { background: "surface", divider: "hairline" },
+      appearance: { background: "surface" },
     },
     {
       blockType: "quote",
@@ -1806,7 +1794,7 @@ await seedComposedPage(
         { title: "Another principle", body: "Three is enough. Nobody reads five." },
         { title: "The third", body: "If it would fit any company, drop it." },
       ],
-      appearance: { background: "surface", divider: "hairline" },
+      appearance: { background: "surface" },
     },
     {
       blockType: "quote",
