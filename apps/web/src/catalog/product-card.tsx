@@ -32,7 +32,15 @@ export async function ProductCard({
         <span className="catalog-card-media">
           <Image
             src={robot.image.url}
-            alt={robot.image.alt}
+            /* Decorative INSIDE this link: the whole card is one <a>, so the
+             * alt is read first and the accessible name opened with 100+
+             * characters of image description before naming the product
+             * ("Robot de entrenamiento Courvia Tempo R1, render conceptual:
+             * tolva llena, asa telescópica…", 291 characters in total). The
+             * <h2> below already names the destination. The same long alt
+             * still serves the PDP gallery, where the image stands alone and
+             * carries a <figcaption>. */
+            alt=""
             width={robot.image.width ?? 860}
             height={robot.image.height ?? 645}
             sizes="(max-width: 680px) 100vw, 320px"

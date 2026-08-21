@@ -21,7 +21,9 @@
   "nav": {
     "regionSelector": "País e idioma",
     "skipToContent": "Saltar al contenido",
-    "mainNav": "Navegación principal"
+    "mainNav": "Navegación principal",
+    "openMenu": "Abrir el menú",
+    "closeMenu": "Cerrar el menú"
   },
   "regions": {
     "es": "España · Español",

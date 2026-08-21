@@ -1,4 +1,4 @@
-import { Button } from "@courvia/ui";
+import { LinkButton } from "@courvia/ui";
 
 import { defineSection } from "../../dsl/define-section";
 
@@ -30,9 +30,9 @@ export const ctaBand = defineSection({
         <h2>{heading}</h2>
         {body ? <p>{body}</p> : null}
         {cta ? (
-          <a href={ctx.resolveHref?.(cta.href) ?? cta.href} className="cv-hero-cta">
-            <Button variant="primary">{cta.label}</Button>
-          </a>
+          <LinkButton variant="primary" href={ctx.resolveHref?.(cta.href) ?? cta.href}>
+            {cta.label}
+          </LinkButton>
         ) : null}
       </div>
     );

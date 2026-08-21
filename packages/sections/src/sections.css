@@ -40,9 +40,6 @@
   gap: var(--cv-space-3);
 }
 
-.cv-hero-cta {
-  text-decoration: none;
-}
 
 /* The reading measure is a CONSTANT, not a share of the band. It used to be
  * `var(--cv-section-measure, 62ch)`, and that fallback was dead code: the
@@ -213,6 +210,43 @@
   cursor: pointer;
   font-weight: 600;
   padding-block: var(--cv-space-2);
+  /* The user agent's grey triangle is the classic tell of an unfinished
+   * page: it is the one mark on the screen this system did not draw. Both
+   * spellings are needed — `list-style` in current browsers, the WebKit
+   * pseudo-element in older ones — and either left alone still paints it. */
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-4);
+}
+
+.cv-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Ours instead: a chevron clipped out of a box of currentColor, so it needs
+ * no asset, no glyph and no colour of its own. The polygon is symmetric in
+ * the inline axis on purpose — a rotated border-corner would point sideways
+ * under `dir="rtl"`, and this one points down in both directions. */
+.cv-faq-item summary::after {
+  content: '';
+  flex: none;
+  inline-size: var(--cv-space-3);
+  block-size: var(--cv-space-2);
+  background: currentcolor;
+  clip-path: polygon(50% 100%, 0 22%, 12% 0, 50% 62%, 88% 0, 100% 22%);
+  transition: transform var(--cv-motion-duration-fast) var(--cv-motion-easing-standard);
+}
+
+.cv-faq-item[open] summary::after {
+  transform: scaleY(-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-faq-item summary::after {
+    transition: none;
+  }
 }
 
 .cv-faq-item summary:focus-visible {
@@ -392,9 +426,6 @@
   gap: var(--cv-space-3);
 }
 
-.cv-stage-ctas a {
-  text-decoration: none;
-}
 
 .cv-stage-note {
   font-family: var(--cv-font-data, monospace);

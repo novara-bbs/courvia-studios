@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { getNavigation } from "./get-navigation";
+import { MobileMenu } from "./mobile-menu";
 
 export async function SiteHeader({ region }: { region: RegionId }) {
   const def = REGION_DEFINITIONS[region];
@@ -11,6 +12,13 @@ export async function SiteHeader({ region }: { region: RegionId }) {
     getNavigation(def.locale),
     getTranslations({ locale: def.locale, namespace: "nav" }),
   ]);
+  // One list of hrefs for both renderings of the nav: the bar below
+  // --cv-breakpoint-md and the disclosure above it show the same links, and
+  // CSS decides which one exists at a given width.
+  const links = nav.header.map((link) => ({
+    href: `/${region}${link.href === "/" ? "" : link.href}`,
+    label: link.label,
+  }));
 
   return (
     <header className="site-header">
@@ -21,12 +29,12 @@ export async function SiteHeader({ region }: { region: RegionId }) {
         <Link className="wordmark" href={`/${region}`} aria-label="Courvia">
           COURVIA<span className="wordmark-ball" aria-hidden="true" />
         </Link>
-        {nav.header.length === 0 ? null : (
-          <nav aria-label={t("mainNav")}>
+        {links.length === 0 ? null : (
+          <nav className="site-nav-desktop" aria-label={t("mainNav")}>
             <ul className="site-nav">
-              {nav.header.map((link) => (
+              {links.map((link) => (
                 <li key={link.href}>
-                  <Link href={`/${region}${link.href === "/" ? "" : link.href}`}>{link.label}</Link>
+                  <Link href={link.href}>{link.label}</Link>
                 </li>
               ))}
             </ul>
@@ -36,6 +44,12 @@ export async function SiteHeader({ region }: { region: RegionId }) {
           <Link className="site-header-cta" href={`/${region}${nav.headerCta.href}`}>
             {nav.headerCta.label}
           </Link>
+        )}
+        {links.length === 0 ? null : (
+          <MobileMenu
+            links={links}
+            labels={{ nav: t("mainNav"), open: t("openMenu"), close: t("closeMenu") }}
+          />
         )}
       </div>
     </header>

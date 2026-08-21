@@ -7,6 +7,22 @@
   box-sizing: border-box;
 }
 
+/* One focus ring for the whole site. `focus.width` and `focus.offset` come
+ * from brand/courvia-tokens.json and, until this rule, 25 of the 32 tab stops
+ * on the home page ignored them and fell to Chrome's `1px auto rgb(16,16,16)`
+ * — a near-black hairline on volt's navy, including the skip link, every nav
+ * and footer link, the catalogue cards and the submit button of the only
+ * conversion form in the shop.
+ *
+ * `:where()` keeps the specificity at (0,1,0) so a component that adds its
+ * own focus treatment (colour, border, underline) still layers on top; and
+ * `[tabindex]:not([tabindex='-1'])` deliberately spares programmatic focus
+ * targets, which are containers, not controls. */
+:where(a, button, summary, input, select, textarea, [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: var(--cv-focus-width) solid var(--cv-color-accent);
+  outline-offset: var(--cv-focus-offset);
+}
+
 /* Map the next/font variables (loaded in app/fonts.ts) onto the --cv-font-*
  * tokens per theme. Family assignments follow tokens.json; this file only
  * swaps the raw family names for the self-hosted font variables. */
@@ -27,19 +43,54 @@
   --cv-font-data: var(--font-ibm-plex-mono), monospace;
   --cv-font-voice: var(--font-instrument-serif), serif;
 }
-/* Arabic pages read every role through the Arabic family; the latin display
- * faces have no Arabic glyphs and would fall back per-glyph otherwise. */
+/* Arabic pages read every role through the Arabic family; the latin faces
+ * have no Arabic glyphs and would fall back per-glyph otherwise.
+ *
+ * `data` was the role this rule forgot, and it is the one every chip uses:
+ * the waitlist status, the "render conceptual" badge, the evidence label,
+ * the stat labels, the footer column titles. Measured on
+ * /ar-ae/robots/tempo-r1: they resolved to IBM Plex Mono, which has no
+ * Arabic, so the word came out as unjoined fragments — "قائ مة الا نتظار"
+ * where the letters must connect. With the Arabic family the same chip
+ * shapes correctly and narrows from 110px to 73px. The price, stated
+ * plainly: on Arabic pages the telemetry chip is no longer monospaced,
+ * because the font set carries no Arabic mono. A chip that does not shape
+ * is worse than a chip that is not mono.
+ *
+ * Tracking goes to `normal` in the same breath, and here is the honest
+ * measurement: in Chromium it changes nothing — letter-spacing is already a
+ * no-op over a cursive run there (the chip measures the same 72.88px with
+ * and without it). WebKit has historically NOT made that exception, and
+ * WebKit is the engine of the iPhone this shop sells to, so the two lines
+ * stay as a guard for the browser this session cannot open. Rebinding the
+ * TOKENS rather than writing a rule per chip is what makes it total: no
+ * stylesheet in the repo may hand-write a tracking value (the guards in
+ * chrome-shell.test.ts and sections.css.test.ts), so every consumer —
+ * today's and tomorrow's — goes through one of these two names. */
 [lang='ar'] {
   --cv-font-display: var(--font-ibm-plex-sans-arabic), sans-serif;
   --cv-font-body: var(--font-ibm-plex-sans-arabic), sans-serif;
+  --cv-font-data: var(--font-ibm-plex-sans-arabic), sans-serif;
+  --cv-font-tracking-wide: normal;
+  --cv-font-tracking-wider: normal;
 }
 
-/* The header is sticky, so an in-page anchor would land UNDER it. Both rules
- * are written against the same spacing token — and `.site-header` gets it as
- * a `min-block-size`, so the height is a contract the header must honour
- * rather than a number this rule guesses about it. */
+/* The header is sticky, so an in-page anchor lands UNDER it unless the page
+ * reserves its height. The reserve and the header now read the SAME custom
+ * property, and the header takes it as `block-size` rather than
+ * `min-block-size` — that is the whole point: a minimum can be exceeded, and
+ * it was. The bar used to wrap into three rows on a phone (155px measured at
+ * 390px, 196px at 360px) while this rule reserved 80px, so every anchor
+ * landed 75px behind the chrome and the destination's own <h2> was
+ * invisible. With a fixed height the two numbers cannot diverge: one of them
+ * IS the other. The menu panel is absolutely positioned for the same reason
+ * — an open menu must not change the height the page reserved. */
+:root {
+  --cv-header-block-size: var(--cv-space-16);
+}
+
 html {
-  scroll-padding-block-start: calc(var(--cv-space-16) + var(--cv-space-4));
+  scroll-padding-block-start: calc(var(--cv-header-block-size) + var(--cv-space-4));
   scroll-behavior: smooth;
 }
 
@@ -195,16 +246,20 @@ code {
   transform: none;
 }
 
+/* `block-size`, not `min-block-size`: see the comment on
+ * --cv-header-block-size. Everything inside the bar is `flex: 0 0 auto` so a
+ * long CMS label cannot push a row open again behind the fixed height. */
 .site-header {
   position: sticky;
   inset-block-start: 0;
   z-index: 30;
-  min-block-size: var(--cv-space-16);
+  block-size: var(--cv-header-block-size);
   border-block-end: 1px solid var(--cv-color-border);
   background: var(--cv-color-bg);
 }
 
 .site-header-cta {
+  flex: 0 0 auto;
   font-size: var(--cv-font-size-sm);
   font-weight: 600;
   text-decoration: none;
@@ -212,7 +267,7 @@ code {
   background: var(--cv-color-fill-accent);
   border-radius: var(--cv-radius-pill);
   padding-block: var(--cv-space-2);
-  padding-inline: var(--cv-space-4);
+  padding-inline: var(--cv-space-3);
   white-space: nowrap;
 }
 
@@ -220,28 +275,24 @@ code {
   filter: brightness(1.05);
 }
 
-.site-header-cta:focus-visible {
-  outline: var(--cv-focus-width) solid var(--cv-color-accent);
-  outline-offset: var(--cv-focus-offset);
-}
-
 .site-header-inner {
+  block-size: 100%;
   max-width: var(--cv-breakpoint-xl);
   margin-inline: auto;
-  padding-block: var(--cv-space-4);
-  padding-inline: var(--cv-space-6);
+  padding-inline: var(--cv-space-4);
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--cv-space-4);
+  gap: var(--cv-space-2);
 }
 
 .wordmark {
+  flex: 0 0 auto;
   font-family: var(--cv-font-display);
   font-size: var(--cv-font-size-md);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--cv-font-tracking-wide);
   color: var(--cv-color-text);
   text-decoration: none;
 }
@@ -255,11 +306,173 @@ code {
   margin-inline-start: 0.15em;
 }
 
+/* Mobile first: the inline nav does not exist below --cv-breakpoint-md, the
+ * disclosure does. Above it they swap. They are two elements holding the
+ * same links rather than one that changes shape, because the collapsed one
+ * has to be inside <details> and the expanded one must not be — this is what
+ * Dawn does with header__inline-menu / menu-drawer. Only ever ONE of them is
+ * displayed, so the tab order and the accessibility tree see one nav. */
+.site-nav-desktop {
+  display: none;
+}
+
 .site-nav {
   list-style: none;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--cv-space-4);
+}
+
+/* ----------------------------------------------------------- mobile menu */
+
+/* A native <details>: it opens with no JavaScript, the browser owns the
+ * expanded state and announces it, and a link inside it is a full page load
+ * without JS — which is what closes it again. The client island next to it
+ * (mobile-menu.tsx) exists for the one case the platform cannot cover: with
+ * JS on, Next navigates without a new document and the layout survives, so
+ * the panel would stay open over the page it just opened. */
+.site-menu {
+  flex: 0 0 auto;
+}
+
+.site-menu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--cv-space-12);
+  block-size: var(--cv-space-12);
+  cursor: pointer;
+  color: var(--cv-color-text);
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-sm);
+  /* Both spellings: the marker is a ::marker in current browsers and a
+   * ::-webkit-details-marker in older WebKit, and either one left alone
+   * shows a triangle beside the icon. */
+  list-style: none;
+}
+
+.site-menu-toggle::-webkit-details-marker {
+  display: none;
+}
+
+/* The toggle names itself "open" or "close" from the DOM's own state, so it
+ * stays correct with the script blocked. */
+.site-menu-label--close,
+.site-menu[open] .site-menu-label--open {
+  display: none;
+}
+
+.site-menu[open] .site-menu-label--close {
+  display: inline;
+}
+
+/* Three bars drawn from one box, so the icon needs no asset and no string.
+ * `currentColor` inherits the themed text colour, which keeps it legal in
+ * all three themes without a colour of its own. */
+.site-menu-icon {
+  position: relative;
+  inline-size: var(--cv-space-6);
+  block-size: 2px;
+  background: currentcolor;
+}
+
+.site-menu-icon::before,
+.site-menu-icon::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  block-size: 2px;
+  background: currentcolor;
+}
+
+.site-menu-icon::before {
+  inset-block-start: calc(var(--cv-space-2) * -1);
+}
+
+.site-menu-icon::after {
+  inset-block-start: var(--cv-space-2);
+}
+
+/* Open state folds the same three bars into a cross — feedback that does not
+ * depend on JavaScript either. */
+.site-menu[open] .site-menu-icon {
+  background: transparent;
+}
+
+.site-menu[open] .site-menu-icon::before {
+  inset-block-start: 0;
+  transform: rotate(45deg);
+}
+
+.site-menu[open] .site-menu-icon::after {
+  inset-block-start: 0;
+  transform: rotate(-45deg);
+}
+
+/* Absolute, so an open menu never changes the header's height: the anchor
+ * reserve is that height, and a panel that pushed the bar taller would put
+ * the two numbers back out of step. */
+.site-menu-panel {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  z-index: 30;
+  background: var(--cv-color-bg);
+  border-block-end: 1px solid var(--cv-color-border);
+  padding-inline: var(--cv-space-4);
+  padding-block-end: var(--cv-space-4);
+  max-block-size: calc(100dvh - var(--cv-header-block-size));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.site-menu-list {
+  list-style: none;
+}
+
+.site-menu-list a {
+  display: flex;
+  align-items: center;
+  /* 48px: a thumb target, against the 15px-tall links this replaces. */
+  min-block-size: var(--cv-space-12);
+  color: var(--cv-color-text);
+  text-decoration: none;
+  border-block-end: 1px solid var(--cv-color-border);
+}
+
+.site-menu-list a:hover {
+  color: var(--cv-color-link);
+}
+
+@media (min-width: 680px) {
+  .site-header-inner {
+    padding-inline: var(--cv-space-6);
+    gap: var(--cv-space-4);
+  }
+
+  .site-header-cta {
+    padding-inline: var(--cv-space-4);
+  }
+
+  /* The bar is a fixed height and never wraps, so a nav that outgrows its
+   * space would push the PAGE sideways instead. It scrolls inside its own
+   * box: the information architecture is going to grow (Academy, Gear, Club)
+   * and the CMS decides how many items there are, not this stylesheet. */
+  .site-nav-desktop {
+    display: block;
+    min-inline-size: 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .site-nav a {
+    white-space: nowrap;
+  }
+
+  .site-menu {
+    display: none;
+  }
 }
 
 /* Without this rule an anchor inherits the user-agent's #0000EE, which is
@@ -315,7 +528,7 @@ a {
 .site-footer-wordmark {
   font-family: var(--cv-font-display);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--cv-font-tracking-wide);
   margin-block-end: var(--cv-space-3);
 }
 
@@ -336,7 +549,7 @@ a {
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-text-muted);
   margin-block-end: var(--cv-space-3);
 }
@@ -497,7 +710,7 @@ a {
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-on-fill-accent);
   background: var(--cv-color-fill-accent);
   border-radius: var(--cv-radius-sm);
@@ -735,7 +948,7 @@ a {
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-text);
   background: var(--cv-color-surface);
   border: 1px solid var(--cv-color-border);
@@ -833,7 +1046,7 @@ a {
   font-family: var(--cv-font-data, monospace);
   font-size: var(--cv-font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--cv-font-tracking-wider);
   color: var(--cv-color-text-muted);
   margin-inline-start: var(--cv-space-2);
   /* A two-word label that breaks in half stops reading as one chip: it broke
@@ -880,6 +1093,24 @@ a {
 .lead-form select,
 .lead-form textarea {
   font: inherit;
+  /* AFTER `font: inherit`, never before: the shorthand resets font-size and
+   * would swallow this. The field inherited the label's 14px, and Safari on
+   * iOS zooms the viewport on focus for anything under 16px — the visitor
+   * gets thrown out of the only conversion form in the shop to re-frame the
+   * page. The LABEL stays at 14px (the rule above), which is the intent:
+   * label small, field thumb-sized. */
+  font-size: var(--cv-font-size-md);
+  /* A field's intrinsic width is `size`/`cols` — twenty characters of the
+   * inherited face — and it is a MINIMUM the grid cannot go under, so the
+   * panel, the page grid and finally the document stretch to fit it. It is
+   * the widest thing in the form and nobody sees it as a width at all.
+   * Measured at 390px on /ar-ae/robots/tempo-r1: twenty characters of IBM
+   * Plex Sans Arabic ask for 343px, the page grid grew to 377 and the
+   * document scrolled sideways to 401. Latin pages are untouched by this
+   * line (identical numbers at 320, 390 and 1440); Arabic ones stop
+   * overflowing, and so does /ar-ae/contacto at 320, which already did
+   * before the size went up. */
+  min-inline-size: 0;
   color: var(--cv-color-text);
   background: var(--cv-color-bg);
   border: 1px solid var(--cv-color-border);
@@ -888,19 +1119,23 @@ a {
   padding-inline: var(--cv-space-3);
 }
 
-.lead-form input:focus-visible,
-.lead-form select:focus-visible,
-.lead-form textarea:focus-visible {
-  outline: 2px solid var(--cv-color-accent);
-  outline-offset: 1px;
-}
-
 /* Chained with `label` so this beats `.lead-form label { display: grid }`:
  * without it the grid wins and the checkbox stacks above its own text. */
 .lead-form label.lead-form-consent {
   display: flex;
   gap: var(--cv-space-2);
   align-items: start;
+}
+
+/* The consent box is a required control on the GDPR line and shipped as the
+ * browser's raw 13x13 default. `flex: none` because the parent is a flex row
+ * and the box would otherwise be squashed out of square. */
+.lead-form input[type='checkbox'] {
+  accent-color: var(--cv-color-accent);
+  inline-size: var(--cv-space-6);
+  block-size: var(--cv-space-6);
+  flex: none;
+  margin-block-start: 2px;
 }
 
 .lead-form-hp {

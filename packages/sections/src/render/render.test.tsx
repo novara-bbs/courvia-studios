@@ -258,3 +258,49 @@ describe("every section paints on a band and measures in a container", () => {
     expect(html).toBe("");
   });
 });
+
+/**
+ * A CTA that navigates is ONE control.
+ *
+ * Three sections shipped `<a><button class="cv-btn">…</button></a>`: invalid
+ * HTML (a <button> is interactive content and may not sit inside <a>), two
+ * tab stops per CTA with the same rect — the first painted Chrome's black
+ * hairline, the second the volt ring — and an accessibility tree announcing
+ * a link AND a button with the same name. Five of the 32 tab stops on the
+ * seeded pages were ghosts.
+ *
+ * The check scans the tag stream rather than the DOM: vitest runs in node
+ * here, with no jsdom, and these tests already work on the string from
+ * `renderToStaticMarkup`. It catches <a> in <a> and <button> in <button>
+ * too, not just the shape that was wrong today.
+ */
+describe("no section nests one control inside another", () => {
+  function nestedControl(html: string): string | null {
+    const stack: string[] = [];
+    for (const tag of html.matchAll(/<(\/?)(a|button|summary|select|textarea)\b[^>]*>/g)) {
+      const [, closing, name] = tag;
+      if (closing === "/") {
+        const at = stack.lastIndexOf(String(name));
+        if (at >= 0) stack.splice(at, 1);
+      } else {
+        if (stack.length > 0) return `<${String(name)}> inside <${String(stack[0])}>`;
+        stack.push(String(name));
+      }
+    }
+    return null;
+  }
+
+  it("catches the shape it is looking for", () => {
+    // Without this the suite could pass because the scanner never fires.
+    expect(nestedControl('<a href="/x"><button>Go</button></a>')).toBe("<button> inside <a>");
+    expect(nestedControl('<a href="/x">Go</a><a href="/y">Go</a>')).toBeNull();
+    expect(nestedControl('<div><a href="/x"><span>Go</span></a></div>')).toBeNull();
+  });
+
+  for (const [type, section] of Object.entries(SECTIONS)) {
+    it(`${type} keeps its controls flat`, () => {
+      const found = nestedControl(render({ blockType: type, ...section.fixture }));
+      expect(found, `${type} renders ${String(found)}`).toBeNull();
+    });
+  }
+});

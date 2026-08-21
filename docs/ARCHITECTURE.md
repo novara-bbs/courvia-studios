@@ -175,6 +175,31 @@ Un producto puede apuntar a otra plantilla o añadir secciones en puntos de inse
 
 ---
 
+### La cabecera y el ancla comparten un número, no una convención
+
+`--cv-header-block-size` es el contrato: la cabecera lo toma como
+**`block-size`** —no como `min-block-size`, porque un mínimo se puede exceder
+y se excedía— y `html` reserva `scroll-padding-block-start: calc(esa variable
++ --cv-space-4)`. Un ancla y la barra que la tapa dejan así de poder
+divergir.
+
+Antes divergían de forma medible: la cabecera envolvía en tres filas y
+llegaba a **196 px** a 320, **155** a 390 y **71** a partir de 620, mientras
+la reserva era un literal. En móvil el destino de un ancla aterrizaba **74 px
+por debajo** del borde de la cabecera, así que el titular al que apuntaba
+quedaba invisible. Con la barra a 64 px fijos en los nueve anchos medidos, la
+diferencia es 0.
+
+De ahí salen dos reglas que parecen detalles y no lo son:
+
+- **El panel del menú abierto va en `position: absolute`.** Si empujara la
+  barra, la altura real dejaría de coincidir con la reservada y el ancla
+  volvería a mentir.
+- **La barra no envuelve.** El precio está declarado: una etiqueta de CTA muy
+  larga escrita en el CMS desbordaría a 320 px. Hoy caben las cuatro regiones
+  (`Pide una demo` · `Book a demo` · `اطلب عرضًا`), verificado sin desbordes.
+  La navegación de escritorio sí está protegida: desplaza dentro de su caja.
+
 ## 4. Resolución de tema bajo Next.js 16
 
 **El tema activo es contenido del CMS, no una preferencia del visitante.** (Implementado 19-ago: `getSiteTheme()` con `use cache` + `cacheTag("theme")`, hook de publicación que revalida, cookie eliminada, `cacheComponents` activo, verificado end-to-end: publicar carbon re-viste el sitio servido.) La implementación anterior por cookie contradecía CLAUDE.md §5 y, peor, la documentación de Next 16 lo dice explícitamente: leer una cookie que gobierna un atributo de `<html>` en el layout raíz vuelve **toda** la app dependiente de la petición, sin subárbol que envolver en `<Suspense>`. Eso bloquea PPR para toda la tienda.

@@ -1,4 +1,4 @@
-import { Badge, Button } from "@courvia/ui";
+import { Badge, LinkButton } from "@courvia/ui";
 
 import { defineSection } from "../../dsl/define-section";
 import { mediaValue } from "../../dsl/fields";
@@ -84,9 +84,13 @@ export const stage = defineSection({
           {ctas.length > 0 ? (
             <div className="cv-stage-ctas">
               {ctas.map((cta, index) => (
-                <a key={cta.href} href={ctx.resolveHref?.(cta.href) ?? cta.href}>
-                  <Button variant={index === 0 ? "primary" : "ghost"}>{cta.label}</Button>
-                </a>
+                <LinkButton
+                  key={cta.href}
+                  variant={index === 0 ? "primary" : "ghost"}
+                  href={ctx.resolveHref?.(cta.href) ?? cta.href}
+                >
+                  {cta.label}
+                </LinkButton>
               ))}
             </div>
           ) : null}

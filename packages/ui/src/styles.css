@@ -65,7 +65,10 @@
   color: var(--cv-color-text-muted);
   font-family: var(--cv-font-data, var(--cv-font-body));
   font-size: var(--cv-font-size-xs);
-  letter-spacing: 0.12em;
+  /* The token, not the number: `[lang='ar']` rebinds tracking to `normal`
+   * because Arabic letters join and spacing prises the joins apart, and a
+   * hand-written em value would opt this badge out of that. */
+  letter-spacing: var(--cv-font-tracking-wider);
   text-transform: uppercase;
 }
 /* Accent is a FILL, never small text: as text it measures 3.55:1 on carbon's

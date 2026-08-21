@@ -21,7 +21,9 @@
   "nav": {
     "regionSelector": "الدولة واللغة",
     "skipToContent": "تخطَّ إلى المحتوى",
-    "mainNav": "التنقل الرئيسي"
+    "mainNav": "التنقل الرئيسي",
+    "openMenu": "افتح القائمة",
+    "closeMenu": "أغلق القائمة"
   },
   "regions": {
     "es": "España · Español",

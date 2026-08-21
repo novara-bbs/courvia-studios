@@ -1,4 +1,4 @@
-import { Badge, Button } from "@courvia/ui";
+import { Badge, LinkButton } from "@courvia/ui";
 
 import { defineSection } from "../../dsl/define-section";
 import type { Link } from "../../dsl/fields";
@@ -41,10 +41,18 @@ export const hero = defineSection({
         {lead ? <p className="cv-hero-lead">{lead}</p> : null}
         {ctas.length > 0 ? (
           <div className="cv-hero-ctas">
+            {/* LinkButton, not <a><Button>: a CTA that navigates is ONE
+                control. The wrapped form was invalid HTML, took two tab
+                stops per CTA and announced both a link and a button with
+                the same name. */}
             {ctas.map((cta: Link, index) => (
-              <a key={cta.href} href={ctx.resolveHref?.(cta.href) ?? cta.href} className="cv-hero-cta">
-                <Button variant={index === 0 ? "primary" : "ghost"}>{cta.label}</Button>
-              </a>
+              <LinkButton
+                key={cta.href}
+                variant={index === 0 ? "primary" : "ghost"}
+                href={ctx.resolveHref?.(cta.href) ?? cta.href}
+              >
+                {cta.label}
+              </LinkButton>
             ))}
           </div>
         ) : null}
