@@ -9,6 +9,27 @@ export {
   describeCommerceServiceContract,
   describePaymentProviderContract,
 } from "./contracts";
+export {
+  describeAvailabilityContract,
+  describeCartContract,
+  describeCatalogAdminContract,
+  describeCatalogReadContract,
+  describeCheckoutStartContract,
+  describeCustomerOrderContract,
+  describeEngineCapabilitiesContract,
+  describeEngineEventIngestContract,
+  describeReturnWriteContract,
+} from "./engine-contracts";
+export type {
+  AvailabilityFixtures,
+  CartFixtures,
+  CatalogAdminFixtures,
+  CatalogReadFixtures,
+  CheckoutFixtures,
+  CustomerOrderFixtures,
+  EngineEventFixtures,
+  ReturnFixtures,
+} from "./engine-contracts";
 export type {
   CatalogFixtures,
   CommerceServiceFixtures,

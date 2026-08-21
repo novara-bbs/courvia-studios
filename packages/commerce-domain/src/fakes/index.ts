@@ -17,3 +17,9 @@ export { FakeCommerceService, makeFakeCatalog } from "./fake-commerce-service";
 export type { FakeCatalog } from "./fake-commerce-service";
 export { FakePaymentProvider, signFakePayload } from "./fake-payment-provider";
 export type { FakeProviderPayload, FakePaymentProviderOptions } from "./fake-payment-provider";
+export { FakeHostedEngine, FakeNativeEngine } from "./fake-engines";
+export type {
+  FakeHostedEngineOptions,
+  FakeHostedEnginePayload,
+  FakeNativeEngineOptions,
+} from "./fake-engines";
