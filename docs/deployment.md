@@ -44,6 +44,51 @@ realidad era otra, y nada estaba mirando. De ahí las tres medidas:
 3. CLAUDE.md §6: una sesión no se cierra con CI verde, se cierra con el
    **despliegue** verde.
 
+### La avería del 21 de agosto: tres causas, ninguna de código
+
+El 21 de agosto se leyó por fin el log de build, en vez de deducirlo. Lo que
+sale de ahí cierra el diagnóstico y conviene que no se vuelva a deducir:
+
+**1 · El Root Directory ya está bien.** El log dice
+`command (/vercel/path0/apps/web)`: el build arranca dentro de `apps/web`,
+compila los catorce paquetes en 56 s y llega al prerenderizado. La avería del
+día 20 está resuelta. Lo que falla ahora es otra cosa, y confundirlas cuesta
+horas.
+
+**2 · Faltan dos variables en el ámbito Preview**, y el mensaje que lo dice
+es el del propio guardián de `src/server/build-env.ts`:
+
+    DATABASE_URL is not set in this production build… (VERCEL_ENV=preview)
+    [cause]: Error: missing secret key. A secret key is needed to secure Payload.
+
+Solo dos: `NEXT_PUBLIC_SITE_URL` la inyecta Vercel, y ningún proveedor de pago
+hace falta para compilar — `getPaymentProviders()` devuelve un registro vacío
+sin lanzar.
+
+**El arreglo NO es copiar el `DATABASE_URL` de producción a Preview.** Cada
+despliegue de preview trae su propio `/admin`, y apuntarlo a la base de
+producción convierte cada rama en escritura sobre datos reales. Preview
+necesita **su propia base**: un segundo proyecto de Supabase, con las
+migraciones aplicadas por CI.
+
+**3 · Producción no ha desplegado nunca, y no es por las variables.** La rama
+de producción del proyecto es `main`, y `main` es solo el «Initial commit».
+Lanzar un despliegue de `main` falla en el primer segundo:
+
+    Cloning github.com/novara-bbs/courvia-studios (Branch: main, Commit: d1cc9b8)
+    The specified Root Directory "apps/web" does not exist.
+
+Ahí no hay `apps/web` porque ahí no hay nada. Hay dos salidas y las dos son
+decisión del propietario: fusionar el trabajo a `main` —que es un avance
+rápido corriente, `main` es ancestro de la rama— o apuntar la rama de
+producción a la rama de trabajo.
+
+**Lo que sí se arregló en código:** el build comprueba las variables **antes**
+de compilar (`apps/web/scripts/deploy-preflight.mjs`, invocado desde el script
+`build`) y nombra **todas** las que faltan de una vez. Sin eso, un despliegue
+sin variables gasta 56 s para nombrar solo la primera, y la segunda aparece
+enterrada como `[cause]`: dos ciclos completos para descubrir dos ausencias.
+
 ### Variables de entorno (las pone el propietario, no el agente)
 
 | Variable | Entorno | Qué es |

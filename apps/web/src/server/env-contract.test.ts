@@ -41,6 +41,9 @@ const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".mjs", ".cjs", ".js"]);
  * out — it would invite someone to set by hand a value the platform owns.
  */
 const PLATFORM_INJECTED = new Set([
+  // The shell's own. A test that spawns a child process has to hand it one,
+  // and nobody configures it as a setting of this app.
+  "PATH",
   // Node and Next set these themselves; Next overrides NODE_ENV per command.
   "NODE_ENV",
   "NEXT_PHASE", // "phase-production-build" during `next build`
