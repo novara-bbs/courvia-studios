@@ -13,7 +13,12 @@ import { gallery } from "./blocks/gallery";
 import { hero } from "./blocks/hero";
 import { hotspots } from "./blocks/hotspots";
 import { mediaText } from "./blocks/media-text";
+import { productHero } from "./blocks/product-hero";
+import { productLead } from "./blocks/product-lead";
+import { productRange } from "./blocks/product-range";
 import { productShowcase } from "./blocks/product-showcase";
+import { productSpecs } from "./blocks/product-specs";
+import { productStory } from "./blocks/product-story";
 import { quote } from "./blocks/quote";
 import { richText } from "./blocks/rich-text";
 import { specTable } from "./blocks/spec-table";
@@ -40,8 +45,16 @@ export const SECTIONS: Record<string, SectionDefinition> = Object.fromEntries(
     gallery,
     productShowcase,
     specTable,
+    // The bound sections of a product template (WP13), in the order the
+    // default template places them: they read the product from the render
+    // context instead of holding content of their own.
+    productHero,
+    productStory,
+    productSpecs,
+    productRange,
     embed,
     waitlist,
+    productLead,
     faq,
     quote,
     ctaBand,
@@ -55,6 +68,13 @@ export type {
   SectionPlacement,
 } from "./dsl/define-section";
 export { LINK_CHILD_COPY, mediaValue, productSlugs } from "./dsl/fields";
+export { PRODUCT_SURFACES, productSubject } from "./dsl/subject";
+export type {
+  ProductLaunchStatus,
+  ProductSubject,
+  ProductSurface,
+  RenderSubject,
+} from "./dsl/subject";
 export { ANCHOR_ERROR, HREF_ERROR, anchorId, isAuthoredHref } from "./dsl/href";
 export type { FieldCopy, FieldSpec, Fields, Link, MediaValue } from "./dsl/fields";
 export { SECTION_GROUPS, SECTION_GROUP_COPY } from "./dsl/groups";

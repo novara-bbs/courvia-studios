@@ -296,8 +296,24 @@ function appearanceSection(allowed: readonly ControlName[]): Field {
   };
 }
 
-export function buildBlocks(): Block[] {
-  return Object.values(SECTIONS).map((section) => ({
+/**
+ * Which sections a given surface may offer.
+ *
+ * The default EXCLUDES the bound sections (WP13) on purpose, and the default
+ * is what `pages` already calls: a `productHero` dropped onto the privacy
+ * page has no subject to read, so the only thing it could ever do there is
+ * render nothing — a block in the drawer that produces an invisible band is
+ * how an editor concludes the system is broken. Templates pass
+ * `{ bound: true }` and get everything, because a product template is
+ * exactly the place where marketing sections and bound slots are meant to
+ * be interleaved (docs/ARCHITECTURE.md §3).
+ */
+export function buildBlocks(options?: { bound?: boolean }): Block[] {
+  const include =
+    options?.bound === true
+      ? Object.values(SECTIONS)
+      : Object.values(SECTIONS).filter((section) => section.bound !== true);
+  return include.map((section) => ({
     slug: section.type,
     // Postgres caps identifiers at 63 chars and versioned block tables
     // prefix heavily; long section types declare a compact db identity.

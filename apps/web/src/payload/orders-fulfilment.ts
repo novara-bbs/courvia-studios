@@ -52,10 +52,111 @@ import type {
 } from "payload";
 
 import { isAdmin } from "./access";
+import { panelText, panelTextFor } from "./admin-copy";
+import type { LocalizedText } from "./admin-copy";
+
+/**
+ * Everything fulfilment says when it refuses, in the panel's three
+ * languages (`admin-copy.ts`).
+ *
+ * Both kinds of refusal live here. A `validate` returns a finished string
+ * and an `APIError` carries one, and Payload passes neither through
+ * `getTranslation` — so both are resolved by hand against the PANEL's
+ * language. Dubai is a market we ship to, and the person opening a shipment
+ * is not guaranteed to read Spanish.
+ *
+ * `{placeholders}` are substituted after resolution, never concatenated
+ * before it: a sentence assembled from fragments cannot be reordered by a
+ * translator, and Arabic reorders.
+ */
+const FULFILMENT_COPY = {
+  required: { es: "Obligatorio.", en: "Required.", ar: "حقل مطلوب." },
+  trackingNotHttps: {
+    es: "Tiene que empezar por https:// — el enlace se envía por email.",
+    en: "It has to start with https:// — the link is sent by email.",
+    ar: "يجب أن يبدأ بـ https:// — يُرسَل الرابط بالبريد.",
+  },
+  trackingNoPlaceholder: {
+    es: "Falta {placeholder}: sin ese hueco no hay nada que sustituir.",
+    en: "{placeholder} is missing: with no slot there is nothing to substitute.",
+    ar: "العنصر {placeholder} مفقود: بلا هذا الموضع لا شيء يُستبدل.",
+  },
+  carrierCodeShape: {
+    es: "Solo minúsculas, números y guiones.",
+    en: "Lowercase letters, numbers and hyphens only.",
+    ar: "أحرف صغيرة وأرقام وشرطات فقط.",
+  },
+  orderMissing: {
+    es: "El pedido del envío no existe.",
+    en: "The shipment's order does not exist.",
+    ar: "طلب هذا الشحن غير موجود.",
+  },
+  transitionRefused: {
+    es: 'No se puede aplicar "{trigger}" a un pedido en "{status}" ({rejection}).',
+    en: 'Cannot apply "{trigger}" to an order in "{status}" ({rejection}).',
+    ar: 'لا يمكن تطبيق "{trigger}" على طلب في حالة "{status}" ({rejection}).',
+  },
+  effectNotOutbox: {
+    es: 'El efecto "{effect}" no es de outbox y el fulfilment no lo ejecuta.',
+    en: 'Effect "{effect}" is not an outbox effect and fulfilment does not run it.',
+    ar: 'الأثر "{effect}" ليس من صندوق الصادر ولا ينفّذه قسم الشحن.',
+  },
+  carrierMissing: {
+    es: "El transportista no existe.",
+    en: "That carrier does not exist.",
+    ar: "شركة الشحن غير موجودة.",
+  },
+  carrierRetired: {
+    es: '"{carrier}" está retirado: elige un transportista activo.',
+    en: '"{carrier}" has been retired: choose an active carrier.',
+    ar: 'أُوقفت "{carrier}": اختر شركة شحن فعّالة.',
+  },
+  carrierWrongMarket: {
+    es: '"{carrier}" no opera en el mercado {market} de este pedido.',
+    en: '"{carrier}" does not operate in this order\'s {market} market.',
+    ar: 'لا تعمل "{carrier}" في سوق {market} الخاص بهذا الطلب.',
+  },
+  shipmentNeedsOrder: {
+    es: "Un envío necesita su pedido.",
+    en: "A shipment needs its order.",
+    ar: "كل شحنة تحتاج إلى طلبها.",
+  },
+  shipmentCannotMove: {
+    es: "Un envío no se puede mover a otro pedido.",
+    en: "A shipment cannot be moved to another order.",
+    ar: "لا يمكن نقل الشحنة إلى طلب آخر.",
+  },
+  orderAlreadyShipped: {
+    es: "Este pedido ya tiene un envío: edítalo en vez de crear otro.",
+    en: "This order already has a shipment: edit that one instead of creating another.",
+    ar: "لهذا الطلب شحنة بالفعل: حرِّرها بدل إنشاء أخرى.",
+  },
+  shippedNeedsTracking: {
+    es: "Un envío ya enviado no puede quedarse sin transportista ni sin número de seguimiento.",
+    en: "A shipment already sent cannot be left without a carrier or a tracking number.",
+    ar: "لا يمكن ترك شحنة أُرسلت بلا شركة شحن أو بلا رقم تتبّع.",
+  },
+} as const satisfies Record<string, LocalizedText>;
+
+/** One refusal, in the panel's language, with its placeholders filled. */
+function say(
+  copy: LocalizedText,
+  req: { i18n?: { language?: string } } | undefined,
+  values: Record<string, string> = {},
+): string {
+  let text = panelText(copy, req?.i18n?.language);
+  for (const [key, value] of Object.entries(values)) {
+    text = text.replace(`{${key}}`, value);
+  }
+  return text;
+}
 
 /** Fulfilment is a backoffice act on money-adjacent rows: same policy as
  *  the rest of commerce. Never reachable through public REST/GraphQL. */
 const fulfilmentAccess = { read: isAdmin, create: isAdmin, update: isAdmin };
+
+/** Same shelf as the rest of commerce, and the same three languages. */
+const FULFILMENT_GROUP = { es: "Comercio", en: "Commerce", ar: "التجارة" };
 
 type Ref = number | string | { id: number | string } | null | undefined;
 
@@ -72,12 +173,15 @@ function text(value: unknown): string {
 
 /* ------------------------------------------------------------------ carriers */
 
-const validateTrackingTemplate: TextFieldSingleValidation = (value) => {
+const validateTrackingTemplate: TextFieldSingleValidation = (value, options) => {
   const problem = checkTrackingUrlTemplate(typeof value === "string" ? value : "");
   if (problem === null) return true;
-  if (problem === "empty") return "Obligatorio.";
-  if (problem === "not_https") return "Tiene que empezar por https:// — el enlace se envía por email.";
-  return `Falta ${TRACKING_PLACEHOLDER}: sin ese hueco no hay nada que sustituir.`;
+  if (problem === "empty") return panelTextFor(FULFILMENT_COPY.required, options);
+  if (problem === "not_https") return panelTextFor(FULFILMENT_COPY.trackingNotHttps, options);
+  return panelTextFor(FULFILMENT_COPY.trackingNoPlaceholder, options).replace(
+    "{placeholder}",
+    TRACKING_PLACEHOLDER,
+  );
 };
 
 /**
@@ -91,13 +195,19 @@ const validateTrackingTemplate: TextFieldSingleValidation = (value) => {
  */
 export const Carriers: CollectionConfig = {
   slug: "carriers",
-  labels: { singular: "Transportista", plural: "Transportistas" },
+  labels: {
+    singular: { es: "Transportista", en: "Carrier", ar: "شركة شحن" },
+    plural: { es: "Transportistas", en: "Carriers", ar: "شركات الشحن" },
+  },
   admin: {
     useAsTitle: "name",
-    group: "Comercio",
+    group: FULFILMENT_GROUP,
     defaultColumns: ["name", "code", "active", "markets"],
-    description:
-      "Añadir un transportista es crear una fila, no un despliegue: la URL de seguimiento es una plantilla, no código.",
+    description: {
+      es: "Añadir un transportista es crear una fila, no un despliegue: la URL de seguimiento es una plantilla, no código.",
+      en: "Adding a carrier is creating a row, not a deploy: the tracking URL is a template, not code.",
+      ar: "إضافة شركة شحن تعني إنشاء صف، لا إصدار نشرة: رابط التتبّع قالب وليس شيفرة.",
+    },
   },
   access: {
     ...fulfilmentAccess,
@@ -109,45 +219,80 @@ export const Carriers: CollectionConfig = {
     {
       name: "code",
       type: "text",
+      label: { es: "Código", en: "Code", ar: "الرمز" },
       required: true,
       unique: true,
       index: true,
-      admin: { description: "Identificador estable en minúsculas: seur, dpd, aramex." },
-      validate: ((value) =>
+      admin: {
+        description: {
+          es: "Identificador estable en minúsculas: seur, dpd, aramex.",
+          en: "A stable lowercase identifier: seur, dpd, aramex.",
+          ar: "معرّف ثابت بأحرف صغيرة: seur أو dpd أو aramex.",
+        },
+      },
+      validate: ((value, options) =>
         typeof value === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)
           ? true
-          : "Solo minúsculas, números y guiones.") as TextFieldSingleValidation,
+          : panelTextFor(FULFILMENT_COPY.carrierCodeShape, options)) as TextFieldSingleValidation,
     },
     {
       name: "name",
       type: "text",
+      label: { es: "Nombre", en: "Name", ar: "الاسم" },
       required: true,
-      admin: { description: "Nombre visible para quien prepara el envío." },
+      admin: {
+        description: {
+          es: "Nombre visible para quien prepara el envío.",
+          en: "The name seen by whoever prepares the shipment.",
+          ar: "الاسم الذي يراه من يجهّز الشحنة.",
+        },
+      },
     },
     {
       name: "trackingUrlTemplate",
       type: "text",
+      label: {
+        es: "Plantilla de seguimiento",
+        en: "Tracking URL template",
+        ar: "قالب رابط التتبّع",
+      },
       required: true,
       validate: validateTrackingTemplate,
       admin: {
-        description: `URL de seguimiento con ${TRACKING_PLACEHOLDER} donde va el número. Ej.: https://track.aramex.com/${TRACKING_PLACEHOLDER}`,
+        description: {
+          es: `URL de seguimiento con ${TRACKING_PLACEHOLDER} donde va el número. Ej.: https://track.aramex.com/${TRACKING_PLACEHOLDER}`,
+          en: `The tracking URL with ${TRACKING_PLACEHOLDER} where the number goes. E.g. https://track.aramex.com/${TRACKING_PLACEHOLDER}`,
+          ar: `رابط التتبّع مع ${TRACKING_PLACEHOLDER} في موضع الرقم. مثال: https://track.aramex.com/${TRACKING_PLACEHOLDER}`,
+        },
       },
     },
     {
       name: "markets",
       type: "select",
+      label: { es: "Mercados", en: "Markets", ar: "الأسواق" },
       hasMany: true,
+      // ISO country codes: the same three letters in every language.
       options: MARKETS.map((market) => ({ label: market.toUpperCase(), value: market })),
       admin: {
-        description:
-          "Mercados en los que se puede usar. Vacío = todos. Un pedido de otro mercado se rechaza al guardar el envío.",
+        description: {
+          es: "Mercados en los que se puede usar. Vacío = todos. Un pedido de otro mercado se rechaza al guardar el envío.",
+          en: "The markets it may be used in. Empty = all of them. An order from another market is refused when the shipment is saved.",
+          ar: "الأسواق التي يمكن استخدامها فيها. الفراغ = جميعها. يُرفض طلب من سوق آخر عند حفظ الشحنة.",
+        },
       },
     },
     {
       name: "active",
       type: "checkbox",
+      label: { es: "Activo", en: "Active", ar: "فعّال" },
       defaultValue: true,
-      admin: { description: "Desmarcar retira el transportista sin borrar los envíos que lo usaron." },
+      admin: {
+        description: {
+          es: "Desmarcar retira el transportista sin borrar los envíos que lo usaron.",
+          en: "Unticking retires the carrier without deleting the shipments that used it.",
+          ar: "إلغاء التحديد يوقف شركة الشحن دون حذف الشحنات التي استخدمتها.",
+        },
+      },
     },
   ],
 };
@@ -168,7 +313,7 @@ async function readOrder(req: PayloadRequest, orderId: number): Promise<OrderRow
   const order = await req.payload
     .findByID({ collection: "orders", id: orderId, depth: 0, overrideAccess: true, req })
     .catch(() => null);
-  if (order === null) throw new APIError("El pedido del envío no existe.", 400);
+  if (order === null) throw new APIError(say(FULFILMENT_COPY.orderMissing, req), 400);
   return order as unknown as OrderRow;
 }
 
@@ -204,7 +349,11 @@ async function applyFulfilment(
       // and it takes the whole save down with it.
       if (result.rejection === "already_applied") continue;
       throw new APIError(
-        `No se puede aplicar "${trigger.type}" a un pedido en "${status}" (${result.rejection}).`,
+        say(FULFILMENT_COPY.transitionRefused, req, {
+          trigger: trigger.type,
+          status,
+          rejection: result.rejection,
+        }),
         409,
       );
     }
@@ -214,7 +363,7 @@ async function applyFulfilment(
         // Unreachable while the domain test holds; kept as the tripwire that
         // makes "nothing external runs inside the transaction" structural
         // rather than remembered.
-        throw new APIError(`El efecto "${effect}" no es de outbox y el fulfilment no lo ejecuta.`, 500);
+        throw new APIError(say(FULFILMENT_COPY.effectNotOutbox, req, { effect }), 500);
       }
       await payload.create({
         collection: "outbox",
@@ -259,14 +408,17 @@ async function readCarrier(
   const carrier = (await req.payload
     .findByID({ collection: "carriers", id: carrierId, depth: 0, overrideAccess: true, req })
     .catch(() => null)) as CarrierRow | null;
-  if (carrier === null) throw new APIError("El transportista no existe.", 400);
+  if (carrier === null) throw new APIError(say(FULFILMENT_COPY.carrierMissing, req), 400);
   if (carrier.active === false) {
-    throw new APIError(`"${carrier.name}" está retirado: elige un transportista activo.`, 400);
+    throw new APIError(say(FULFILMENT_COPY.carrierRetired, req, { carrier: carrier.name }), 400);
   }
   // A domestic Spanish courier on a UK order is a parcel that never arrives.
   if (Array.isArray(carrier.markets) && carrier.markets.length > 0 && !carrier.markets.includes(market)) {
     throw new APIError(
-      `"${carrier.name}" no opera en el mercado ${market.toUpperCase()} de este pedido.`,
+      say(FULFILMENT_COPY.carrierWrongMarket, req, {
+        carrier: carrier.name,
+        market: market.toUpperCase(),
+      }),
       400,
     );
   }
@@ -307,11 +459,11 @@ const applyShipmentChange: CollectionBeforeChangeHook = async ({
   const previous = operation === "update" ? (originalDoc as ShipmentShape | undefined) : undefined;
 
   const orderId = idOf(incoming.order ?? previous?.order);
-  if (orderId === null) throw new APIError("Un envío necesita su pedido.", 400);
+  if (orderId === null) throw new APIError(say(FULFILMENT_COPY.shipmentNeedsOrder, req), 400);
   if (previous !== undefined && idOf(previous.order) !== orderId) {
     // Moving a shipment to another order would leave the first one `shipped`
     // with nothing behind it and skip the second one's guards entirely.
-    throw new APIError("Un envío no se puede mover a otro pedido.", 400);
+    throw new APIError(say(FULFILMENT_COPY.shipmentCannotMove, req), 400);
   }
 
   const order = await readOrder(req, orderId);
@@ -332,7 +484,7 @@ const applyShipmentChange: CollectionBeforeChangeHook = async ({
       req,
     });
     if (existing.totalDocs > 0) {
-      throw new APIError("Este pedido ya tiene un envío: edítalo en vez de crear otro.", 400);
+      throw new APIError(say(FULFILMENT_COPY.orderAlreadyShipped, req), 400);
     }
   }
 
@@ -347,10 +499,7 @@ const applyShipmentChange: CollectionBeforeChangeHook = async ({
   const isDelivered = deliveredAt !== undefined && deliveredAt !== null;
 
   if (wasShipped && !isShipped) {
-    throw new APIError(
-      "Un envío ya enviado no puede quedarse sin transportista ni sin número de seguimiento.",
-      400,
-    );
+    throw new APIError(say(FULFILMENT_COPY.shippedNeedsTracking, req), 400);
   }
 
   const triggers: OrderTrigger[] = [];
@@ -402,13 +551,19 @@ const applyShipmentChange: CollectionBeforeChangeHook = async ({
 
 export const Shipments: CollectionConfig = {
   slug: "shipments",
-  labels: { singular: "Envío", plural: "Envíos" },
+  labels: {
+    singular: { es: "Envío", en: "Shipment", ar: "شحنة" },
+    plural: { es: "Envíos", en: "Shipments", ar: "الشحنات" },
+  },
   admin: {
     useAsTitle: "trackingNumber",
-    group: "Comercio",
+    group: FULFILMENT_GROUP,
     defaultColumns: ["order", "carrier", "trackingNumber", "shippedAt", "deliveredAt"],
-    description:
-      "El envío ES la transición: crearlo manda el pedido a preparar, rellenar transportista y seguimiento lo marca enviado, y fechar la entrega lo cierra. Si la máquina de estados no lo permite, no se guarda.",
+    description: {
+      es: "El envío ES la transición: crearlo manda el pedido a preparar, rellenar transportista y seguimiento lo marca enviado, y fechar la entrega lo cierra. Si la máquina de estados no lo permite, no se guarda.",
+      en: "The shipment IS the transition: creating it sends the order to picking, filling in carrier and tracking marks it shipped, and dating the delivery closes it. If the state machine refuses, nothing is saved.",
+      ar: "الشحنة هي الانتقال نفسه: إنشاؤها يرسل الطلب إلى التجهيز، وتعبئة شركة الشحن ورقم التتبّع يجعله مُرسَلًا، وتأريخ التسليم يغلقه. إن رفضت آلة الحالات، لا يُحفظ شيء.",
+    },
   },
   access: {
     ...fulfilmentAccess,
@@ -422,36 +577,57 @@ export const Shipments: CollectionConfig = {
       name: "order",
       type: "relationship",
       relationTo: "orders",
+      label: { es: "Pedido", en: "Order", ar: "الطلب" },
       required: true,
       index: true,
       admin: {
-        description:
-          "Un envío por pedido: la máquina rechaza el segundo, porque `shipped` es un único estado.",
+        description: {
+          es: "Un envío por pedido: la máquina rechaza el segundo, porque `shipped` es un único estado.",
+          en: "One shipment per order: the machine refuses a second one, because `shipped` is a single status.",
+          ar: "شحنة واحدة لكل طلب: ترفض الآلة الثانية، لأن `shipped` حالة واحدة لا تتجزأ.",
+        },
       },
     },
     {
       name: "carrier",
       type: "relationship",
       relationTo: "carriers",
+      label: { es: "Transportista", en: "Carrier", ar: "شركة الشحن" },
       admin: {
-        description: "Al rellenarlo junto con el número de seguimiento, el pedido pasa a enviado.",
+        description: {
+          es: "Al rellenarlo junto con el número de seguimiento, el pedido pasa a enviado.",
+          en: "Filling it in together with the tracking number moves the order to shipped.",
+          ar: "تعبئتها مع رقم التتبّع تنقل الطلب إلى حالة «أُرسل».",
+        },
       },
     },
     {
       name: "trackingNumber",
       type: "text",
+      label: { es: "Número de seguimiento", en: "Tracking number", ar: "رقم التتبّع" },
       index: true,
-      admin: { description: "Número que da el transportista. Va tal cual en el email al cliente." },
+      admin: {
+        description: {
+          es: "Número que da el transportista. Va tal cual en el email al cliente.",
+          en: "The number the carrier gives. It goes verbatim into the customer's email.",
+          ar: "الرقم الذي تمنحه شركة الشحن. يُدرج كما هو في بريد العميل.",
+        },
+      },
     },
     {
       // Derived, never stored: corregir la plantilla de un transportista
       // arregla también los envíos que ya la usaron.
       name: "trackingUrl",
       type: "text",
+      label: { es: "Enlace de seguimiento", en: "Tracking link", ar: "رابط التتبّع" },
       virtual: true,
       admin: {
         readOnly: true,
-        description: "Se construye con la plantilla del transportista; no se escribe a mano.",
+        description: {
+          es: "Se construye con la plantilla del transportista; no se escribe a mano.",
+          en: "Built from the carrier's template; never typed by hand.",
+          ar: "يُبنى من قالب شركة الشحن؛ ولا يُكتب يدويًا.",
+        },
       },
       hooks: {
         afterRead: [
@@ -478,32 +654,56 @@ export const Shipments: CollectionConfig = {
     {
       name: "shippedAt",
       type: "date",
+      label: { es: "Fecha de envío", en: "Shipped on", ar: "تاريخ الإرسال" },
       admin: {
         readOnly: true,
-        description: "La pone la transición al marcar enviado.",
+        description: {
+          es: "La pone la transición al marcar enviado.",
+          en: "Set by the transition when the order is marked shipped.",
+          ar: "يضعه الانتقال عند تعليم الطلب كمُرسَل.",
+        },
       },
     },
     {
       name: "deliveredAt",
       type: "date",
-      admin: { description: "Fecharla cierra el pedido como entregado y abre el desistimiento." },
+      label: { es: "Fecha de entrega", en: "Delivered on", ar: "تاريخ التسليم" },
+      admin: {
+        description: {
+          es: "Fecharla cierra el pedido como entregado y abre el desistimiento.",
+          en: "Dating it closes the order as delivered and opens the withdrawal window.",
+          ar: "تأريخه يغلق الطلب كمُسلَّم ويفتح مهلة العدول.",
+        },
+      },
     },
     {
       name: "incoterm",
       type: "select",
+      label: { es: "Incoterm", en: "Incoterm", ar: "شرط التسليم" },
+      // DDP and DDU are Incoterms: the same three letters on every customs
+      // form in every language.
       options: ["DDP", "DDU"],
       admin: {
         readOnly: true,
-        description: "Del mercado del pedido (ADR-08: EAU se sirve DDP vía courier-broker).",
+        description: {
+          es: "Del mercado del pedido (ADR-08: EAU se sirve DDP vía courier-broker).",
+          en: "Taken from the order's market (ADR-08: the UAE is served DDP through a courier-broker).",
+          ar: "مأخوذ من سوق الطلب (ADR-08: تُخدَم الإمارات بشرط DDP عبر وسيط شحن).",
+        },
       },
     },
     {
       name: "markedBy",
       type: "relationship",
       relationTo: "users",
+      label: { es: "Marcado por", en: "Marked by", ar: "سجّله" },
       admin: {
         readOnly: true,
-        description: "Quién movió el envío por última vez. Un envío lo marca una persona, no un webhook.",
+        description: {
+          es: "Quién movió el envío por última vez. Un envío lo marca una persona, no un webhook.",
+          en: "Who last moved the shipment. A shipment is marked by a person, not by a webhook.",
+          ar: "من حرّك الشحنة آخر مرة. تُسجَّل الشحنة بيد شخص، لا بويب هوك.",
+        },
       },
     },
   ],
@@ -538,8 +738,11 @@ export function withFulfilment(orders: CollectionConfig): CollectionConfig {
       admin: {
         ...field.admin,
         readOnly: true,
-        description:
-          "Lo mueve la máquina de estados: pagos por webhook, envíos desde la colección Envíos. No se edita.",
+        description: {
+          es: "Lo mueve la máquina de estados: pagos por webhook, envíos desde la colección Envíos. No se edita.",
+          en: "Moved by the state machine: payments by webhook, shipping from the Shipments collection. Not editable.",
+          ar: "تحرّكه آلة الحالات: المدفوعات عبر الويب هوك، والشحن من مجموعة الشحنات. غير قابل للتحرير.",
+        },
       },
     };
   });
@@ -559,7 +762,14 @@ export function withFulfilment(orders: CollectionConfig): CollectionConfig {
     type: "join",
     collection: "shipments",
     on: "order",
-    admin: { description: "El envío de este pedido, si ya se abrió." },
+    label: { es: "Envío", en: "Shipment", ar: "الشحنة" },
+    admin: {
+      description: {
+        es: "El envío de este pedido, si ya se abrió.",
+        en: "This order's shipment, once one has been opened.",
+        ar: "شحنة هذا الطلب، إن كانت قد فُتحت.",
+      },
+    },
   });
   return { ...orders, fields };
 }

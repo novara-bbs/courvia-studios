@@ -277,6 +277,32 @@ export const Products: CollectionConfig = {
       ],
     },
     { name: "warrantyMonths", type: "number", min: 0, defaultValue: 24 },
+    /**
+     * Con qué layout se dibuja esta ficha (WP13).
+     *
+     * OPCIONAL, y esa es la parte que importa: vacío significa «la plantilla
+     * por defecto de tipo producto», y si tampoco hay ninguna en el CMS, la
+     * de código (`src/catalog/product-template.ts`). Un producto nuevo —o
+     * una base de datos recién migrada, o la de CI— renderiza igual sin que
+     * nadie haya abierto la colección de plantillas.
+     *
+     * El campo vive en el producto y no al revés (una plantilla con una
+     * lista de productos) porque la pregunta que hace el render es «¿con qué
+     * se dibuja ESTE producto?», y esa respuesta tiene que costar una
+     * columna, no un escaneo de la colección entera.
+     */
+    {
+      name: "template",
+      type: "relationship",
+      relationTo: "templates",
+      // Una plantilla de categoría no describe una ficha de producto: el
+      // selector no debería ni ofrecerla.
+      filterOptions: () => ({ kind: { equals: "product" } }),
+      admin: {
+        position: "sidebar",
+        description: "Vacío = la plantilla por defecto de producto. Cambiarla no toca el contenido.",
+      },
+    },
   ],
 };
 

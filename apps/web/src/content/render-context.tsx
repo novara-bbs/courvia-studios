@@ -8,7 +8,8 @@
 import { RichText } from "@payloadcms/richtext-lexical/react";
 import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
 import { isAuthoredHref } from "@courvia/sections/registry";
-import type { RenderContext } from "@courvia/sections/registry";
+import type { ProductSurface, RenderContext, RenderSubject } from "@courvia/sections/registry";
+import type { ReactNode } from "react";
 import { isRegionId } from "@courvia/platform";
 import type { RegionId } from "@courvia/platform";
 
@@ -29,10 +30,47 @@ import { SectionSpecTable } from "./section-spec-table";
  */
 const DEAD_HREF = "#";
 
+/**
+ * What the render is ABOUT, when it is about something (WP13).
+ *
+ * A fourth, optional argument rather than a second factory: an ordinary page
+ * has no subject and must keep calling this exactly as it did, while a
+ * product template needs the same serializer, the same href resolution and
+ * the same lead pipeline as everything else — one context, one extra pair of
+ * keys. Absent = no subject, which is precisely what tells a bound section
+ * dropped onto a normal page that it has nothing to render.
+ */
+/**
+ * Lexical state -> React, and the ONE place that decides how.
+ *
+ * Exported because the product surfaces (src/catalog/pdp-surfaces.tsx) draw
+ * the description outside the section renderer and must serialize it exactly
+ * the same way; two serializers would be two answers to `disableContainer`,
+ * and the wrong one is invisible until someone measures the gaps.
+ *
+ * `disableContainer`: without it the serializer wraps every document in one
+ * <div class="payload-richtext">, so `.cv-prose`'s `display: grid; gap` had a
+ * single child and separated nothing — the four paragraphs of a product
+ * description measured 0, 0, 0 px apart and read as a wall. Unwrapping here,
+ * at the composition root, keeps the editor's class name out of a stylesheet
+ * that is not allowed to know Payload exists.
+ */
+export function renderRichText(value: unknown): ReactNode {
+  return value === null || value === undefined ? null : (
+    <RichText data={value as SerializedEditorState} disableContainer />
+  );
+}
+
+export interface RenderBinding {
+  subject: RenderSubject;
+  renderProductSurface: (surface: ProductSurface) => ReactNode;
+}
+
 export function makeRenderContext(
   preview: boolean,
   region: RegionId,
   conceptLabel?: string,
+  binding?: RenderBinding,
 ): RenderContext {
   /** One line per distinct bad destination per page render, not one per
    *  click target: three CTAs sharing a broken href are one mistake. */
@@ -42,16 +80,8 @@ export function makeRenderContext(
     // Sections hold no user-visible strings: the concept-render label they
     // must show over non-final assets (E-028) arrives translated from here.
     ...(conceptLabel === undefined ? {} : { conceptLabel }),
-    // `disableContainer`: without it the serializer wraps every document in
-    // one <div class="payload-richtext">, so `.cv-prose`'s `display: grid;
-    // gap` had a single child and separated nothing — the four paragraphs of
-    // a product description measured 0, 0, 0 px apart and read as a wall.
-    // Unwrapping here, at the composition root, keeps the editor's class name
-    // out of a stylesheet that is not allowed to know Payload exists.
-    renderRichText: (value) =>
-      value === null || value === undefined ? null : (
-        <RichText data={value as SerializedEditorState} disableContainer />
-      ),
+    ...(binding === undefined ? {} : binding),
+    renderRichText,
     renderProductGrid: (slugs) => <SectionProductGrid slugs={slugs} region={region} />,
     renderSpecTable: (slugs) => <SectionSpecTable slugs={slugs} region={region} />,
     renderLeadForm: (options) => (

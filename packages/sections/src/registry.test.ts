@@ -39,7 +39,12 @@ describe("registry completeness", () => {
       "hero",
       "hotspots",
       "mediaText",
+      "productHero",
+      "productLead",
+      "productRange",
       "productShowcase",
+      "productSpecs",
+      "productStory",
       "quote",
       "richText",
       "specTable",
@@ -69,13 +74,25 @@ describe("registry completeness", () => {
         expect(parsed.success, JSON.stringify(parsed.success ? "" : parsed.error.issues)).toBe(true);
       });
 
+      it(section.bound === true ? "is bound and holds no content" : "holds content of its own", () => {
+        // The two halves of the same rule (WP13). A BOUND section reads its
+        // subject from the render context, so a content field on one would
+        // be a template slot an editor could fill differently per product —
+        // the "200 SKUs, 200 layouts" outcome templates exist to prevent. A
+        // CONTENT section without fields is a block whose form is empty.
+        const fields = Object.keys(section.fields);
+        if (section.bound === true) expect(fields).toEqual([]);
+        else expect(fields.length).toBeGreaterThan(0);
+      });
+
       it("declares at least the rhythm controls", () => {
         expect(section.appearance).toContain("spaceBlockStart");
         expect(section.appearance).toContain("spaceBlockEnd");
       });
 
-      it("rejects content missing a required field", () => {
-        // Every launch section has at least one required field.
+      it.skipIf(section.bound === true)("rejects content missing a required field", () => {
+        // Every content section has at least one required field. A bound one
+        // has no fields at all, so `{}` IS its whole valid content.
         const emptied = section.contract.safeParse({});
         expect(emptied.success).toBe(false);
       });
@@ -130,7 +147,9 @@ describe("every field is named in the editor's language", () => {
     describe(type, () => {
       const fields = walkFields(section.fields);
 
-      it("has fields at all", () => {
+      it.skipIf(section.bound === true)("has fields at all", () => {
+        // Bound sections are the exception, and the assertion above
+        // ("is bound and holds no content") is the one that covers them.
         expect(fields.length).toBeGreaterThan(0);
       });
 
@@ -220,7 +239,17 @@ describe("every field is named in the editor's language", () => {
  * says needs its own ADR.
  */
 describe("the section ceiling (ADR-028)", () => {
-  /** 19 today + the 4 bound sections of WP13, plus one of margin. */
+  /**
+   * 24, from ADR-028: 19 content sections + the bound sections of WP13.
+   *
+   * The registry now holds exactly 24. ADR-028 predicted 23 and one of
+   * margin because it counted four bound sections; WP13 shipped five —
+   * `productHero` merges the buybox, the gallery and the offers table (one
+   * grid owns the sticky rail), but the story, the spec sheet, the form and
+   * the range each stayed a slot an editor can move or drop, which was the
+   * point of the work. The margin is spent: section 25 needs a new ADR,
+   * which is what this constant existing next to the assertion is for.
+   */
   const SECTION_CEILING = 24;
   /** Payload's block drawer is a six-column grid, so twelve is two rows: a
    *  whole shelf still reads at a glance instead of scrolling as a list. */

@@ -14,11 +14,26 @@ import { ORDER_STATUSES, PAYMENT_EVENT_TYPES, SIDE_EFFECT_EXECUTION } from "@cou
 import type { CollectionConfig, Field } from "payload";
 
 import { isAdmin, nobodyWrites } from "./access";
+import { panelTextFor } from "./admin-copy";
+import type { PanelLanguageSource } from "./admin-copy";
 
-const minorUnits = (value: number | null | undefined): true | string =>
+/** The back office reads in three languages too (`admin-copy.ts`): commerce
+ *  is the part of the panel a Dubai operator is most likely to open. */
+const COMMERCE_GROUP = { es: "Comercio", en: "Commerce", ar: "التجارة" };
+
+const MINOR_UNITS_ERROR = {
+  es: "Entero en unidades menores.",
+  en: "A whole number, in minor units.",
+  ar: "عدد صحيح بالوحدات الصغرى.",
+};
+
+const minorUnits = (
+  value: number | null | undefined,
+  options: PanelLanguageSource,
+): true | string =>
   value === null || value === undefined || Number.isInteger(value)
     ? true
-    : "Entero en unidades menores";
+    : panelTextFor(MINOR_UNITS_ERROR, options);
 
 const addressFields: Field[] = [
   { name: "name", type: "text", required: true },
@@ -35,7 +50,10 @@ const serverOnly = { read: isAdmin, create: isAdmin, update: isAdmin, delete: is
 
 export const Orders: CollectionConfig = {
   slug: "orders",
-  labels: { singular: "Pedido", plural: "Pedidos" },
+  labels: {
+    singular: { es: "Pedido", en: "Order", ar: "طلب" },
+    plural: { es: "Pedidos", en: "Orders", ar: "الطلبات" },
+  },
   admin: {
     /**
      * `id` titled every order in every list and every relationship selector,
@@ -49,10 +67,13 @@ export const Orders: CollectionConfig = {
      * relationship — and an order has no relationship that names it.
      */
     useAsTitle: "email",
-    group: "Comercio",
+    group: COMMERCE_GROUP,
     defaultColumns: ["id", "status", "market", "totalAmount", "email", "createdAt"],
-    description:
-      "SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (docs/orders-state-machine.md).",
+    description: {
+      es: "SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (docs/orders-state-machine.md).",
+      en: "SERVER ONLY. The status is moved by the state machine inside a transaction — never edited by hand (docs/orders-state-machine.md).",
+      ar: "من الخادم فقط. تُحرّك آلة الحالات الحالةَ داخل معاملة واحدة — ولا تُحرَّر يدويًا أبدًا (docs/orders-state-machine.md).",
+    },
   },
   access: serverOnly,
   fields: [
@@ -74,7 +95,13 @@ export const Orders: CollectionConfig = {
        * which bypasses field access by design.
        */
       access: { create: nobodyWrites, update: nobodyWrites },
-      admin: { description: "Solo lo mueve la máquina de estados. No editar." },
+      admin: {
+        description: {
+          es: "Solo lo mueve la máquina de estados. No editar.",
+          en: "Moved by the state machine only. Do not edit.",
+          ar: "تحرّكه آلة الحالات وحدها. لا تُحرِّره.",
+        },
+      },
     },
     { name: "market", type: "select", required: true, options: [...MARKETS] },
     { name: "email", type: "email", required: true, index: true },
@@ -94,7 +121,13 @@ export const Orders: CollectionConfig = {
           required: true,
           min: 0,
           validate: minorUnits,
-          admin: { description: "Unidades menores, copiadas del precio del mercado al crear." },
+          admin: {
+            description: {
+              es: "Unidades menores, copiadas del precio del mercado al crear.",
+              en: "Minor units, copied from the market price at creation time.",
+              ar: "بالوحدات الصغرى، منسوخة من سعر السوق عند الإنشاء.",
+            },
+          },
         },
       ],
     },
@@ -107,7 +140,11 @@ export const Orders: CollectionConfig = {
       defaultValue: 0,
       validate: minorUnits,
       admin: {
-        description: "0 mientras los precios son inclusive; el motor fiscal llega con la pasarela.",
+        description: {
+          es: "0 mientras los precios son inclusive; el motor fiscal llega con la pasarela.",
+          en: "0 while prices are tax-inclusive; the tax engine arrives with the gateway.",
+          ar: "صفر ما دامت الأسعار شاملة للضريبة؛ يصل محرّك الضرائب مع البوابة.",
+        },
       },
     },
     { name: "refundedAmount", type: "number", required: true, min: 0, defaultValue: 0, validate: minorUnits },
@@ -122,26 +159,44 @@ export const Orders: CollectionConfig = {
       name: "provider",
       type: "select",
       options: [...PAYMENT_PROVIDERS],
-      admin: { description: "Pasarela elegida por el cliente (ADR-14)." },
+      admin: {
+        description: {
+          es: "Pasarela elegida por el cliente (ADR-14).",
+          en: "The gateway the customer chose (ADR-14).",
+          ar: "البوابة التي اختارها العميل (ADR-14).",
+        },
+      },
     },
     {
       name: "providerPaymentId",
       type: "text",
       index: true,
-      admin: { description: "Id del pago en la pasarela; llega al crear la sesión." },
+      admin: {
+        description: {
+          es: "Id del pago en la pasarela; llega al crear la sesión.",
+          en: "The payment's id at the gateway; it arrives when the session is created.",
+          ar: "معرّف الدفعة لدى البوابة؛ يصل عند إنشاء الجلسة.",
+        },
+      },
     },
   ],
 };
 
 export const Payments: CollectionConfig = {
   slug: "payments",
-  labels: { singular: "Pago", plural: "Pagos" },
+  labels: {
+    singular: { es: "Pago", en: "Payment", ar: "دفعة" },
+    plural: { es: "Pagos", en: "Payments", ar: "المدفوعات" },
+  },
   admin: {
     useAsTitle: "providerEventId",
-    group: "Comercio",
+    group: COMMERCE_GROUP,
     defaultColumns: ["provider", "type", "order", "amount", "createdAt"],
-    description:
-      "SOLO SERVIDOR. Libro de eventos de pago normalizados. La fila se inserta ANTES de la transición: (provider, providerEventId) UNIQUE es la idempotencia — un webhook repetido revienta aquí, sin efectos.",
+    description: {
+      es: "SOLO SERVIDOR. Libro de eventos de pago normalizados. La fila se inserta ANTES de la transición: (provider, providerEventId) UNIQUE es la idempotencia — un webhook repetido revienta aquí, sin efectos.",
+      en: "SERVER ONLY. The ledger of normalized payment events. The row is inserted BEFORE the transition: (provider, providerEventId) UNIQUE is the idempotency — a repeated webhook breaks here, with no effects.",
+      ar: "من الخادم فقط. سجل أحداث الدفع المُوحَّدة. يُدرَج الصف قبل الانتقال: القيد الفريد (provider, providerEventId) هو ضمان عدم التكرار — يفشل الويب هوك المكرّر هنا بلا أي أثر.",
+    },
   },
   access: serverOnly,
   fields: [
@@ -159,13 +214,19 @@ export const Payments: CollectionConfig = {
 
 export const Outbox: CollectionConfig = {
   slug: "outbox",
-  labels: { singular: "Efecto pendiente", plural: "Bandeja de salida" },
+  labels: {
+    singular: { es: "Efecto pendiente", en: "Pending effect", ar: "أثر معلّق" },
+    plural: { es: "Bandeja de salida", en: "Outbox", ar: "صندوق الصادر" },
+  },
   admin: {
     useAsTitle: "effect",
-    group: "Comercio",
+    group: COMMERCE_GROUP,
     defaultColumns: ["effect", "status", "order", "attempts", "createdAt"],
-    description:
-      "SOLO SERVIDOR. Efectos externos (email, factura, reembolso en pasarela) escritos en la MISMA transacción que la transición y despachados después del commit — un rollback no des-envía un email.",
+    description: {
+      es: "SOLO SERVIDOR. Efectos externos (email, factura, reembolso en pasarela) escritos en la MISMA transacción que la transición y despachados después del commit — un rollback no des-envía un email.",
+      en: "SERVER ONLY. External effects (email, invoice, gateway refund) written in the SAME transaction as the transition and dispatched after the commit — a rollback cannot un-send an email.",
+      ar: "من الخادم فقط. آثار خارجية (بريد، فاتورة، ردّ مبلغ لدى البوابة) تُكتب في المعاملة نفسها التي تحمل الانتقال وتُرسل بعد الالتزام — التراجع لا يُلغي بريدًا أُرسل.",
+    },
   },
   access: serverOnly,
   fields: [
@@ -196,7 +257,13 @@ export const Outbox: CollectionConfig = {
     {
       name: "payload",
       type: "json",
-      admin: { description: "Datos del efecto (p. ej. importe de un reembolso, en unidades menores)." },
+      admin: {
+        description: {
+          es: "Datos del efecto (p. ej. importe de un reembolso, en unidades menores).",
+          en: "The effect's data (e.g. a refund amount, in minor units).",
+          ar: "بيانات الأثر (مثل مبلغ ردّ، بالوحدات الصغرى).",
+        },
+      },
     },
     { name: "attempts", type: "number", required: true, defaultValue: 0, min: 0 },
     { name: "lastError", type: "textarea" },
@@ -205,15 +272,21 @@ export const Outbox: CollectionConfig = {
 
 export const Returns: CollectionConfig = {
   slug: "returns",
-  labels: { singular: "Devolución", plural: "Devoluciones" },
+  labels: {
+    singular: { es: "Devolución", en: "Return", ar: "إرجاع" },
+    plural: { es: "Devoluciones", en: "Returns", ar: "المرتجعات" },
+  },
   admin: {
     // Same problem as Orders, but a return HAS a relationship that names it:
     // the order it belongs to. Linked virtual field, no column, no drift.
     useAsTitle: "customer",
-    group: "Comercio",
+    group: COMMERCE_GROUP,
     defaultColumns: ["id", "customer", "order", "status", "reason", "createdAt"],
-    description:
-      "SOLO SERVIDOR. RMA: la aprobación humana del reembolso (refund.approved) es el ÚNICO disparador que ordena ejecutar un reembolso en la pasarela.",
+    description: {
+      es: "SOLO SERVIDOR. RMA: la aprobación humana del reembolso (refund.approved) es el ÚNICO disparador que ordena ejecutar un reembolso en la pasarela.",
+      en: "SERVER ONLY. RMA: a human approving the refund (refund.approved) is the ONLY trigger that orders a refund at the gateway.",
+      ar: "من الخادم فقط. RMA: موافقة إنسان على ردّ المبلغ (refund.approved) هي المُطلِق الوحيد الذي يأمر بتنفيذ ردّ لدى البوابة.",
+    },
   },
   access: serverOnly,
   fields: [
@@ -221,9 +294,16 @@ export const Returns: CollectionConfig = {
     {
       name: "customer",
       type: "text",
-      label: "Cliente",
+      label: { es: "Cliente", en: "Customer", ar: "العميل" },
       virtual: "order.email",
-      admin: { readOnly: true, description: "Del pedido enlazado. No es una columna." },
+      admin: {
+        readOnly: true,
+        description: {
+          es: "Del pedido enlazado. No es una columna.",
+          en: "Taken from the linked order. It is not a column.",
+          ar: "مأخوذ من الطلب المرتبط. ليس عمودًا في الجدول.",
+        },
+      },
     },
     {
       name: "status",
@@ -266,13 +346,19 @@ export const Returns: CollectionConfig = {
  */
 export const Carts: CollectionConfig = {
   slug: "carts",
-  labels: { singular: "Carrito", plural: "Carritos" },
+  labels: {
+    singular: { es: "Carrito", en: "Cart", ar: "سلة" },
+    plural: { es: "Carritos", en: "Carts", ar: "السلال" },
+  },
   admin: {
     useAsTitle: "sessionId",
-    group: "Comercio",
+    group: COMMERCE_GROUP,
     defaultColumns: ["sessionId", "engine", "connectionKey", "createdAt"],
-    description:
-      "SOLO SERVIDOR. Fase 2: únicamente la propiedad (qué conexión manda sobre este carrito). Las líneas y el flujo llegan en la Fase 4.",
+    description: {
+      es: "SOLO SERVIDOR. Fase 2: únicamente la propiedad (qué conexión manda sobre este carrito). Las líneas y el flujo llegan en la Fase 4.",
+      en: "SERVER ONLY. Phase 2: ownership only (which connection governs this cart). Lines and the flow arrive in Phase 4.",
+      ar: "من الخادم فقط. المرحلة الثانية: الملكية فقط (أي اتصال يحكم هذه السلة). تصل البنود والتدفّق في المرحلة الرابعة.",
+    },
   },
   access: serverOnly,
   fields: [
@@ -283,7 +369,11 @@ export const Carts: CollectionConfig = {
       unique: true,
       index: true,
       admin: {
-        description: "Identificador opaco de la sesión de compra. Ni un id de usuario ni un email.",
+        description: {
+          es: "Identificador opaco de la sesión de compra. Ni un id de usuario ni un email.",
+          en: "An opaque id for the shopping session. Neither a user id nor an email address.",
+          ar: "معرّف مبهم لجلسة الشراء. ليس معرّف مستخدم ولا بريدًا إلكترونيًا.",
+        },
       },
     },
   ],

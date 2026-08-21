@@ -12,9 +12,29 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { SECTIONS } from "../registry";
-import type { RenderContext } from "../registry";
+import type { RenderContext, RenderSubject } from "../registry";
 import { editableEntries } from "./editing";
 import { SectionRenderer, anchorId } from "./index";
+
+/**
+ * The product a bound section renders when this file exercises one.
+ *
+ * Everything is present — images, offers, prose, specs, siblings — because
+ * each of those numbers is a branch that decides whether a bound section
+ * emits a band at all, and the fixture run below is about "does it render",
+ * not "does it hide". The hiding branches get their own test.
+ */
+const subject: RenderSubject = {
+  kind: "product",
+  slug: "tempo-r1",
+  market: "es",
+  status: "available",
+  skus: ["TMP-R1-P"],
+  imageCount: 3,
+  specCount: 7,
+  hasDescription: true,
+  relatedSlugs: ["rally-station"],
+};
 
 /** A context with every injected renderer present, as the app supplies. */
 const ctx: RenderContext = {
@@ -23,6 +43,8 @@ const ctx: RenderContext = {
   renderRichText: () => <p>rich</p>,
   renderProductGrid: (slugs) => <ul data-slugs={slugs.join(",")} />,
   renderSpecTable: (slugs) => <table data-slugs={slugs.join(",")} />,
+  subject,
+  renderProductSurface: (surface) => <div data-surface={surface} />,
 };
 
 const previewCtx: RenderContext = { ...ctx, preview: true };
@@ -114,6 +136,83 @@ describe("linked sections degrade instead of crashing", () => {
   it("passes the picked product slugs through to the injected renderer", () => {
     const html = render({ blockType: "specTable", ...SECTIONS.specTable?.fixture });
     expect(html).toContain('data-slugs="tempo-r1"');
+  });
+});
+
+/**
+ * Bound sections (WP13). They carry no content, so everything they can get
+ * wrong is about the SUBJECT: rendering a band for a product that has
+ * nothing to put in it, or rendering one on a page that has no product at
+ * all. Both failures look the same on screen — an empty stripe of
+ * background where a section should be — and neither is visible to a test
+ * that only asks "did it render".
+ */
+describe("bound sections read the subject instead of holding content", () => {
+  const bound = Object.entries(SECTIONS).filter(([, section]) => section.bound === true);
+
+  it("there are bound sections to test", () => {
+    expect(bound.map(([type]) => type).sort()).toEqual([
+      "productHero",
+      "productLead",
+      "productRange",
+      "productSpecs",
+      "productStory",
+    ]);
+  });
+
+  for (const [type] of bound) {
+    it(`${type} renders NOTHING — not an empty band — with no subject`, () => {
+      const { subject: _omitted, ...withoutSubject } = ctx;
+      expect(render({ blockType: type }, withoutSubject as RenderContext)).toBe("");
+    });
+
+    it(`${type} says why in preview instead of failing silently`, () => {
+      const { subject: _omitted, ...withoutSubject } = ctx;
+      const html = render({ blockType: type }, { ...withoutSubject, preview: true } as RenderContext);
+      expect(html).toContain("plantilla de producto");
+    });
+
+    it(`${type} renders nothing when the app injected no surfaces`, () => {
+      const { renderProductSurface: _omitted, ...withoutSurfaces } = ctx;
+      expect(render({ blockType: type }, withoutSurfaces as RenderContext)).toBe("");
+    });
+  }
+
+  it("drops the offers table on a product that is only a waiting list", () => {
+    const waiting: RenderSubject = { ...subject, status: "waitlist", skus: [] };
+    const html = render({ blockType: "productHero" }, { ...ctx, subject: waiting });
+    expect(html).toContain('data-surface="rail"');
+    expect(html).not.toContain('data-surface="variants"');
+  });
+
+  it("drops the gallery of a product whose renders have not arrived", () => {
+    const noImages: RenderSubject = { ...subject, imageCount: 0 };
+    const html = render({ blockType: "productHero" }, { ...ctx, subject: noImages });
+    expect(html).toContain('data-surface="rail"');
+    expect(html).not.toContain('data-surface="gallery"');
+  });
+
+  it("drops the whole band when the product has no prose, no specs, no siblings", () => {
+    const bare: RenderSubject = {
+      ...subject,
+      hasDescription: false,
+      specCount: 0,
+      relatedSlugs: [],
+    };
+    for (const type of ["productStory", "productSpecs", "productRange"]) {
+      expect(render({ blockType: type }, { ...ctx, subject: bare }), type).toBe("");
+    }
+  });
+
+  it("keeps the rail and the gallery inside ONE grid", () => {
+    // The measured trap: Chromium clamps a sticky grid item to the grid
+    // CONTAINER, so the rail only stops with the media while a single
+    // element owns both tracks. Two sections would be two bands.
+    const html = render({ blockType: "productHero" });
+    const hero = /<div class="pdp-hero">[\s\S]*?<\/div><\/div>/.exec(html)?.[0] ?? "";
+    expect(hero).toContain('data-surface="rail"');
+    expect(hero).toContain('data-surface="gallery"');
+    expect(hero.indexOf('data-surface="rail"')).toBeLessThan(hero.indexOf('data-surface="gallery"'));
   });
 });
 

@@ -130,10 +130,12 @@ Acceso: `read`/`create`/`update` solo admin; `shipments` no se puede borrar
 
 **Globals:** `ThemeSettings` (tema activo + overrides Zod) · `Navigation` por locale · `MarketSettings` por mercado (moneda, impuestos, envíos, incoterm, **paymentProviders[] con orden de presentación**).
 
-**Bloques (19, y el techo son 24 — ADR-028):** `anchorNav` · `bento` · `ctaBand` ·
+**Bloques (24, que es el techo — ADR-028):** `anchorNav` · `bento` · `ctaBand` ·
 `embed` · `faq` · `featureGrid` · `gallery` · `hero` · `hotspots` · `mediaText` ·
 `productShowcase` · `quote` · `richText` · `specTable` · `stage` · `statBand` · `steps` ·
-`timeline` · `waitlist`.
+`timeline` · `waitlist`, más los cinco **vinculados** de WP13, que no tienen campos de
+contenido y solo viven en una plantilla: `productHero` · `productStory` · `productSpecs` ·
+`productRange` · `productLead`.
 
 Son los `type` que declara cada `defineSection` en `packages/sections/src/blocks/`, que es
 de donde `apps/web/src/payload/blocks.ts` genera la configuración de Payload — no se

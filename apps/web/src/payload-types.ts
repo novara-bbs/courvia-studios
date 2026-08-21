@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     media: Media;
     pages: Page;
+    templates: Template;
     redirects: Redirect;
     brands: Brand;
     categories: Category;
@@ -102,6 +103,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    templates: TemplatesSelect<false> | TemplatesSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     brands: BrandsSelect<false> | BrandsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
@@ -168,7 +170,7 @@ export interface UserAuthOperations {
   };
 }
 /**
- * Cuentas del panel. Los clientes de la tienda no viven aquí.
+ * Back-office accounts. Storefront customers do not live here.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
@@ -197,7 +199,7 @@ export interface User {
   collection: 'users';
 }
 /**
- * Imágenes y vídeo. El alt es obligatorio y se traduce.
+ * Images and video. Alt text is required and translated. Deleting a file sends it to the trash: it leaves the storefront and can be restored.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
@@ -205,15 +207,15 @@ export interface User {
 export interface Media {
   id: number;
   /**
-   * Lo que la imagen dice a quien no la ve. Es también el nombre con el que la mediateca lista este archivo.
+   * What the image says to someone who cannot see it. It is also the name this file is listed under.
    */
   alt: string;
   /**
-   * Pie visible bajo la imagen en la galería de producto (opcional).
+   * Caption shown under the image in the product gallery (optional).
    */
   caption?: string | null;
   /**
-   * Rol del asset en la galería canónica. El orden de PDP es: hero → detail/gallery → schematic → action; el resto es material interno o de secciones.
+   * The asset's role in the canonical gallery. PDP order is hero → detail/gallery → schematic → action; the rest is internal or section material.
    */
   kind?:
     | (
@@ -231,15 +233,16 @@ export interface Media {
       )
     | null;
   /**
-   * Código de trazabilidad del evidence register (A-002…) o del board V0.4.
+   * Traceability code from the evidence register (A-002…) or from board V0.4.
    */
   assetCode?: string | null;
   /**
-   * concept = render CGI, se muestra SIEMPRE con etiqueta de render conceptual · blocked = jamás en PDP/campaña/RFQ (el storefront lo excluye aunque se adjunte) · published = fotografía real de muestra final.
+   * concept = CGI render, ALWAYS shown with a concept-render label · blocked = never on a PDP, campaign or RFQ (the storefront drops it even if attached) · published = a real photograph of the final sample.
    */
   evidenceStatus: 'concept' | 'blocked' | 'published';
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
   url?: string | null;
   thumbnailURL?: string | null;
   filename?: string | null;
@@ -277,7 +280,7 @@ export interface Media {
   };
 }
 /**
- * Páginas componibles. El orden de las secciones es el orden en pantalla.
+ * Composable pages. Section order is screen order. Deleting a page sends it to the trash: it stops being served and can be restored.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages".
@@ -1178,28 +1181,29 @@ export interface Page {
     | null;
   seo?: {
     /**
-     * Solo si el título de buscador debe diferir del de la página. Google corta sobre los 60 caracteres.
+     * Only when the search title has to differ from the page title. Google cuts around 60 characters.
      */
     title?: string | null;
     /**
-     * Lo que se lee bajo el enlace en Google y al compartir. Una frase concreta; sin “Descubre” ni adjetivos sin medida.
+     * What is read under the link on Google and when sharing. One concrete sentence; no “Discover”, no adjectives you cannot measure.
      */
     description?: string | null;
     /**
-     * Imagen al compartir (1200×630). Sin ella se genera una tarjeta con el título y los colores del tema activo.
+     * Image used when sharing (1200×630). Without one, a card is generated from the title and the active theme's colours.
      */
     ogImage?: (number | null) | Media;
     /**
-     * La página sigue siendo pública y navegable; solo se le pide a los buscadores que no la listen. Se suma al noindex de la región: una región no publicada no se reactiva desmarcando esto.
+     * The page stays public and navigable; search engines are only asked not to list it. It adds to the region's own noindex: unticking this does not bring an unpublished region back.
      */
     noIndex?: boolean | null;
   };
   /**
-   * kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce. Si lo dejas vacío al crear la página, se deriva del título.
+   * kebab-case, no slashes: it forms the URL /{region}/{slug}. It is not translated. Left empty on a new page, it is derived from the title.
    */
   slug: string;
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
   _status?: ('draft' | 'published') | null;
 }
 /**
@@ -1275,6 +1279,10 @@ export interface Product {
       }[]
     | null;
   warrantyMonths?: number | null;
+  /**
+   * Vacío = la plantilla por defecto de producto. Cambiarla no toca el contenido.
+   */
+  template?: (number | null) | Template;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -1317,7 +1325,1071 @@ export interface Brand {
   createdAt: string;
 }
 /**
- * Rutas relativas a la región (/tecnologia, no /es/tecnologia): una fila cubre es, en-gb, en-ae y ar-ae. Al renombrar el slug de una página se crea sola.
+ * The layout of a product page, edited once for all of them. The product sections hold no content of their own: they show whatever product the page is about.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "templates".
+ */
+export interface Template {
+  id: number;
+  /**
+   * Cómo la reconoce quien la asigna: «Ficha estándar», «Lanzamiento».
+   */
+  name: string;
+  /**
+   * Qué tipo de página describe. Fija a qué documentos se puede asignar.
+   */
+  kind: 'product';
+  /**
+   * La que usa cualquier producto sin plantilla asignada. Marcarla desmarca la anterior de su mismo tipo.
+   */
+  isDefault?: boolean | null;
+  /**
+   * El orden es el orden en pantalla. Las secciones de producto (cabecera, relato, ficha técnica, gama, formulario) no piden contenido: lo toman del producto.
+   */
+  blocks?:
+    | (
+        | {
+            /**
+             * Covers the whole band. Raise the scrim if the type over it stops being legible.
+             */
+            media?: (number | null) | Media;
+            /**
+             * Two or three words above the headline: “Launch”, “Padel”.
+             */
+            eyebrow?: string | null;
+            /**
+             * Second person, about the effect on the player rather than on the product.
+             */
+            heading: string;
+            /**
+             * Only one section per page may be the main headline.
+             */
+            level?: ('h2' | 'h1') | null;
+            /**
+             * One or two sentences. A figure with a unit convinces more than an adjective.
+             */
+            lead?: string | null;
+            /**
+             * The first is painted with the accent, the second stays quiet. Two at most.
+             */
+            ctas?:
+              | {
+                  label: string;
+                  /**
+                   * Region-relative path: /robots/tempo-r1.
+                   */
+                  href: string;
+                  id?: string | null;
+                }[]
+              | null;
+            /**
+             * Under the buttons: “no payment, no commitment”, delivery window.
+             */
+            note?: string | null;
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Reserves screen for one moment of the page. Everything else keeps the vertical rhythm.
+               */
+              height?: ('auto' | 'tall' | 'full') | null;
+              /**
+               * Veils the media so type over it stays legible. The colour comes from the theme background.
+               */
+              overlay?: ('none' | 'soft' | 'strong' | 'gradient') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
+              align?: ('start' | 'center') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
+              width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'stage';
+          }
+        | {
+            /**
+             * Two or three words above the headline.
+             */
+            eyebrow?: string | null;
+            /**
+             * Second person, about the effect on the player.
+             */
+            heading: string;
+            /**
+             * Only one section per page may be the main headline.
+             */
+            level?: ('h2' | 'h1') | null;
+            /**
+             * One or two sentences. A figure with a unit convinces more than an adjective.
+             */
+            lead?: string | null;
+            /**
+             * The first is painted with the accent, the second stays quiet. Two at most.
+             */
+            ctas?:
+              | {
+                  label: string;
+                  /**
+                   * Region-relative path: /robots/tempo-r1.
+                   */
+                  href: string;
+                  id?: string | null;
+                }[]
+              | null;
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
+              align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hero';
+          }
+        | {
+            /**
+             * Before the links: “On this page”. Empty = links only.
+             */
+            label?: string | null;
+            /**
+             * Between 2 and 8. An index of one is not an index.
+             */
+            items: {
+              text: string;
+              /**
+               * Lowercase with hyphens, as listed when you publish: a block named “Specs QuickDock” gives specs-quickdock.
+               */
+              anchor: string;
+              id?: string | null;
+            }[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'anchorNav';
+          }
+        | {
+            /**
+             * Prose with headings, lists and links. The column caps itself so it stays readable.
+             */
+            body: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
+              width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'richText';
+          }
+        | {
+            /**
+             * Takes half the band. The side is chosen under Design and flips by itself in Arabic.
+             */
+            image: number | Media;
+            heading?: string | null;
+            body: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it swaps sides by itself in Arabic.
+               */
+              mediaPosition?: ('start' | 'end') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'mediaText';
+          }
+        | {
+            heading?: string | null;
+            /**
+             * Between 2 and 8. Mix the sizes: a bento of equal tiles is just a grid.
+             */
+            items: {
+              /**
+               * On mobile every tile takes the full width.
+               */
+              span?: ('sm' | 'md' | 'lg') | null;
+              image?: (number | null) | Media;
+              eyebrow?: string | null;
+              title: string;
+              body?: string | null;
+              id?: string | null;
+            }[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'bento';
+          }
+        | {
+            heading?: string | null;
+            /**
+             * Between 2 and 4. One figure is not a band; five do not get read.
+             */
+            items: {
+              /**
+               * With its unit: “72 km/h”, “140 balls”.
+               */
+              value: string;
+              label: string;
+              /**
+               * “Measured on a sample”, “design target”. If it is not measured, it is not claimed.
+               */
+              note?: string | null;
+              id?: string | null;
+            }[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
+              align?: ('start' | 'center') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'statBand';
+          }
+        | {
+            heading: string;
+            /**
+             * The column count is chosen under Design.
+             */
+            items?:
+              | {
+                  title: string;
+                  /**
+                   * Sport-specific: a padel ball bounces differently and the copy knows it.
+                   */
+                  body?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Always collapses to one column on mobile.
+               */
+              columns?: ('2' | '3' | '4') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
+              align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'featureGrid';
+          }
+        | {
+            heading?: string | null;
+            lead?: string | null;
+            /**
+             * They number themselves in the order of this list. Between 2 and 6.
+             */
+            items: {
+              title: string;
+              body?: string | null;
+              id?: string | null;
+            }[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Always collapses to one column on mobile.
+               */
+              columns?: ('2' | '3' | '4') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'steps';
+          }
+        | {
+            heading?: string | null;
+            lead?: string | null;
+            /**
+             * In chronological order, top to bottom. Between 2 and 6.
+             */
+            items: {
+              /**
+               * Short and in caps: “EVT”, “DVT”, “Pilot”.
+               */
+              label: string;
+              title: string;
+              body?: string | null;
+              /**
+               * Marks the dot on the rail. Only one should be in progress.
+               */
+              state?: ('done' | 'current' | 'next') | null;
+              id?: string | null;
+            }[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'timeline';
+          }
+        | {
+            /**
+             * The machine on a material or on-court background. The pins go on top of it.
+             */
+            image: number | Media;
+            heading?: string | null;
+            /**
+             * Up to 8. Two pins on the same cell overlap.
+             */
+            points: {
+              /**
+               * A 12-column grid over the image; 1 is the starting edge.
+               */
+              col: '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
+              /**
+               * An 8-row grid over the image; 1 is the top.
+               */
+              row: '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
+              title: string;
+              body?: string | null;
+              id?: string | null;
+            }[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
+              width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hotspots';
+          }
+        | {
+            heading?: string | null;
+            /**
+             * Between 2 and 8. The column count is chosen under Design.
+             */
+            items: {
+              image: number | Media;
+              /**
+               * Empty = the caption the image carries in the library is used.
+               */
+              caption?: string | null;
+              id?: string | null;
+            }[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Always collapses to one column on mobile.
+               */
+              columns?: ('2' | '3' | '4') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'gallery';
+          }
+        | {
+            heading?: string | null;
+            /**
+             * The block stores the reference only: price, currency and stock resolve live per market.
+             */
+            products: (number | Product)[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
+              align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'productShowcase';
+          }
+        | {
+            heading?: string | null;
+            lead?: string | null;
+            /**
+             * Up to 4 columns. The figures and their state (measured, target) come from the catalogue, not from here.
+             */
+            products: (number | Product)[];
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'specTable';
+          }
+        | {
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'productHero';
+          }
+        | {
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'productStory';
+          }
+        | {
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'productSpecs';
+          }
+        | {
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Hidden from everyone, screen readers included.
+               */
+              hiddenOn?: ('never' | 'mobile' | 'desktop') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'productRange';
+          }
+        | {
+            provider: 'youtube' | 'vimeo';
+            /**
+             * The id only, not the URL: in youtube.com/watch?v=aqz-KESearI it is aqz-KESearI.
+             */
+            videoId: string;
+            /**
+             * Screen readers announce it. Say what is on screen, not “video”.
+             */
+            title: string;
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
+              width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Transform only, never opacity: if the animation never runs, the section still shows.
+               */
+              reveal?: ('none' | 'rise' | 'settle') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'embed';
+          }
+        | {
+            heading: string;
+            /**
+             * Say what happens after sending: when you reply and what they get.
+             */
+            body?: string | null;
+            /**
+             * It decides the fields, the confirmation email and how the lead enters the CRM.
+             */
+            intent: 'waitlist' | 'preorder' | 'demo';
+            /**
+             * Optional. If set, the lead is attached to that product.
+             */
+            product?: (number | Product)[] | null;
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
+              align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'waitlist';
+          }
+        | {
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Separates two bands that share a background, without inventing a colour.
+               */
+              divider?: ('none' | 'hairline' | 'soft') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'productLead';
+          }
+        | {
+            heading: string;
+            /**
+             * Up to 12. The ones that remove the fear of buying go first.
+             */
+            items?:
+              | {
+                  /**
+                   * Written the way a customer would ask it, not the way marketing would title it.
+                   */
+                  question: string;
+                  answer: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: any;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  };
+                  id?: string | null;
+                }[]
+              | null;
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * It measures the column, not the band: the background reaches the edge either way.
+               */
+              width?: ('prose' | 'content' | 'full') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faq';
+          }
+        | {
+            /**
+             * Their own words, without quote marks: the design adds those.
+             */
+            quote: string;
+            author?: string | null;
+            role?: string | null;
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
+              align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'quote';
+          }
+        | {
+            /**
+             * One sentence asking for the next action, not a slogan.
+             */
+            heading: string;
+            body?: string | null;
+            /**
+             * One only, on purpose: a band with two exits closes neither.
+             */
+            cta?:
+              | {
+                  label: string;
+                  /**
+                   * Region-relative path: /robots/tempo-r1.
+                   */
+                  href: string;
+                  id?: string | null;
+                }[]
+              | null;
+            appearance?: {
+              /**
+               * Air between this section and the one above, on the brand scale.
+               */
+              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * Air between this section and the next, on the brand scale.
+               */
+              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
+              /**
+               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
+               */
+              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
+              /**
+               * Logical, not physical: it flips by itself in Arabic.
+               */
+              align?: ('start' | 'center') | null;
+              /**
+               * Nests one brand theme inside this section only; the rest of the page is untouched.
+               */
+              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'ctaBand';
+          }
+      )[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Region-relative paths (/tecnologia, not /es/tecnologia): one row covers es, en-gb, en-ae and ar-ae. Renaming a page's slug writes one by itself.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects".
@@ -1325,23 +2397,24 @@ export interface Brand {
 export interface Redirect {
   id: number;
   /**
-   * URL antigua, sin el prefijo de región. Ej.: /tecnologia
+   * The old URL, without the region prefix. E.g. /tecnologia
    */
   from: string;
   /**
-   * URL nueva, sin el prefijo de región. Ej.: /tecnologia-tempo
+   * The new URL, without the region prefix. E.g. /tecnologia-tempo
    */
   to: string;
   /**
-   * 301 para un cambio definitivo de URL. 302 solo mientras algo esté de paso: un 302 no traslada el posicionamiento.
+   * 301 for a definitive change of URL. 302 only while something is in transit: a 302 moves no ranking.
    */
   code: '301' | '302';
   /**
-   * Quién creó la fila. Las automáticas se reescriben solas al volver a renombrar.
+   * Who created the row. Automatic ones rewrite themselves on the next rename.
    */
   source: 'manual' | 'slug-change';
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 /**
  * Un SKU por deporte y configuración (Rally Station → RLY-ST-T / RLY-ST-P).
@@ -1567,7 +2640,7 @@ export interface CommerceProductRef {
   createdAt: string;
 }
 /**
- * SOLO SERVIDOR. El estado lo mueve la máquina de estados dentro de una transacción — nunca se edita a mano (docs/orders-state-machine.md).
+ * SERVER ONLY. The status is moved by the state machine inside a transaction — never edited by hand (docs/orders-state-machine.md).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "orders".
@@ -1575,7 +2648,7 @@ export interface CommerceProductRef {
 export interface Order {
   id: number;
   /**
-   * Lo mueve la máquina de estados: pagos por webhook, envíos desde la colección Envíos. No se edita.
+   * Moved by the state machine: payments by webhook, shipping from the Shipments collection. Not editable.
    */
   status:
     | 'draft'
@@ -1599,14 +2672,14 @@ export interface Order {
     sku: string;
     quantity: number;
     /**
-     * Unidades menores, copiadas del precio del mercado al crear.
+     * Minor units, copied from the market price at creation time.
      */
     unitAmount: number;
     id?: string | null;
   }[];
   totalAmount: number;
   /**
-   * 0 mientras los precios son inclusive; el motor fiscal llega con la pasarela.
+   * 0 while prices are tax-inclusive; the tax engine arrives with the gateway.
    */
   taxAmount: number;
   refundedAmount: number;
@@ -1627,11 +2700,11 @@ export interface Order {
     country?: string | null;
   };
   /**
-   * Pasarela elegida por el cliente (ADR-14).
+   * The gateway the customer chose (ADR-14).
    */
   provider?: ('stripe' | 'tabby' | 'tamara' | 'adyen') | null;
   /**
-   * Id del pago en la pasarela; llega al crear la sesión.
+   * The payment's id at the gateway; it arrives when the session is created.
    */
   providerPaymentId?: string | null;
   /**
@@ -1651,7 +2724,7 @@ export interface Order {
    */
   bindingRevision?: number | null;
   /**
-   * El envío de este pedido, si ya se abrió.
+   * This order's shipment, once one has been opened.
    */
   shipment?: {
     docs?: (number | Shipment)[];
@@ -1662,7 +2735,7 @@ export interface Order {
   createdAt: string;
 }
 /**
- * El envío ES la transición: crearlo manda el pedido a preparar, rellenar transportista y seguimiento lo marca enviado, y fechar la entrega lo cierra. Si la máquina de estados no lo permite, no se guarda.
+ * The shipment IS the transition: creating it sends the order to picking, filling in carrier and tracking marks it shipped, and dating the delivery closes it. If the state machine refuses, nothing is saved.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "shipments".
@@ -1670,42 +2743,42 @@ export interface Order {
 export interface Shipment {
   id: number;
   /**
-   * Un envío por pedido: la máquina rechaza el segundo, porque `shipped` es un único estado.
+   * One shipment per order: the machine refuses a second one, because `shipped` is a single status.
    */
   order: number | Order;
   /**
-   * Al rellenarlo junto con el número de seguimiento, el pedido pasa a enviado.
+   * Filling it in together with the tracking number moves the order to shipped.
    */
   carrier?: (number | null) | Carrier;
   /**
-   * Número que da el transportista. Va tal cual en el email al cliente.
+   * The number the carrier gives. It goes verbatim into the customer's email.
    */
   trackingNumber?: string | null;
   /**
-   * Se construye con la plantilla del transportista; no se escribe a mano.
+   * Built from the carrier's template; never typed by hand.
    */
   trackingUrl?: string | null;
   /**
-   * La pone la transición al marcar enviado.
+   * Set by the transition when the order is marked shipped.
    */
   shippedAt?: string | null;
   /**
-   * Fecharla cierra el pedido como entregado y abre el desistimiento.
+   * Dating it closes the order as delivered and opens the withdrawal window.
    */
   deliveredAt?: string | null;
   /**
-   * Del mercado del pedido (ADR-08: EAU se sirve DDP vía courier-broker).
+   * Taken from the order's market (ADR-08: the UAE is served DDP through a courier-broker).
    */
   incoterm?: ('DDP' | 'DDU') | null;
   /**
-   * Quién movió el envío por última vez. Un envío lo marca una persona, no un webhook.
+   * Who last moved the shipment. A shipment is marked by a person, not by a webhook.
    */
   markedBy?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
 }
 /**
- * Añadir un transportista es crear una fila, no un despliegue: la URL de seguimiento es una plantilla, no código.
+ * Adding a carrier is creating a row, not a deploy: the tracking URL is a template, not code.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "carriers".
@@ -1713,30 +2786,30 @@ export interface Shipment {
 export interface Carrier {
   id: number;
   /**
-   * Identificador estable en minúsculas: seur, dpd, aramex.
+   * A stable lowercase identifier: seur, dpd, aramex.
    */
   code: string;
   /**
-   * Nombre visible para quien prepara el envío.
+   * The name seen by whoever prepares the shipment.
    */
   name: string;
   /**
-   * URL de seguimiento con {tracking} donde va el número. Ej.: https://track.aramex.com/{tracking}
+   * The tracking URL with {tracking} where the number goes. E.g. https://track.aramex.com/{tracking}
    */
   trackingUrlTemplate: string;
   /**
-   * Mercados en los que se puede usar. Vacío = todos. Un pedido de otro mercado se rechaza al guardar el envío.
+   * The markets it may be used in. Empty = all of them. An order from another market is refused when the shipment is saved.
    */
   markets?: ('es' | 'uk' | 'ae')[] | null;
   /**
-   * Desmarcar retira el transportista sin borrar los envíos que lo usaron.
+   * Unticking retires the carrier without deleting the shipments that used it.
    */
   active?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
- * SOLO SERVIDOR. Fase 2: únicamente la propiedad (qué conexión manda sobre este carrito). Las líneas y el flujo llegan en la Fase 4.
+ * SERVER ONLY. Phase 2: ownership only (which connection governs this cart). Lines and the flow arrive in Phase 4.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "carts".
@@ -1744,7 +2817,7 @@ export interface Carrier {
 export interface Cart {
   id: number;
   /**
-   * Identificador opaco de la sesión de compra. Ni un id de usuario ni un email.
+   * An opaque id for the shopping session. Neither a user id nor an email address.
    */
   sessionId: string;
   /**
@@ -1767,7 +2840,7 @@ export interface Cart {
   createdAt: string;
 }
 /**
- * SOLO SERVIDOR. Libro de eventos de pago normalizados. La fila se inserta ANTES de la transición: (provider, providerEventId) UNIQUE es la idempotencia — un webhook repetido revienta aquí, sin efectos.
+ * SERVER ONLY. The ledger of normalized payment events. The row is inserted BEFORE the transition: (provider, providerEventId) UNIQUE is the idempotency — a repeated webhook breaks here, with no effects.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payments".
@@ -1786,7 +2859,7 @@ export interface Payment {
   createdAt: string;
 }
 /**
- * SOLO SERVIDOR. Efectos externos (email, factura, reembolso en pasarela) escritos en la MISMA transacción que la transición y despachados después del commit — un rollback no des-envía un email.
+ * SERVER ONLY. External effects (email, invoice, gateway refund) written in the SAME transaction as the transition and dispatched after the commit — a rollback cannot un-send an email.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "outbox".
@@ -1813,7 +2886,7 @@ export interface Outbox {
   lead?: (number | null) | Lead;
   status: 'pending' | 'dispatched' | 'failed';
   /**
-   * Datos del efecto (p. ej. importe de un reembolso, en unidades menores).
+   * The effect's data (e.g. a refund amount, in minor units).
    */
   payload?:
     | {
@@ -1830,7 +2903,7 @@ export interface Outbox {
   createdAt: string;
 }
 /**
- * SOLO SERVIDOR. RMA: la aprobación humana del reembolso (refund.approved) es el ÚNICO disparador que ordena ejecutar un reembolso en la pasarela.
+ * SERVER ONLY. RMA: a human approving the refund (refund.approved) is the ONLY trigger that orders a refund at the gateway.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "returns".
@@ -1839,7 +2912,7 @@ export interface Return {
   id: number;
   order: number | Order;
   /**
-   * Del pedido enlazado. No es una columna.
+   * Taken from the linked order. It is not a column.
    */
   customer?: string | null;
   status: 'requested' | 'received' | 'refunded' | 'rejected';
@@ -1888,6 +2961,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'pages';
         value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'templates';
+        value: number | Template;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -2039,6 +3116,7 @@ export interface MediaSelect<T extends boolean = true> {
   evidenceStatus?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
   url?: T;
   thumbnailURL?: T;
   filename?: T;
@@ -2540,7 +3618,537 @@ export interface PagesSelect<T extends boolean = true> {
   slug?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "templates_select".
+ */
+export interface TemplatesSelect<T extends boolean = true> {
+  name?: T;
+  kind?: T;
+  isDefault?: T;
+  blocks?:
+    | T
+    | {
+        stage?:
+          | T
+          | {
+              media?: T;
+              eyebrow?: T;
+              heading?: T;
+              level?: T;
+              lead?: T;
+              ctas?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                    id?: T;
+                  };
+              note?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    height?: T;
+                    overlay?: T;
+                    align?: T;
+                    width?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              heading?: T;
+              level?: T;
+              lead?: T;
+              ctas?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        anchorNav?:
+          | T
+          | {
+              label?: T;
+              items?:
+                | T
+                | {
+                    text?: T;
+                    anchor?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        richText?:
+          | T
+          | {
+              body?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    width?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        mediaText?:
+          | T
+          | {
+              image?: T;
+              heading?: T;
+              body?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    mediaPosition?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        bento?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    span?: T;
+                    image?: T;
+                    eyebrow?: T;
+                    title?: T;
+                    body?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    reveal?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        statBand?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    value?: T;
+                    label?: T;
+                    note?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        featureGrid?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    body?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    columns?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        steps?:
+          | T
+          | {
+              heading?: T;
+              lead?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    body?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    columns?: T;
+                    divider?: T;
+                    reveal?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        timeline?:
+          | T
+          | {
+              heading?: T;
+              lead?: T;
+              items?:
+                | T
+                | {
+                    label?: T;
+                    title?: T;
+                    body?: T;
+                    state?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        hotspots?:
+          | T
+          | {
+              image?: T;
+              heading?: T;
+              points?:
+                | T
+                | {
+                    col?: T;
+                    row?: T;
+                    title?: T;
+                    body?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    width?: T;
+                    reveal?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        gallery?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    image?: T;
+                    caption?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    columns?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        productShowcase?:
+          | T
+          | {
+              heading?: T;
+              products?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        specTable?:
+          | T
+          | {
+              heading?: T;
+              lead?: T;
+              products?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    reveal?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        productHero?:
+          | T
+          | {
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        productStory?:
+          | T
+          | {
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        productSpecs?:
+          | T
+          | {
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        productRange?:
+          | T
+          | {
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    hiddenOn?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        embed?:
+          | T
+          | {
+              provider?: T;
+              videoId?: T;
+              title?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    width?: T;
+                    reveal?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              heading?: T;
+              body?: T;
+              intent?: T;
+              product?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        productLead?:
+          | T
+          | {
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    divider?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        faq?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    width?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        quote?:
+          | T
+          | {
+              quote?: T;
+              author?: T;
+              role?: T;
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        ctaBand?:
+          | T
+          | {
+              heading?: T;
+              body?: T;
+              cta?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                    id?: T;
+                  };
+              appearance?:
+                | T
+                | {
+                    spaceBlockStart?: T;
+                    spaceBlockEnd?: T;
+                    background?: T;
+                    align?: T;
+                    themeScope?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2553,6 +4161,7 @@ export interface RedirectsSelect<T extends boolean = true> {
   source?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2605,6 +4214,7 @@ export interface ProductsSelect<T extends boolean = true> {
         id?: T;
       };
   warrantyMonths?: T;
+  template?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -2909,7 +4519,7 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   createdAt?: T;
 }
 /**
- * Abre «Vista previa» para ver el sitio con lo ÚLTIMO GUARDADO: estos ajustes no tienen borrador, se publican al guardar.
+ * Open Preview to see the site as LAST SAVED: these settings have no draft, saving publishes them. Every save leaves a version, so any earlier one can be restored from Versions.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "theme-settings".
@@ -2917,14 +4527,14 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 export interface ThemeSetting {
   id: number;
   /**
-   * Re-viste el sitio entero al publicar. Las páginas y secciones pueden declarar su propio tema por encima.
+   * Re-skins the whole site on save. Pages and sections may declare their own theme on top of it.
    */
   activeTheme: 'volt' | 'carbon' | 'club';
   updatedAt?: string | null;
   createdAt?: string | null;
 }
 /**
- * Qué pasarelas ofrece cada mercado y en qué orden. La moneda y el incoterm NO están aquí: son código (@courvia/platform).
+ * Which gateways each market offers, and in what order. Currency and incoterm are NOT here: they are code (@courvia/platform). Every save leaves a version you can restore.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "market-settings".
@@ -2932,24 +4542,24 @@ export interface ThemeSetting {
 export interface MarketSetting {
   id: number;
   /**
-   * Un elemento por mercado activo. ES · UK · AE.
+   * One entry per active market. ES · UK · AE.
    */
   markets?:
     | {
         market: 'es' | 'uk' | 'ae';
         /**
-         * Desmarcado = el checkout no ofrece este mercado.
+         * Unticked = the checkout does not offer this market.
          */
         enabled?: boolean | null;
         /**
-         * Orden de presentación en el checkout; el cliente elige.
+         * Presentation order in the checkout; the customer chooses.
          */
         paymentProviders?:
           | {
               provider: 'stripe' | 'tabby' | 'tamara' | 'adyen';
               enabled?: boolean | null;
               /**
-               * Métodos que este proveedor ofrece en este mercado (Bizum y Klarna van DENTRO de Stripe). Vacío = los que la pasarela active por defecto.
+               * Methods this provider offers in this market (Bizum and Klarna live INSIDE Stripe). Empty = whatever the gateway enables by default.
                */
               methods?: ('card' | 'bizum' | 'klarna' | 'sequra' | 'clearpay' | 'apple_pay' | 'google_pay')[] | null;
               id?: string | null;
@@ -2962,7 +4572,7 @@ export interface MarketSetting {
   createdAt?: string | null;
 }
 /**
- * Menú de cabecera y enlaces de pie. Rutas relativas a la región. «Vista previa» abre el sitio con lo último guardado: este global no tiene borrador.
+ * Header menu and footer links. Region-relative paths. Preview opens the site as last saved: this global has no draft, but every save leaves a version you can restore.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "navigation".
@@ -2970,7 +4580,7 @@ export interface MarketSetting {
 export interface Navigation {
   id: number;
   /**
-   * Enlaces del menú principal, en orden.
+   * Main menu links, in order.
    */
   header?:
     | {
@@ -2980,14 +4590,14 @@ export interface Navigation {
       }[]
     | null;
   /**
-   * Botón destacado a la derecha del menú (p. ej. «Pide una demo»). Sin label no se muestra.
+   * The featured button at the end of the menu (e.g. “Book a demo”). With no label it is not shown.
    */
   headerCta?: {
     label?: string | null;
     href?: string | null;
   };
   /**
-   * Columnas del pie con título (Comprar · Empresa · Ayuda…). El canon de las tiendas serias: 3-5 columnas por intención del visitante.
+   * Titled footer columns (Shop · Company · Help…). The pattern serious stores use: 3-5 columns, one per visitor intent.
    */
   footerGroups?:
     | {
@@ -3003,7 +4613,7 @@ export interface Navigation {
       }[]
     | null;
   /**
-   * Fila inferior del pie (legales), junto al copyright y el selector de región.
+   * The bottom row of the footer (legal links), next to the copyright and the region picker.
    */
   footer?:
     | {

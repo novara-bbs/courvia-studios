@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { fieldsToZod } from "./fields";
 import type { Fields } from "./fields";
 import type { SectionGroup } from "./groups";
+import type { ProductSurface, RenderSubject } from "./subject";
 import type { Sketch } from "./thumbnail";
 
 /**
@@ -46,6 +47,25 @@ export interface RenderContext {
    * through untouched.
    */
   resolveHref?: (href: string) => string;
+  /**
+   * What this render is ABOUT, when it is about something (WP13).
+   *
+   * A page's blocks carry their own content; a TEMPLATE's blocks do not —
+   * the same template renders every product, so a bound section reads the
+   * product from here. Absent on an ordinary page, which is exactly what
+   * tells a bound section dropped onto one that it has nothing to render.
+   */
+  subject?: RenderSubject;
+  /**
+   * The markup of one surface of the current subject, from the app.
+   *
+   * Injected for the same reason `renderProductGrid` is: the gallery needs
+   * `next/image`, the lead form is a client component wired to a server
+   * action, and the range is a catalogue query — three things this package
+   * may not import. A bound section decides WHETHER a surface belongs on
+   * the page and WHERE it sits; the app decides what it looks like.
+   */
+  renderProductSurface?: (surface: ProductSurface) => ReactNode;
 }
 
 /**
@@ -85,6 +105,21 @@ export interface SectionDefinition {
    *  the projection used to emit the singular for both, and a value that
    *  merely happens to be unused today is a value nobody will fix later. */
   labels: SectionLabels;
+  /**
+   * BOUND section (WP13): it has no content fields and reads what it renders
+   * from `RenderContext.subject`.
+   *
+   * The flag is not decoration. It decides three things that would otherwise
+   * be decided by hand in three places: the block picker of `pages` does not
+   * offer it (a product hero on the privacy page is a band that can only
+   * render nothing), the registry test stops demanding fields and a required
+   * one, and the projection knows the block is appearance-only. A section is
+   * either bound or content — there is no half state, because a bound
+   * section with a content field would be a template slot an editor could
+   * fill differently per product, which is exactly the "200 SKUs, 200
+   * layouts" outcome templates exist to prevent (docs/ARCHITECTURE.md §3).
+   */
+  bound?: true;
   /** Which shelf of the block picker this section belongs on. */
   group: SectionGroup;
   /**
@@ -110,6 +145,7 @@ export function defineSection(definition: {
   type: string;
   dbName?: string;
   labels: SectionLabels;
+  bound?: true;
   group: SectionGroup;
   thumbnail: Sketch;
   fields: Fields;

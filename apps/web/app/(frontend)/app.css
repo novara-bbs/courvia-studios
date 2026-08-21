@@ -802,11 +802,55 @@ a {
 
 /* ------------------------------------------------------------------ PDP */
 
+/* The PDP is COMPOSED (WP13): its <main> is a column of section bands, one
+ * per block of the product template, exactly like a CMS page. So it opts out
+ * of `.page`'s measure and inline padding — each band spans the shell and its
+ * own `.cv-section-inner` carries the 1180px cap and the 24px gutters, which
+ * are the same two numbers one level down. Keeping them here as well would
+ * apply both and leave the content 48px narrower than it was.
+ *
+ * What it does NOT hand over is the block rhythm: `.page` still supplies
+ * 64px of padding and a 32px gap between bands, which is the rhythm the
+ * hand-written page had, and the default template pins every band's own
+ * spacing to `none` so the two cannot add up. An editor who wants more air
+ * around one band still gets it from that band's own control. */
+.page--pdp {
+  max-width: none;
+  padding-inline: 0;
+}
+
+/* A grid item defaults to `min-width: auto`, so ONE band wider than the
+ * viewport — the offers table on a phone — would stretch this grid and every
+ * other band with it, and the whole page would scroll sideways. Same reset
+ * `.page--composed` makes, for the same reason. */
+.page--pdp > * {
+  min-inline-size: 0;
+}
+
+/* The buy block: media, the rail beside it, the offers underneath. One
+ * section (`productHero`), and the gap between its two halves is the same
+ * 32px the page grid used to put there. */
+.pdp-buy {
+  display: grid;
+  gap: var(--cv-space-8);
+}
+
 /* Two columns from xl: the media scrolls, the buy rail stays. Measured
  * before this existed: the fold of /es/robots/tempo-r1 held five texts and
  * not one action, while the waitlist form — this shop's add-to-cart — began
  * at 76% of the page (3.9 screens on a phone) and the right-hand 30% of the
  * viewport carried almost no ink.
+ *
+ * THE TRACKS MOVED FROM THE PAGE TO `.pdp-hero`, AND THEY HAD TO.
+ * Until WP13 this was a two-column grid at the level of <main>, with the
+ * gallery and the rail claiming row 1 by name and every other section
+ * spanning `1 / -1`. A composed page cannot work that way: every block is a
+ * band with a container of its own, so `> .pdp-gallery` matches nothing and
+ * two bands can never be two columns of one row. The whole mechanism
+ * therefore lives inside the ONE section that owns both halves. Same
+ * declarations, same numbers — the container is 1132px wide in both versions
+ * (1180 minus the same 24px gutters), so `clamp(340px, 30%, 420px)` still
+ * resolves to 340 and the media column to 760.
  *
  * The rail is TWO elements, as it is in Dawn's main-product.liquid
  * (.product__info-wrapper holding .product__column-sticky), and that is not
@@ -823,20 +867,21 @@ a {
  * The `:has()` guard is the honest half — a product whose renders have not
  * arrived yet has no gallery, and a rail alone in the second track with an
  * empty first one is worse than one column. */
+.pdp-hero {
+  display: grid;
+  gap: var(--cv-space-8);
+}
+
 @media (min-width: 1180px) {
-  .page--pdp:has(.pdp-gallery) {
+  .pdp-hero:has(.pdp-gallery) {
     grid-template-columns: minmax(0, 1fr) clamp(340px, 30%, 420px);
     align-items: start;
-  }
-
-  .page--pdp:has(.pdp-gallery) > * {
-    grid-column: 1 / -1;
   }
 
   /* The rail comes FIRST in the document — on a phone the title, the state
    * and the action must beat the 1075px hero — and the grid puts it back on
    * the right of the media for the two-column reading. */
-  .page--pdp:has(.pdp-gallery) > .pdp-gallery {
+  .pdp-hero:has(.pdp-gallery) > .pdp-gallery {
     grid-column: 1;
     grid-row: 1;
   }
@@ -856,13 +901,13 @@ a {
    * its column: fondo 1504 at every deeper scroll, never reaching the
    * cross-sell. `align-items: start` stays on the container — it keeps the
    * gallery from stretching — but it was never what held the sticky up. */
-  .page--pdp:has(.pdp-gallery) > .pdp-rail {
+  .pdp-hero:has(.pdp-gallery) > .pdp-rail {
     grid-column: 2;
     grid-row: 1;
     align-self: stretch;
   }
 
-  .page--pdp:has(.pdp-gallery) .pdp-rail-sticky {
+  .pdp-hero:has(.pdp-gallery) .pdp-rail-sticky {
     position: sticky;
     /* The same token pair as html { scroll-padding-block-start }: the rail
      * and an anchor jump clear the sticky header by the same amount. */

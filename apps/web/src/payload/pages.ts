@@ -7,6 +7,7 @@ import { ValidationError } from "payload";
 import type { CollectionBeforeValidateHook, CollectionConfig, PayloadRequest } from "payload";
 
 import { isAdmin, isAuthenticated } from "./access";
+import { panelText, panelTextFor } from "./admin-copy";
 import { buildBlocks } from "./blocks";
 import { redirectOnSlugChange } from "./page-redirects";
 import { previewRegion, previewUrl } from "./preview";
@@ -31,6 +32,26 @@ function starterSectionLabels(): Record<string, LocalizedText[]> {
     ]),
   );
 }
+
+/**
+ * What the slug field says when it refuses.
+ *
+ * A `validate` returns a finished string, so Payload never runs it through
+ * `getTranslation` the way it does a label — these are resolved by hand
+ * against the PANEL's language (`admin-copy.ts`).
+ */
+const SLUG_ERROR = {
+  missing: {
+    es: "Escribe la dirección, o pon un título y se deriva de él.",
+    en: "Type the address, or fill in a title and it will be derived from it.",
+    ar: "اكتب العنوان في الرابط، أو أدخل عنوانًا للصفحة ليُشتق منه.",
+  },
+  shape: {
+    es: "Solo minúsculas, números y guiones (kebab-case).",
+    en: "Lowercase letters, numbers and hyphens only (kebab-case).",
+    ar: "أحرف صغيرة وأرقام وشرطات فقط (kebab-case).",
+  },
+} as const;
 
 /** The alphabet the URL is allowed to use. Named once so the validation and
  *  the derivation below cannot drift apart. */
@@ -213,11 +234,9 @@ function publishesDocument(data: unknown, originalDoc: unknown): boolean {
  */
 function anchorMessage(anchor: string, available: string[], language: string | undefined): string {
   const copy = available.length === 0 ? ANCHOR_ERROR.unnamed : ANCHOR_ERROR.unknown;
-  const text =
-    (language !== undefined && language in copy
-      ? copy[language as keyof LocalizedText]
-      : undefined) ?? copy.en;
-  return text.replace("{anchor}", anchor).replace("{available}", available.join(", "));
+  return panelText(copy, language)
+    .replace("{anchor}", anchor)
+    .replace("{available}", available.join(", "));
 }
 
 export const refuseDeadAnchorsOnPublish: CollectionBeforeValidateHook = ({
@@ -263,12 +282,37 @@ export const refuseDeadAnchorsOnPublish: CollectionBeforeValidateHook = ({
  */
 export const Pages: CollectionConfig = {
   slug: "pages",
-  labels: { singular: "Página", plural: "Páginas" },
+  labels: {
+    singular: { es: "Página", en: "Page", ar: "صفحة" },
+    plural: { es: "Páginas", en: "Pages", ar: "الصفحات" },
+  },
+  /**
+   * Delete stops being final (see `trash.ts` for the whole policy).
+   *
+   * A deleted page keeps its row with `deletedAt` set, drops out of every
+   * read that does not ask for the bin — including `get-page.ts`, the
+   * routing manifest the proxy reads, the sitemap and llms.txt — and can be
+   * restored from the panel's Papelera view.
+   *
+   * The gate does not move: trashing enforces `delete` access
+   * (payload/dist/collections/operations/update.js, "Enforce delete access
+   * if performing a soft-delete"), so it is still admins who delete pages.
+   * What changed is that theirs is now reversible.
+   *
+   * Its price is paid in `trash.ts`: `slug` can no longer carry
+   * `unique: true`, because a page in the bin would keep its address locked
+   * against the editor rebuilding it.
+   */
+  trash: true,
   admin: {
     useAsTitle: "title",
-    group: "Contenido",
+    group: { es: "Contenido", en: "Content", ar: "المحتوى" },
     defaultColumns: ["title", "slug", "_status", "updatedAt"],
-    description: "Páginas componibles. El orden de las secciones es el orden en pantalla.",
+    description: {
+      es: "Páginas componibles. El orden de las secciones es el orden en pantalla. Al borrar una página va a la papelera: deja de servirse y se puede restaurar.",
+      en: "Composable pages. Section order is screen order. Deleting a page sends it to the trash: it stops being served and can be restored.",
+      ar: "صفحات قابلة للتركيب. ترتيب الأقسام هو ترتيب العرض. حذف الصفحة ينقلها إلى سلة المهملات: تتوقف عن الظهور ويمكن استعادتها.",
+    },
     livePreview: {
       url: ({ data, locale }) => {
         const slug = typeof data.slug === "string" && data.slug !== "" ? data.slug : "";
@@ -365,12 +409,22 @@ export const Pages: CollectionConfig = {
       type: "tabs",
       tabs: [
         {
-          label: "Contenido",
+          label: { es: "Contenido", en: "Content", ar: "المحتوى" },
           admin: {
-            description: "Lo que se lee en pantalla. El orden de las secciones es el de la página.",
+            description: {
+              es: "Lo que se lee en pantalla. El orden de las secciones es el de la página.",
+              en: "What is read on screen. Section order is page order.",
+              ar: "ما يُقرأ على الشاشة. ترتيب الأقسام هو ترتيب الصفحة.",
+            },
           },
           fields: [
-            { name: "title", type: "text", label: "Título", required: true, localized: true },
+            {
+              name: "title",
+              type: "text",
+              label: { es: "Título", en: "Title", ar: "العنوان" },
+              required: true,
+              localized: true,
+            },
             /**
              * The starter picker. A `ui` field, so it stores nothing and
              * costs no column: it writes into the `blocks` field below and
@@ -394,7 +448,18 @@ export const Pages: CollectionConfig = {
                 },
               },
             },
-            { name: "blocks", type: "blocks", label: "Secciones", blocks: buildBlocks() },
+            {
+              name: "blocks",
+              type: "blocks",
+              label: { es: "Secciones", en: "Sections", ar: "الأقسام" },
+              // Without these, Payload derives "Block"/"Blocks" from the
+              // field type and the Spanish panel offers «Añadir Block».
+              labels: {
+                singular: { es: "Sección", en: "Section", ar: "قسم" },
+                plural: { es: "Secciones", en: "Sections", ar: "الأقسام" },
+              },
+              blocks: buildBlocks(),
+            },
           ],
         },
         /**
@@ -414,10 +479,13 @@ export const Pages: CollectionConfig = {
          * already says the word.
          */
         {
-          label: "SEO y compartir",
+          label: { es: "SEO y compartir", en: "SEO and sharing", ar: "تحسين الظهور والمشاركة" },
           admin: {
-            description:
-              "Todo opcional. Vacío = el título de la página, su primer texto y una tarjeta generada con los colores del tema.",
+            description: {
+              es: "Todo opcional. Vacío = el título de la página, su primer texto y una tarjeta generada con los colores del tema.",
+              en: "All optional. Empty = the page title, its first paragraph and a card generated in the theme's colours.",
+              ar: "كل الحقول اختيارية. الفراغ يعني عنوان الصفحة وأول فقرة فيها وبطاقة مولّدة بألوان السمة.",
+            },
           },
           fields: [
             {
@@ -429,23 +497,33 @@ export const Pages: CollectionConfig = {
                 {
                   name: "title",
                   type: "text",
-                  label: "Título en buscadores",
+                  label: {
+                    es: "Título en buscadores",
+                    en: "Search engine title",
+                    ar: "العنوان في محركات البحث",
+                  },
                   localized: true,
                   maxLength: 70,
                   admin: {
-                    description:
-                      "Solo si el título de buscador debe diferir del de la página. Google corta sobre los 60 caracteres.",
+                    description: {
+                      es: "Solo si el título de buscador debe diferir del de la página. Google corta sobre los 60 caracteres.",
+                      en: "Only when the search title has to differ from the page title. Google cuts around 60 characters.",
+                      ar: "فقط إذا وجب أن يختلف عنوان البحث عن عنوان الصفحة. تقتطع جوجل ما يتجاوز 60 حرفًا تقريبًا.",
+                    },
                   },
                 },
                 {
                   name: "description",
                   type: "textarea",
-                  label: "Descripción",
+                  label: { es: "Descripción", en: "Description", ar: "الوصف" },
                   localized: true,
                   maxLength: 200,
                   admin: {
-                    description:
-                      "Lo que se lee bajo el enlace en Google y al compartir. Una frase concreta; sin “Descubre” ni adjetivos sin medida.",
+                    description: {
+                      es: "Lo que se lee bajo el enlace en Google y al compartir. Una frase concreta; sin “Descubre” ni adjetivos sin medida.",
+                      en: "What is read under the link on Google and when sharing. One concrete sentence; no “Discover”, no adjectives you cannot measure.",
+                      ar: "ما يُقرأ تحت الرابط في جوجل وعند المشاركة. جملة واحدة محددة، بلا «اكتشف» وبلا صفات لا تُقاس.",
+                    },
                   },
                 },
                 {
@@ -455,11 +533,14 @@ export const Pages: CollectionConfig = {
                   // becomes unusable.
                   name: "ogImage",
                   type: "upload",
-                  label: "Imagen al compartir",
+                  label: { es: "Imagen al compartir", en: "Sharing image", ar: "صورة المشاركة" },
                   relationTo: "media",
                   admin: {
-                    description:
-                      "Imagen al compartir (1200×630). Sin ella se genera una tarjeta con el título y los colores del tema activo.",
+                    description: {
+                      es: "Imagen al compartir (1200×630). Sin ella se genera una tarjeta con el título y los colores del tema activo.",
+                      en: "Image used when sharing (1200×630). Without one, a card is generated from the title and the active theme's colours.",
+                      ar: "الصورة المستخدمة عند المشاركة (1200×630). بدونها تُولَّد بطاقة من العنوان وألوان السمة الفعّالة.",
+                    },
                   },
                 },
                 {
@@ -471,10 +552,17 @@ export const Pages: CollectionConfig = {
                   name: "noIndex",
                   type: "checkbox",
                   defaultValue: false,
-                  label: "No indexar esta página",
+                  label: {
+                    es: "No indexar esta página",
+                    en: "Do not index this page",
+                    ar: "لا تُفهرس هذه الصفحة",
+                  },
                   admin: {
-                    description:
-                      "La página sigue siendo pública y navegable; solo se le pide a los buscadores que no la listen. Se suma al noindex de la región: una región no publicada no se reactiva desmarcando esto.",
+                    description: {
+                      es: "La página sigue siendo pública y navegable; solo se le pide a los buscadores que no la listen. Se suma al noindex de la región: una región no publicada no se reactiva desmarcando esto.",
+                      en: "The page stays public and navigable; search engines are only asked not to list it. It adds to the region's own noindex: unticking this does not bring an unpublished region back.",
+                      ar: "تبقى الصفحة عامة وقابلة للتصفح؛ يُطلب من محركات البحث ألّا تدرجها فقط. يُضاف ذلك إلى noindex الخاص بالمنطقة: إلغاء التحديد لا يعيد تفعيل منطقة غير منشورة.",
+                    },
                   },
                 },
               ],
@@ -482,22 +570,43 @@ export const Pages: CollectionConfig = {
           ],
         },
         {
-          label: "Ajustes",
+          label: { es: "Ajustes", en: "Settings", ar: "الإعدادات" },
           admin: {
-            description:
-              "La dirección de la página. Cambiarla mueve la URL y deja escrita una redirección: no es una corrección de estilo.",
+            description: {
+              es: "La dirección de la página. Cambiarla mueve la URL y deja escrita una redirección: no es una corrección de estilo.",
+              en: "The page's address. Changing it moves a live URL and writes a redirect: this is not a typo fix.",
+              ar: "عنوان الصفحة في الرابط. تغييره ينقل رابطًا حيًّا ويكتب تحويلًا: ليس تصحيحًا شكليًّا.",
+            },
           },
           fields: [
             {
               name: "slug",
               type: "text",
-              label: "Dirección (slug)",
+              label: { es: "Dirección (slug)", en: "Address (slug)", ar: "العنوان في الرابط (slug)" },
               required: true,
-              unique: true,
+              /**
+               * NOT `unique: true`, and the omission is load-bearing.
+               *
+               * Uniqueness now lives in a PARTIAL unique index —
+               * `pages_slug_live_unique … WHERE deleted_at IS NULL`, declared
+               * in `trash.ts` and installed by the phase migration. A total
+               * unique index would keep the address of a page sitting in the
+               * bin locked against the editor rebuilding it, which is the
+               * one failure a recycle bin must not introduce.
+               *
+               * Nothing about the guarantee gets weaker for live pages: it is
+               * still a unique btree, it still raises 23505, and Payload
+               * still turns that into "El valor debe ser único" on this
+               * field. `index: true` stays because the trash-inclusive reads
+               * (drafts, the bin view) do not match the partial index.
+               */
               index: true,
               admin: {
-                description:
-                  "kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce. Si lo dejas vacío al crear la página, se deriva del título.",
+                description: {
+                  es: "kebab-case, sin barras: forma la URL /{región}/{slug}. No se traduce. Si lo dejas vacío al crear la página, se deriva del título.",
+                  en: "kebab-case, no slashes: it forms the URL /{region}/{slug}. It is not translated. Left empty on a new page, it is derived from the title.",
+                  ar: "بصيغة kebab-case وبدون شرطات مائلة: يكوّن الرابط ‎/{المنطقة}/{slug}. لا يُترجم. إذا تركته فارغًا عند إنشاء الصفحة فسيُشتق من العنوان.",
+                },
               },
               /**
                * The address, derived — the way WordPress, Shopify and Webflow
@@ -555,13 +664,14 @@ export const Pages: CollectionConfig = {
                   },
                 ],
               },
-              validate: (value: string | null | undefined) => {
+              validate: (
+                value: string | null | undefined,
+                options: { req?: { i18n?: { language?: string } } },
+              ) => {
                 if (typeof value !== "string" || value === "") {
-                  return "Escribe la dirección, o pon un título y se deriva de él.";
+                  return panelTextFor(SLUG_ERROR.missing, options);
                 }
-                return SLUG_PATTERN.test(value)
-                  ? true
-                  : "Solo minúsculas, números y guiones (kebab-case).";
+                return SLUG_PATTERN.test(value) ? true : panelTextFor(SLUG_ERROR.shape, options);
               },
             },
           ],

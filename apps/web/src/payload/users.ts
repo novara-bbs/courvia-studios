@@ -13,11 +13,18 @@ import { isAdmin, isAdminOrSelf } from "./access";
 export const Users: CollectionConfig = {
   slug: "users",
   auth: true,
-  labels: { singular: "Cuenta", plural: "Cuentas" },
+  labels: {
+    singular: { es: "Cuenta", en: "Account", ar: "حساب" },
+    plural: { es: "Cuentas", en: "Accounts", ar: "الحسابات" },
+  },
   admin: {
-    group: "Sistema",
+    group: { es: "Sistema", en: "System", ar: "النظام" },
     useAsTitle: "email",
-    description: "Cuentas del panel. Los clientes de la tienda no viven aquí.",
+    description: {
+      es: "Cuentas del panel. Los clientes de la tienda no viven aquí.",
+      en: "Back-office accounts. Storefront customers do not live here.",
+      ar: "حسابات لوحة الإدارة. لا يوجد عملاء المتجر هنا.",
+    },
   },
   access: {
     read: isAdminOrSelf,
@@ -29,17 +36,19 @@ export const Users: CollectionConfig = {
     {
       name: "name",
       type: "text",
+      label: { es: "Nombre", en: "Name", ar: "الاسم" },
       required: true,
     },
     {
       name: "roles",
       type: "select",
+      label: { es: "Permisos", en: "Roles", ar: "الصلاحيات" },
       hasMany: true,
       required: true,
       defaultValue: ["editor"],
       options: [
-        { label: "Admin", value: "admin" },
-        { label: "Editor", value: "editor" },
+        { label: { es: "Administración", en: "Admin", ar: "إدارة" }, value: "admin" },
+        { label: { es: "Edición", en: "Editor", ar: "تحرير" }, value: "editor" },
       ],
       // Only admins may grant roles; without this an editor could
       // self-promote through the REST API.

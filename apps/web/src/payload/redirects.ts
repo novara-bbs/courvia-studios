@@ -27,6 +27,7 @@ import {
 } from "../routing/region-routes";
 import type { RedirectRule } from "../routing/region-routes";
 import { anyone, isAdmin, isAuthenticated } from "./access";
+import { panelTextFor } from "./admin-copy";
 
 /** The proxy reads the manifest; the manifest is cached under this tag. */
 export function revalidateRedirects(): void {
@@ -58,26 +59,71 @@ async function otherRules(
   }));
 }
 
-const validateFrom: TextFieldSingleValidation = async (value, { data, id, req }) => {
-  if (typeof value !== "string" || value.trim() === "") return "Obligatorio.";
+/**
+ * Everything this collection refuses, in the panel's three languages.
+ *
+ * A `validate` returns a finished string that Payload never passes through
+ * `getTranslation`, so these are resolved by hand (`admin-copy.ts`) against
+ * `req.i18n.language` — the language of the panel, not of the content.
+ */
+const REDIRECT_ERROR = {
+  required: { es: "Obligatorio.", en: "Required.", ar: "حقل مطلوب." },
+  fromShape: {
+    es: "Ruta relativa a la región: /algo o /algo/otro, en kebab-case y sin dominio.",
+    en: "A region-relative path: /something or /something/else, kebab-case, no domain.",
+    ar: "مسار نسبي داخل المنطقة: ‎/شيء أو ‎/شيء/آخر، بصيغة kebab-case وبلا نطاق.",
+  },
+  homeIsNotMovable: {
+    es: "La portada de la región no se puede redirigir.",
+    en: "A region's home page cannot be redirected.",
+    ar: "لا يمكن تحويل الصفحة الرئيسية للمنطقة.",
+  },
+  selfLoop: {
+    es: "Origen y destino son la misma URL: eso es un bucle.",
+    en: "Source and destination are the same URL: that is a loop.",
+    ar: "المصدر والوجهة الرابط نفسه: هذه حلقة مغلقة.",
+  },
+  reserved: {
+    es: "Esa ruta la sirve una página del código (/robots, /comparar, /c/…): no se puede redirigir.",
+    en: "That path is served by a page in the code (/robots, /comparar, /c/…): it cannot be redirected.",
+    ar: "هذا المسار تخدمه صفحة في الشيفرة (‎/robots و‎/comparar و‎/c/…): لا يمكن تحويله.",
+  },
+  livePage: {
+    es: "Existe una página publicada en {path}: la redirección la dejaría inaccesible.",
+    en: "A published page already lives at {path}: this redirect would make it unreachable.",
+    ar: "توجد صفحة منشورة على {path}: هذا التحويل سيجعلها غير قابلة للوصول.",
+  },
+  indirectLoop: {
+    es: "Ese destino vuelve al origen dando un rodeo: sería un bucle.",
+    en: "That destination comes back to the source the long way round: it would be a loop.",
+    ar: "تعود هذه الوجهة إلى المصدر عبر مسار غير مباشر: ستنشأ حلقة مغلقة.",
+  },
+  toShape: {
+    es: "Destino interno: /algo o /algo/otro. Sin dominios ni URLs absolutas.",
+    en: "An internal destination: /something or /something/else. No domains, no absolute URLs.",
+    ar: "وجهة داخلية: ‎/شيء أو ‎/شيء/آخر. بلا نطاقات ولا روابط مطلقة.",
+  },
+} as const;
+
+const validateFrom: TextFieldSingleValidation = async (value, options) => {
+  const { data, id, req } = options;
+  const say = (copy: (typeof REDIRECT_ERROR)[keyof typeof REDIRECT_ERROR]): string =>
+    panelTextFor(copy, options);
+  if (typeof value !== "string" || value.trim() === "") return say(REDIRECT_ERROR.required);
   const from = normalizePath(value);
-  if (!isValidPath(from)) {
-    return "Ruta relativa a la región: /algo o /algo/otro, en kebab-case y sin dominio.";
-  }
-  if (from === "/") return "La portada de la región no se puede redirigir.";
+  if (!isValidPath(from)) return say(REDIRECT_ERROR.fromShape);
+  if (from === "/") return say(REDIRECT_ERROR.homeIsNotMovable);
 
   // `data` is the whole document being validated; Payload types it as
   // Partial<unknown> because the collection has no generated interface at
   // config-build time.
   const raw = (data as { to?: unknown } | undefined)?.to;
   const to = typeof raw === "string" ? normalizePath(raw) : null;
-  if (to !== null && to === from) return "Origen y destino son la misma URL: eso es un bucle.";
+  if (to !== null && to === from) return say(REDIRECT_ERROR.selfLoop);
 
   // A route in the app always wins over a row in a table, so a rule that
   // could never fire is a rule that lies to whoever reads the list.
-  if (isReservedPath(from)) {
-    return "Esa ruta la sirve una página del código (/robots, /comparar, /c/…): no se puede redirigir.";
-  }
+  if (isReservedPath(from)) return say(REDIRECT_ERROR.reserved);
 
   const slug = from.slice(1);
   const live = await req.payload.count({
@@ -86,36 +132,54 @@ const validateFrom: TextFieldSingleValidation = async (value, { data, id, req })
     overrideAccess: true,
     req,
   });
-  if (live.totalDocs > 0) {
-    return `Existe una página publicada en ${from}: la redirección la dejaría inaccesible.`;
-  }
+  if (live.totalDocs > 0) return say(REDIRECT_ERROR.livePage).replace("{path}", from);
 
   if (to !== null && wouldCycle(await otherRules(req, id), from, to)) {
-    return "Ese destino vuelve al origen dando un rodeo: sería un bucle.";
+    return say(REDIRECT_ERROR.indirectLoop);
   }
   return true;
 };
 
-const validateTo: TextFieldSingleValidation = (value) => {
-  if (typeof value !== "string" || value.trim() === "") return "Obligatorio.";
+const validateTo: TextFieldSingleValidation = (value, options) => {
+  const say = (copy: (typeof REDIRECT_ERROR)[keyof typeof REDIRECT_ERROR]): string =>
+    panelTextFor(copy, options);
+  if (typeof value !== "string" || value.trim() === "") return say(REDIRECT_ERROR.required);
   const to = normalizePath(value);
   // `//host` is a protocol-relative URL: it looks like a path and lands on
   // someone else's domain. An open redirect is not a feature we are adding.
-  if (!isValidPath(to)) {
-    return "Destino interno: /algo o /algo/otro. Sin dominios ni URLs absolutas.";
-  }
+  if (!isValidPath(to)) return say(REDIRECT_ERROR.toShape);
   return true;
 };
 
 export const Redirects: CollectionConfig = {
   slug: "redirects",
-  labels: { singular: "Redirección", plural: "Redirecciones" },
+  labels: {
+    singular: { es: "Redirección", en: "Redirect", ar: "تحويل" },
+    plural: { es: "Redirecciones", en: "Redirects", ar: "التحويلات" },
+  },
+  /**
+   * A deleted rule is a URL that starts answering 404 — including URLs
+   * printed on a leaflet or linked from somewhere we do not control. Trash
+   * makes that reversible, and it costs `from` its `unique: true` for the
+   * same reason `pages.slug` loses it: a rule sitting in the bin would keep
+   * its old URL locked against the person writing the correct rule for it.
+   * The partial unique index in `trash.ts` is what keeps two LIVE rules from
+   * claiming the same source.
+   *
+   * `applySlugRedirect` (page-redirects.ts) is unaffected: `payload.delete`
+   * still removes a row for good, and its `find` calls skip the bin, so a
+   * rename never resurrects a rule somebody threw away.
+   */
+  trash: true,
   admin: {
     useAsTitle: "from",
-    group: "Contenido",
+    group: { es: "Contenido", en: "Content", ar: "المحتوى" },
     defaultColumns: ["from", "to", "code", "source", "updatedAt"],
-    description:
-      "Rutas relativas a la región (/tecnologia, no /es/tecnologia): una fila cubre es, en-gb, en-ae y ar-ae. Al renombrar el slug de una página se crea sola.",
+    description: {
+      es: "Rutas relativas a la región (/tecnologia, no /es/tecnologia): una fila cubre es, en-gb, en-ae y ar-ae. Al renombrar el slug de una página se crea sola.",
+      en: "Region-relative paths (/tecnologia, not /es/tecnologia): one row covers es, en-gb, en-ae and ar-ae. Renaming a page's slug writes one by itself.",
+      ar: "مسارات نسبية داخل المنطقة (‎/tecnologia لا ‎/es/tecnologia): صف واحد يغطي es وen-gb وen-ae وar-ae. تُكتب تلقائيًا عند تغيير عنوان صفحة.",
+    },
   },
   access: {
     // URLs that used to exist are not a secret — they are the same public
@@ -138,50 +202,91 @@ export const Redirects: CollectionConfig = {
     {
       name: "from",
       type: "text",
+      label: { es: "URL antigua", en: "Old URL", ar: "الرابط القديم" },
       required: true,
-      unique: true,
+      // NOT `unique: true`: uniqueness among LIVE rules is the partial index
+      // `redirects_from_live_unique` declared in `trash.ts`. See the note on
+      // the collection's `trash` above.
       index: true,
       admin: {
-        description: "URL antigua, sin el prefijo de región. Ej.: /tecnologia",
+        description: {
+          es: "URL antigua, sin el prefijo de región. Ej.: /tecnologia",
+          en: "The old URL, without the region prefix. E.g. /tecnologia",
+          ar: "الرابط القديم بدون بادئة المنطقة. مثال: ‎/tecnologia",
+        },
       },
       validate: validateFrom,
     },
     {
       name: "to",
       type: "text",
+      label: { es: "URL nueva", en: "New URL", ar: "الرابط الجديد" },
       required: true,
-      admin: { description: "URL nueva, sin el prefijo de región. Ej.: /tecnologia-tempo" },
+      admin: {
+        description: {
+          es: "URL nueva, sin el prefijo de región. Ej.: /tecnologia-tempo",
+          en: "The new URL, without the region prefix. E.g. /tecnologia-tempo",
+          ar: "الرابط الجديد بدون بادئة المنطقة. مثال: ‎/tecnologia-tempo",
+        },
+      },
       validate: validateTo,
     },
     {
       name: "code",
       type: "select",
+      label: { es: "Código", en: "Status code", ar: "رمز الحالة" },
       required: true,
       defaultValue: "301",
       options: REDIRECT_CODES.map((code) => ({
         value: code,
         label:
           code === "301"
-            ? "301 · permanente (la URL nueva hereda el posicionamiento)"
-            : "302 · temporal (la antigua sigue siendo la buena)",
+            ? {
+                es: "301 · permanente (la URL nueva hereda el posicionamiento)",
+                en: "301 · permanent (the new URL inherits the ranking)",
+                ar: "301 · دائم (يرث الرابط الجديد ترتيب البحث)",
+              }
+            : {
+                es: "302 · temporal (la antigua sigue siendo la buena)",
+                en: "302 · temporary (the old URL is still the canonical one)",
+                ar: "302 · مؤقت (يبقى الرابط القديم هو المعتمد)",
+              },
       })),
       admin: {
-        description:
-          "301 para un cambio definitivo de URL. 302 solo mientras algo esté de paso: un 302 no traslada el posicionamiento.",
+        description: {
+          es: "301 para un cambio definitivo de URL. 302 solo mientras algo esté de paso: un 302 no traslada el posicionamiento.",
+          en: "301 for a definitive change of URL. 302 only while something is in transit: a 302 moves no ranking.",
+          ar: "استخدم 301 لتغيير نهائي للرابط، و302 فقط أثناء وضع مؤقت: لا ينقل 302 ترتيب البحث.",
+        },
       },
     },
     {
       name: "source",
       type: "select",
+      label: { es: "Origen de la fila", en: "Row origin", ar: "مصدر الصف" },
       required: true,
       defaultValue: "manual",
       options: [
-        { value: "manual", label: "Escrita a mano" },
-        { value: "slug-change", label: "Automática: cambio de slug" },
+        {
+          value: "manual",
+          label: { es: "Escrita a mano", en: "Written by hand", ar: "كُتب يدويًا" },
+        },
+        {
+          value: "slug-change",
+          label: {
+            es: "Automática: cambio de slug",
+            en: "Automatic: slug change",
+            ar: "تلقائي: تغيير العنوان في الرابط",
+          },
+        },
       ],
       admin: {
         readOnly: true,
-        description: "Quién creó la fila. Las automáticas se reescriben solas al volver a renombrar.",
+        description: {
+          es: "Quién creó la fila. Las automáticas se reescriben solas al volver a renombrar.",
+          en: "Who created the row. Automatic ones rewrite themselves on the next rename.",
+          ar: "من أنشأ الصف. تُعاد كتابة الصفوف التلقائية عند إعادة التسمية مرة أخرى.",
+        },
       },
     },
   ],

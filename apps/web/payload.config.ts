@@ -27,6 +27,7 @@ import { Media } from "./src/payload/media";
 import { Carriers, Shipments, withFulfilment } from "./src/payload/orders-fulfilment";
 import { Pages } from "./src/payload/pages";
 import { Redirects } from "./src/payload/redirects";
+import { Templates } from "./src/payload/templates";
 import { storagePlugins } from "./src/payload/storage";
 import { MarketSettings } from "./src/payload/market-settings";
 import { Navigation } from "./src/payload/navigation";
@@ -216,6 +217,8 @@ export default buildConfig({
     withAdminPasswordReset(Users),
     Media,
     Pages,
+    // Antes de Products: es la colección que su campo `template` referencia.
+    Templates,
     Redirects,
     Brands,
     Categories,
