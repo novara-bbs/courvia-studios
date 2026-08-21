@@ -81,11 +81,11 @@ llegan al cristal.
 | Costura de 24 px entre fondos por el `reveal`; 128 px muertos sobre el footer | 24 → 0 px | **hecho** |
 | Titulares usando 2 de los 7 pasos de la escala | h3 de tarjeta 16 → 20 px | **hecho** |
 | `/{región}/inicio` 200; mayúsculas 200; selector de región mintiendo | 200 → 308 | **hecho** |
-| **La PDP no tiene columna de compra** | CTA al 76 % de la página; 3,9 pantallas en móvil | pendiente |
-| **No hay navegación móvil** | la cabecera se parte en una fila de texto a 390 px | pendiente |
+| **La PDP no tenía columna de compra** | CTA al 76 % de la página y a 3,9 pantallas de scroll en móvil → **463 px en escritorio y 546 px en móvil**, dentro del pliegue en los dos | **hecho** (`ccf7117`): galería a la izquierda, raíl con identidad, estado, garantía y **una** acción a la derecha, pegajoso desde 1180 px. El que se pega es el hijo, no la celda del grid. La acción sigue siendo el salto a la waitlist: la columna de compra existe, la compra no (ver «El veredicto, sin adornos») |
+| **No había navegación móvil** | la cabecera se partía en tres filas: **155 px a 390** y **196 a 320** → **barra de 64 px fijos en los nueve anchos medidos**, con el menú en un `<details>` nativo | **hecho** (`fab7019`): abre y cierra sin JavaScript, el panel lleva los mismos destinos que la nav de escritorio y CI lo comprueba sobre el HTML servido en las cuatro regiones (`chrome-shell.test.ts`) |
 | 12 de 18 roles enfocables con el anillo por defecto de Chrome | — | pendiente |
 | `<button>` dentro de `<a>` en tres secciones | HTML inválido, doble parada de tabulador | pendiente |
-| Anclas que aterrizan bajo la cabecera pegajosa | 140 px en móvil | pendiente |
+| Anclas que aterrizan bajo la cabecera pegajosa | 140 px en móvil → **0** | **hecho** (`fab7019`): la reserva y la altura de la barra son **la misma variable**, `scroll-padding-block-start: calc(var(--cv-header-block-size) + var(--cv-space-4))` contra `block-size: var(--cv-header-block-size)` — 64 px fijos, no un mínimo que se excedía. Lo que CI sujeta es el mecanismo, leído del CSS **servido** (`chrome-shell.test.ts`): que la variable se declare una sola vez y que la lea la barra. La geometría se midió a mano en Chromium; el navegador en CI sigue siendo WP16 (regla 6 de abajo) |
 | Tabla comparativa sin etiquetas de fila al desplazarla en móvil | — | pendiente |
 | FAQ con el triángulo por defecto del navegador | — | pendiente |
 
@@ -103,7 +103,7 @@ declaración que aplica. **Ningún test se da por bueno sin verlo en rojo.**
 
 | # | Qué | Nota |
 |---|---|---|
-| 1 | **Navegación móvil y menús anidados** | Hoy no hay navegación móvil **en absoluto**. En mercados de tráfico mayoritariamente móvil eso no es pulido: es la mitad del global de navegación sin usar. |
+| 1 | **Menús anidados en la navegación** | La navegación móvil ya existe (`apps/web/src/chrome/mobile-menu.tsx`, `fab7019`) y esta fila se reduce a su segunda mitad: el menú es **plano**. `NavLink` es `{ label, href }` sin hijos (`src/chrome/get-navigation.ts`) y el global declara `header` como un array de enlaces (`src/payload/navigation.ts`); solo el footer agrupa, y en un nivel. El mega-menú por deporte que describe `docs/product.md` §12 —columna por deporte con Robots/Gear/Academy dentro— no cabe en una barra de un nivel. |
 | 2 | **Selector de enlace en vez de `href` libre** | Los CTA de sección son texto libre que llega intacto a `<a href>`. Un typo del editor produce un enlace muerto silencioso. |
 | 3 | **Bloques reutilizables (sincronizados)** | Las plantillas son copias: una banda CTA compartida hay que arreglarla página por página. Símbolos de Webflow, *section groups* de Shopify y *patterns* de WP resuelven esto. Es el mayor hueco de autoría una vez cerrados SEO y medios. |
 | 4 | **Identidad de sitio configurable** | `/${region}/privacidad` está incrustado en la evidencia de consentimiento RGPD art. 7.1 que se **almacena**. Si un editor renombra esa página, el enlace del consentimiento se rompe sin error de build y queda huérfana la URL registrada en cada consentimiento anterior — justo el artefacto que pide una auditoría de protección de datos. |

@@ -35,7 +35,7 @@
 
 ## 1. Qué es Courvia (resumen)
 
-**Courvia** (court + vía) — marca de entrenamiento para **deportes de raqueta**. Producto ancla: **robots lanzapelotas** (900–2.000 €); alrededor: contenido (Academy), equipamiento (Gear) y futuro club. Entidades: Courvia **Studios** (matriz) · **Sports** (entidad comercial, sociedad española) · **Drill** (robots) · **Gear** · **Club** (futuro).
+**Courvia** (court + vía) — marca de entrenamiento para **deportes de raqueta**. Producto ancla: **robots lanzapelotas**, hoy **sin banda de precio**: ADR-022 retiró el corredor de PVP (E-004) y no se escribe una cifra —ni aquí— hasta que exista. Alrededor: contenido (Academy), equipamiento (Gear) y futuro club. Entidades: Courvia **Studios** (matriz) · **Sports** (entidad comercial, sociedad española) · **Drill** (robots) · **Gear** · **Club** (futuro).
 
 **Posicionamiento (ADR-10):** especialista de **robots de pádel** en ES/EAU; tenis para el mercado maduro; pickleball como crecimiento en UK/EAU.
 

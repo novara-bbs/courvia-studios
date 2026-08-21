@@ -228,7 +228,10 @@ El override de página va en un envoltorio dentro de `<body>`, no en `<html>`: a
 
 **Preview:** el draft mode de Next hace que los ámbitos cacheados se re-ejecuten en cada petición, así que la vista previa es fresca sin fontanería de caché, mientras producción sigue estática.
 
-**Fuentes:** hoy `<html>` precarga las 8 familias para un tema que usa 3. Debe cargar solo las del tema activo más la familia del script del locale (falta una árabe). El mapeo tema↔fuente se genera desde `tokens.json` en vez de mantenerse a mano en `app.css`.
+**Fuentes:** hecho lo principal. `<html>` aplica solo las clases de las familias del tema activo, más la árabe cuando el locale es `ar` — `fontClassesFor` (`apps/web/app/(frontend)/fonts.ts`), invocado en `app/(frontend)/[region]/layout.tsx`. Son **nueve** familias declaradas, no ocho, y la árabe (`IBM_Plex_Sans_Arabic`) ya no falta: volt usa tres, carbon tres, club cuatro, y `[lang='ar']` remapea `display`, `body` y `data` a la familia árabe en `app.css` (`data` es el que faltaba, y es el que usa cada chip de telemetría). Quedan dos huecos, y los dos son de código, no de este documento:
+
+1. `Bricolage_Grotesque` e `Instrument_Sans` son las dos únicas que no fijan `preload: false`, así que su `<link rel="preload">` sale en todas las rutas aunque el tema activo sea volt — contradice el comentario de cabecera del propio `fonts.ts` y es el extra #6 de [`gap-analysis.md`](gap-analysis.md) (~71 KB de tipografía sin usar, en prioridad máxima, por delante de la imagen LCP).
+2. El mapeo tema↔fuente se mantiene **a mano y en dos sitios** —`FONTS_BY_THEME` en `fonts.ts` y los bloques `[data-theme]` de `app.css`— en vez de generarse desde `tokens.json`.
 
 ---
 

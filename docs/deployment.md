@@ -88,8 +88,10 @@ el Root Directory, una capa más abajo.
 Elegido el 21 ago 2026: `0 4 * * *` para que despliegue en Hobby. **El coste
 es real y hay que saberlo**: quien rellena la waitlist —la única conversión
 del sitio— puede esperar hasta 24 h su confirmación, y el stock que reserva
-un checkout muerto tarda lo mismo en liberarse. Mientras esto siga así, el
-puente es dispararlo a mano (abajo).
+un checkout muerto tarda **casi 25 h** en liberarse, no 24: la caducidad pide
+una hora de vida (`CHECKOUT_TTL_MINUTES`), así que un pedido creado a las
+03:00 UTC todavía no la cumple a las 04:00 y espera al tick del día
+siguiente. Mientras esto siga así, el puente es dispararlo a mano (abajo).
 
 **Al pasar a Pro**: subir el `schedule` y cambiar en el mismo commit el test
 `keeps a cadence the current plan accepts` de `deploy-contract.test.ts`. Que
@@ -187,8 +189,17 @@ y el ISR distribuido.
    proyecto ya creado.
 2. Pegar `DATABASE_URL` (pooler 6543), `PAYLOAD_SECRET`, `NEXT_PUBLIC_SITE_URL`.
 3. Confirmar que TODAS las migraciones de `apps/web/src/migrations` figuran en `payload.payload_migrations` de Supabase (el ledger es la verdad, no un número recordado).
-4. Deploy → smoke: `/es`, `/es/robots`, `/es/robots/drill-pro`, `/admin`,
-   403 en `/api/prices`, 404 en `/next/webhooks/stripe` (sin configurar: correcto),
-   401 en `/next/cron` sin cabecera (con `CRON_SECRET` puesta: correcto).
+4. Deploy → smoke de lo que existe **sin contenido**: `/es` (tiene respaldo
+   estático: el sitio no depende de que la home esté sembrada), `/es/robots`
+   (200 con la rejilla vacía), `/admin`, 403 en `/api/prices`, 404 en
+   `/next/webhooks/stripe` (sin configurar: correcto), 401 en `/next/cron`
+   sin cabecera (con `CRON_SECRET` puesta: correcto).
 5. Sembrar contenido real desde `/admin` (o ejecutar los seeds una vez
    contra la BD de producción si se quiere el demo).
+6. Smoke de lo que **necesita catálogo**, y por eso va aquí y no en el paso 4:
+   `/es/robots/tempo-r1` y `/es/comparar`. Los tres slugs que siembra
+   `apps/web/src/seeds/seed-catalog.ts` son `tempo-r1`, `go-pickleball` y
+   `rally-station`; cualquier otro —`drill-pro` entre ellos, retirado por
+   ADR-022— devuelve un 404 real vía `notFound()`. Antes del paso 5 los tres
+   verdaderos devuelven 404 también, así que una PDP en la lista del paso 4
+   fallaría siempre, y por el motivo equivocado.

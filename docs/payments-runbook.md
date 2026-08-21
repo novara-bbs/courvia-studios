@@ -223,6 +223,12 @@ se atiende antes que nada.
   creciendo con `status: pending`: efecto atascado que aún reintenta.
 - `outbox` en `pending` con un efecto sin manejador: tarea para una persona.
   Cada tick los cuenta por nombre en su respuesta JSON.
-- Pedidos `pending_payment` viejos: el mismo tick los caduca cada 5 minutos
-  (una hora de vida). Si se acumulan, el cron no está corriendo.
+- Pedidos `pending_payment` viejos: el mismo tick los caduca al cumplir una
+  hora de vida (`CHECKOUT_TTL_MINUTES = 60`), pero ese tick corre **una vez al
+  día** —`0 4 * * *`, `apps/web/vercel.json`—, así que en el peor caso un
+  checkout muerto retiene su reserva de stock **casi 25 h** (creado a las
+  03:00 UTC, aún no cumple la hora a las 04:00 y espera al tick siguiente).
+  Que se acumulen durante un día es la cadencia elegida, no una avería
+  (`docs/deployment.md`, «Cron de mantenimiento»). Sospechar del cron solo si
+  **sobreviven a un tick**; el puente es dispararlo a mano con `CRON_SECRET`.
 - `refund_failed`: dinero comprometido sin devolver — alerta inmediata.

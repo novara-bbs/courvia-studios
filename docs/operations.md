@@ -36,9 +36,28 @@ Commitear la migración **y también** `src/migrations/index.ts` (el generador l
 
 ### El tick de mantenimiento, y cómo ejecutarlo a mano
 
-En un despliegue lo dispara Vercel Cron cada 5 minutos sobre `GET /next/cron`
+En un despliegue lo dispara Vercel Cron **una vez al día**, a las 04:00 UTC
+(`"schedule": "0 4 * * *"` en `apps/web/vercel.json`), sobre `GET /next/cron`
 (autenticado con `CRON_SECRET`; ver `docs/deployment.md`). Hace dos cosas:
 despachar el outbox y caducar los checkouts abandonados.
+
+**La cadencia es diaria a propósito, y hay que saber lo que cuesta.** Vercel
+Hobby rechaza cualquier `schedule` más fino y hace fallar el despliegue al
+validar `vercel.json`, así que `*/5 * * * *` no correría despacio: no
+desplegaría (`docs/deployment.md`, «Cron de mantenimiento»; lo sujeta el test
+`keeps a cadence the current plan accepts` de `deploy-contract.test.ts`). El
+peor caso real, con un solo tick al día:
+
+| Efecto | Umbral | Peor caso hasta que ocurre |
+|---|---|---|
+| Fila del outbox (el correo de la waitlist, el único que hoy convierte) | inmediato | **hasta 24 h** — encolada justo después de un tick, espera al siguiente |
+| Checkout abandonado → `cancelled` + stock liberado | 1 h de vida (`CHECKOUT_TTL_MINUTES`) | **casi 25 h** — un pedido creado a las 03:00 UTC aún no tiene una hora a las 04:00, así que no lo caza ese tick y espera al del día siguiente |
+
+Un pedido `pending_payment` de veinte horas es, por tanto, la cadencia
+elegida y no una avería: solo hay que sospechar del cron si sobrevive a un
+tick. Mientras el plan siga en Hobby, el puente es dispararlo a mano: la misma
+llamada autenticada de abajo, con el dominio del despliegue en lugar de
+`localhost:3000`.
 
 En local, la ruta funciona igual con el servidor levantado:
 

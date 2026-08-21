@@ -6,7 +6,9 @@
 
 ## 1. Qué es Courvia
 
-**Courvia** (court + vía) — marca de entrenamiento para **deportes de raqueta**. Producto ancla: **robots lanzapelotas** (ticket 900–2.000 €); alrededor: contenido (Academy), equipamiento (Gear) y futuro club.
+**Courvia** (court + vía) — marca de entrenamiento para **deportes de raqueta**. Producto ancla: **robots lanzapelotas**; alrededor: contenido (Academy), equipamiento (Gear) y futuro club.
+
+**No hay banda de ticket que citar.** ADR-022 retiró el corredor de PVP (E-004): el catálogo entero sale en `waitlist`, sin `prices` activos, hasta cruzar DVT + PVT + piloto. La cifra que esta línea decía, «ticket 900–2.000 €», es la misma que hubo que borrar de `llms.txt` (`docs/gap-analysis.md`, núcleo #9). Mientras el register no tenga un claim publicable, un número de PVP en un documento es una filtración esperando a que alguien lo copie a una página. §7 conserva otra banda distinta, «océano azul Courvia a 900-1.400 €», en su párrafo de benchmark: es análisis de mercado, no un PVP, y tampoco se copia a una página.
 
 | Entidad | Rol |
 |---|---|
@@ -52,7 +54,7 @@ Dark-first (volt) · **bento grids** en home y specs · tipografía variable exp
 /[locale]/
   /tenis · /padel (★ ES/EAU) · /pickleball     → landings de deporte
   /robots (faceta sport|nivel|precio)
-    /robots/drill-one · /drill-pro · /drill-club
+    /robots/tempo-r1 · /robots/go-pickleball · /robots/rally-station
   /robots/comparar · /robots/selector (quiz)
   /gear (faceta sport) · /academy (sport, nivel)
   /tecnologia · /financiacion · /club (futuro)
@@ -60,6 +62,8 @@ Dark-first (volt) · **bento grids** en home y specs · tipografía variable exp
   /sobre-courvia · /contacto · /distribuidores · /cuenta
   /legal (T&C · privacidad [AR en EAU] · cookies · devoluciones)
 ```
+Los tres slugs de PDP son los que siembra `apps/web/src/seeds/seed-catalog.ts`, no ejemplos: `tempo-r1`, `go-pickleball` y `rally-station`. Cualquier `/robots/drill-*` es naming retirado por ADR-022 y hoy devuelve un 404 real.
+
 **Mega-menú:** columna por deporte → Robots/Gear/Academy dentro. Selector país/idioma persistente + moneda ligada a market. **Footer:** Producto · Soporte · Empresa · Newsletter+idioma · franja legal.
 
 ---

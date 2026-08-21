@@ -55,7 +55,20 @@ No hay `paid → cancelled`: `cancelled` significa «nunca se pagó», y deshace
 
 ## 11. Payload: colecciones · globals · bloques
 
-**Colecciones** (\*=localizado): `products` (title*, slug, sport, description*, specs jsonb, warranty — público read) · `variants` · `prices` (**solo servidor**) · `pages` (blocks[], seo) · `academyPosts` (sport, level) · `leads` (**servidor/CRM**) · `orders` / `payments` / `returns` / `shipments` / `carriers` (**solo servidor/RLS**) · `media` (Supabase Storage) · `redirects` · `users` (roles).
+**Colecciones: 17**, y son exactamente las que registra `apps/web/payload.config.ts`
+(\*=localizado). La lista se agrupa por quién puede **leerlas**, que es la
+propiedad que importa:
+
+| Lectura | Colecciones |
+|---|---|
+| Anónima | `brands` · `categories` · `products` (title\*, slug, `sports[]`, brand, category, launchStatus, images, excerpt\*, description\*, `specs[]` con su `evidence`, warrantyMonths — el anónimo solo ve los publicados) · `pages` (blocks[], seo — ídem) · `media` (Supabase Storage) · `redirects` |
+| Autenticada | `variants` (sku, sport, attributes) · `prices` (escritura solo admin, ocultas en el nav a un editor) · `inventory` (qtyOnHand / qtyCommitted) |
+| Solo admin | `leads` (**servidor/CRM**) · `orders` · `payments` · `outbox` · `returns` · `carriers` · `shipments` (**solo servidor/RLS**) · `users` (roles; cada usuario se ve además a sí mismo) |
+
+**No hay colección de Academy.** Este documento listó durante meses un
+`academyPosts` que nunca existió en el código: Academy sigue siendo un hueco
+declarado (`docs/gap-analysis.md`, extras #8) y, cuando llegue, será una
+entrada nueva de esta tabla y de `payload.config.ts`, no un renombrado.
 
 ### `pages.seo` y `redirects` (ADR-026)
 

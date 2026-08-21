@@ -11,7 +11,7 @@
 | Sprint | Objetivo | DoD | Riesgo |
 |---|---|---|---|
 | **S0** Fundaciones ✅ | Monorepo, tokens, CI, MCP, **locales es/en/ar y markets es/uk/ae desde el día 1**, esqueleto `CommerceService` + `PaymentProvider`, ADRs | 3 temas conmutan sin FOUC; CI verde; admin logueable | Refactor i18n tardío |
-| **S1** Sitio público Volt (solo ES) | Landings deporte (pádel ★), PDP Drill Pro P ✅, comparador ✅, LeadForm ✅, Academy | Editor publica sin código; CWV/AA verdes | Alcance comparador |
+| **S1** Sitio público Volt (solo ES) | Landings deporte (pádel ★), PDP de robot ✅ (Tempo R1 pádel), comparador ✅, LeadForm ✅, Academy | Editor publica sin código; CWV/AA verdes | Alcance comparador |
 | **S2** Checkout EUR + emails | Adaptador `stripe` del puerto (cards+Bizum+Klarna/seQura), Stripe Tax ES, máquina estados ✅, **VeriFactu**, RGPD, **payments-runbook** ✅ | E2E compra real + factura homologada | VeriFactu |
 | **S3** Temas | carbon/club, overrides Zod, **variantes de sección por tema**, preview/versiones | Admin cambia tema/acento/fuente sin romper default | Deriva tokens |
 | **S4** UK + EAU | `en-gb`/`en-ae`, precios GBP/AED, Klarna/Clearpay, **adaptadores tabby/tamara (validan el puerto)**, selector de método en checkout por MarketSettings, DDP + VAT UK/EORI, hreflang | E2E por mercado y proveedor verdes | Aduanas/VAT |
@@ -36,7 +36,7 @@
 12. ✅ `commerce-domain`: `CommerceService` + **puerto `PaymentProvider` + tipos `PaymentEvent`** + máquina de estados (doc+tests).
 13. ✅ Bloques Hero/RichText/CTABand + Home editable con live preview.
 14. Landing `/es/padel` (Hero+Bento).
-15. ✅ PDP Drill Pro P (specs+garantía) + LeadForm→`leads` — como ruta; la PDP editable como plantilla queda en WP 13 de ARCHITECTURE §8.
+15. ✅ PDP de robot (specs con estado de evidencia + garantía) + LeadForm→`leads` — como ruta. El producto es **Tempo R1** en su variante de pádel, SKU `TMP-R1-P`: lo que este plan llamó «Drill Pro P» es hoy ese SKU, porque ADR-022 retiró el naming Drill One/Pro/Club. La PDP editable como plantilla queda en WP 13 de ARCHITECTURE §8.
 
 Entregado además de este plan (verificable en el repo): chrome global (header, footer, selector de región) · comparador `/comparar` · navegación y páginas legales seed · SEO (sitemap, hreflang, JSON-LD, `llms.txt`) · fontanería de pagos completa (orders/payments/outbox, webhook `/next/webhooks/[provider]`) con adaptador Stripe verify+normalize — la conexión del SDK (createSession/refund) queda en WP 15b.
 
