@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **S0** Fundaciones ✅ | Monorepo, tokens, CI, MCP, **locales es/en/ar y markets es/uk/ae desde el día 1**, esqueleto `CommerceService` + `PaymentProvider`, ADRs | 3 temas conmutan sin FOUC; CI verde; admin logueable | Refactor i18n tardío |
 | **S1** Sitio público Volt (solo ES) | Landings deporte (pádel ★), PDP de robot ✅ (Tempo R1 pádel), comparador ✅, LeadForm ✅, Academy | Editor publica sin código; CWV/AA verdes | Alcance comparador |
-| **S2** Checkout EUR + emails | Adaptador `stripe` del puerto (cards+Bizum+Klarna/seQura), Stripe Tax ES, máquina estados ✅, **VeriFactu**, RGPD, **payments-runbook** ✅ | E2E compra real + factura homologada | VeriFactu |
+| **S2** Checkout EUR + emails | Adaptador `stripe` del puerto (cards+Bizum+Klarna/seQura), Stripe Tax ES, máquina estados ✅, **VeriFactu**, RGPD, **payments-runbook** ✅ | E2E compra real + factura emitida por el SIF | VeriFactu |
 | **S3** Temas | carbon/club, overrides Zod, **variantes de sección por tema**, preview/versiones | Admin cambia tema/acento/fuente sin romper default | Deriva tokens |
 | **S4** UK + EAU | `en-gb`/`en-ae`, precios GBP/AED, Klarna/Clearpay, **adaptadores tabby/tamara (validan el puerto)**, selector de método en checkout por MarketSettings, DDP + VAT UK/EORI, hreflang | E2E por mercado y proveedor verdes | Aduanas/VAT |
 | **S5** CRM/marketing + AR legal | Segments, cupones, abandoned cart, flujos, consent por market, **T&C/privacidad AR** | Welcome+abandoned activos con métricas; AR legal live | RTL/Payload |
@@ -48,7 +48,7 @@ Entregado además de este plan (verificable en el repo): chrome global (header, 
 
 | Riesgo | Impacto | Mitigación |
 |---|---|---|
-| **VeriFactu** incumplido | Sanciones AEAT | Proveedor homologado por API; asesor fiscal; nunca motor propio |
+| **VeriFactu** incumplido | Sanciones AEAT | Proveedor de SIF con declaración responsable, por API; asesor fiscal; nunca motor propio |
 | VAT UK sin registro (1ª venta) | Multas/paquetes retenidos | Registro VAT+EORI antes de S4; DDP; Stripe Tax UK |
 | VAT/duty EAU e importador | Coste oculto, mala UX | DDP con Aramex como broker; 5 %+5 % CIF calculado en checkout |
 | Tabby/Tamara fuera de Stripe | Conversión EAU | Adaptadores propios del puerto en S4; widget cuotas en PDP |

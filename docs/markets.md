@@ -20,7 +20,9 @@
 | Facturación | **VeriFactu** (abajo) | Factura VAT | Factura VAT; e-invoicing piloto jul-2026, grandes ene-2027 |
 | Logística 12-15 kg | Correos/SEUR/GLS | DPD/Royal Mail (DDP) | Aramex (DDP, broker/importador de registro) |
 
-**VeriFactu (ES, crítico):** RD 1007/2023 + Orden HAC/1172/2024 — el software de facturación debe generar registros inalterables con hash y remisión AEAT; aplica **sin umbral**; calendario 2026-2027 (RD-ley 15/2025). **Stripe no es un SIF homologado** → integrar **proveedor de facturación certificado por API** que consuma pedidos desde Supabase (ADR-07). Validar plazos con asesor fiscal.
+**VeriFactu (ES, crítico):** RD 1007/2023 + Orden HAC/1172/2024 — el software de facturación debe generar registros inalterables con hash y remisión AEAT; aplica **sin umbral**; calendario 2026-2027 (RD-ley 15/2025). **Stripe no es un SIF** → integrar por API un **proveedor cuyo SIF tenga la declaración responsable** que exige el RRSIF, consumiendo pedidos desde Supabase (ADR-07). Validar plazos con asesor fiscal.
+
+> **Sobre la palabra «homologado».** Este documento y otros cinco la usaban, y en este régimen no existe: la AEAT **no homologa ni certifica** un sistema de facturación — es su **productor** quien firma una declaración responsable de que cumple el art. 29.2.j) LGT y el RRSIF. Lo que la AEAT sí homologa es otro procedimiento distinto, la digitalización certificada de facturas en papel, y de ahí viene la confusión. La decisión de ADR-07 —comprar el SIF en vez de construirlo— no cambia; el criterio para elegirlo, sí: se pregunta por la declaración responsable, no por una homologación que nadie puede enseñar.
 
 **Cross-border confirmado:** cuenta **Stripe España** presenta **GBP y AED** y liquida en **EUR** sin entidad UK/UAE (FX ~1-2 %/transacción). Settlement multi-moneda (cuenta GBP/AED) solo si el volumen lo justifica. **Stripe UAE local** exigiría entidad+banco en EAU → diferido (ADR-08).
 

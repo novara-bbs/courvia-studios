@@ -71,7 +71,7 @@ que este ADR tenga la forma que tiene.
 
 CLAUDE.md §2 dice «construye la experiencia Courvia, no una nueva Shopify», y sigue
 mandando. La aclaración es sobre qué significa en el motor nativo: **el nativo compra**
-procesamiento de pagos, motor fiscal, facturación homologada y logística mediante
+procesamiento de pagos, motor fiscal, facturación conforme al SIF y logística mediante
 adaptadores. Lo que construye es el carrito, el flujo de pedido, la posventa y la
 experiencia. No construye una pasarela ni un motor de impuestos.
 

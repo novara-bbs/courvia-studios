@@ -32,7 +32,7 @@ Implementación: `packages/commerce-domain/src/order-state-machine.ts` (función
 
 ## Side-effects declarativos
 
-`transition()` devuelve los side-effects como identificadores (`commit_stock`, `issue_tax_invoice`, …) y no los ejecuta: el adaptador los mapea a acciones reales (email, factura homologada del mercado, CRM). Así la máquina es 100 % testeable sin mocks y añadir una pasarela nueva no la toca.
+`transition()` devuelve los side-effects como identificadores (`commit_stock`, `issue_tax_invoice`, …) y no los ejecuta: el adaptador los mapea a acciones reales (email, factura del SIF que exija el mercado, CRM). Así la máquina es 100 % testeable sin mocks y añadir una pasarela nueva no la toca.
 
 ## Clasificación de efectos: transaccional vs outbox
 

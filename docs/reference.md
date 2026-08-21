@@ -15,7 +15,7 @@
 | 04 | `sport` como atributo de variante (Tempo R1 → P/T; Go → PB), no entidad |
 | 05 | Precios fijos por moneda con `Price` objects (Adaptive solo respaldo) |
 | 06 | Tabby/Tamara por API directa (no existen en Stripe) |
-| 07 | Facturación ES vía proveedor homologado VeriFactu, no motor propio |
+| 07 | Facturación ES vía proveedor de SIF con declaración responsable (VeriFactu), no motor propio |
 | 08 | EAU: DDP cross-border desde España, sin entidad UAE en Fase 1 |
 | 09 | Árabe: legal/privacidad primero; UI comercial AR en fase posterior |
 | 10 | Posicionamiento: especialista de robots de pádel en ES/EAU |
