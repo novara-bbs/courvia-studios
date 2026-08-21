@@ -203,3 +203,47 @@ describe("every field is named in the editor's language", () => {
     });
   }
 });
+
+/**
+ * The ceiling, from ADR-028.
+ *
+ * CLAUDE.md §5 said 10-12 while the registry held 19, and nothing said so for
+ * weeks: the number lived in prose, and prose does not fail a build. ADR-028
+ * raised it — grouping and thumbnails changed what a long registry costs an
+ * editor — and this is the half that makes the new number mean something.
+ *
+ * Both constants are here, next to the assertion, on purpose. Raising one is
+ * a line in a diff that a reviewer reads as what it is: a decision that ADR-028
+ * says needs its own ADR.
+ */
+describe("the section ceiling (ADR-028)", () => {
+  /** 19 today + the 4 bound sections of WP13, plus one of margin. */
+  const SECTION_CEILING = 24;
+  /** Payload's block drawer is a six-column grid, so twelve is two rows: a
+   *  whole shelf still reads at a glance instead of scrolling as a list. */
+  const SHELF_CEILING = 12;
+
+  it("holds no more sections than ADR-028 allows", () => {
+    const registered = Object.keys(SECTIONS);
+    expect(
+      registered.length,
+      `${String(registered.length)} secciones registradas; el techo es ${String(SECTION_CEILING)} (ADR-028). ` +
+        "Subirlo es un ADR nuevo, no editar esta constante.",
+    ).toBeLessThanOrEqual(SECTION_CEILING);
+  });
+
+  it("keeps every shelf of the picker scannable", () => {
+    const perShelf = new Map<string, string[]>();
+    for (const [type, section] of Object.entries(SECTIONS)) {
+      perShelf.set(section.group, [...(perShelf.get(section.group) ?? []), type]);
+    }
+    for (const shelf of SECTION_GROUPS) {
+      const sections = perShelf.get(shelf) ?? [];
+      expect(
+        sections.length,
+        `la balda "${shelf}" tiene ${String(sections.length)} secciones (${sections.sort().join(", ")}); ` +
+          `el techo por balda es ${String(SHELF_CEILING)} (ADR-028), dos filas de la rejilla del selector.`,
+      ).toBeLessThanOrEqual(SHELF_CEILING);
+    }
+  });
+});

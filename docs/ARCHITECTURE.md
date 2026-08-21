@@ -95,14 +95,22 @@ Un archivo por sección produce las cuatro caras desde **una** declaración, evi
 
 ```
 packages/sections/src/
-  blocks/<slug>/index.tsx  # defineSection({ type, labels, fields, appearance, fixture, render })
-  dsl/                     # DSL neutral de campos + proyección a Zod
+  blocks/<slug>/index.tsx  # defineSection({ type, labels, group, thumbnail,
+                           #                 fields, appearance, fixture, render })
+  dsl/                     # DSL neutral de campos + proyección a Zod, más el
+                           #   vocabulario que ve el editor: groups.ts (las cuatro
+                           #   baldas), thumbnail.ts (el sketch de cada sección),
+                           #   href.ts (qué destino se puede escribir) y
+                           #   common-fields.ts (formas repetidas, como el par
+                           #   texto+destino de un CTA)
   render/                  # SectionRenderer / SectionList (la resiliencia vive aquí)
   registry.ts              # SECTIONS — el registro que consumen tienda y admin
   sections.css             # estilos de sección centralizados (solo tokens y propiedades lógicas)
 ```
 
-Decisión deliberada: **el DSL neutral de campos del registro es la fuente**, y de él se proyecta todo lo demás. Las secciones no pueden importar Payload (la frontera las mantiene funciones puras de `(contenido, apariencia)`), así que los campos se declaran una vez en ese vocabulario y se proyectan dos veces: al contrato Zod que valida el render y, en `apps/web/src/payload/blocks.ts`, a la config de bloque de Payload que ve el editor. Esa config **nunca se escribe a mano**: es una proyección, no una fuente. El test del registro (`packages/sections/src/registry.test.ts`) mantiene honestas las proyecciones: labels en los tres idiomas del admin, fixture de oro que satisface su propio contrato, controles de ritmo declarados y rechazo de contenido sin sus campos requeridos.
+Decisión deliberada: **el DSL neutral de campos del registro es la fuente**, y de él se proyecta todo lo demás. Las secciones no pueden importar Payload (la frontera las mantiene funciones puras de `(contenido, apariencia)`), así que los campos se declaran una vez en ese vocabulario y se proyectan dos veces: al contrato Zod que valida el render y, en `apps/web/src/payload/blocks.ts`, a la config de bloque de Payload que ve el editor. Esa config **nunca se escribe a mano**: es una proyección, no una fuente. El test del registro (`packages/sections/src/registry.test.ts`) mantiene honestas las proyecciones: labels singular y plural en los tres idiomas del admin, **copy por campo** —etiqueta, ayuda, nombre de cada opción de un `select`, nombre de fila de cada `array`— en esos mismos tres, balda declarada, miniatura que se dibuja y que no repite la de otra sección, fixture de oro que satisface su propio contrato, controles de ritmo declarados y rechazo de contenido sin sus campos requeridos.
+
+**Cuántas secciones caben: 24, y 12 por balda** ([ADR-028](adr/ADR-028-section-ceiling.md)). Hoy hay 19 y WP13 suma cuatro vinculadas. La cifra anterior (10-12, CLAUDE.md §5) se escribió cuando el selector era una lista plana de nombres; agrupar y dibujar cambió lo que cuesta encontrar una sección, no lo que cuesta mantenerla. El mismo test lo vigila.
 
 ### Controles de apariencia atados a tokens
 
@@ -300,7 +308,7 @@ Las suites de contrato son la pieza de mayor apalancamiento: se exportan desde e
 
 ## 8. Estado y secuencia
 
-Hecho: monorepo · tokens con contrato semántico y contraste garantizado · primitivas sin escape hatches · puertos implementables con suites de contrato · `Money` · máquina de estados con outbox y códigos de razón · fronteras verificadas · CI (con Postgres real: migra + siembra + test de contrato del adaptador) · **Payload 3.88 embebido** (admin en `/admin`, schema `payload` en Supabase con RLS, `push:false` — solo migraciones, localización es/en/ar) · **catálogo completo** (`categories`/`products`/`variants`/`prices`/`inventory`/`leads`; precios/inventario/leads solo-servidor; precios fijos por mercado en unidades menores) · **adaptador `commerce-payload`** pasando la suite de contrato contra Postgres real vía el composition root · **rutas `/robots` y `/robots/[slug]`** cacheadas por tags con revalidación desde hooks · **captación de leads** (server action validada, honeypot, consentimiento) · **live preview + draft mode** (`/next/preview` autenticado con payload.auth, sin secreto compartido) · **SEO por página + redirecciones editoriales + 404 real** (ADR-026: cadena de respaldo en un módulo, tarjeta OG generada desde tokens, `redirects` creadas al renombrar y resueltas en el proxy).
+Hecho: monorepo · tokens con contrato semántico y contraste garantizado · primitivas sin escape hatches · puertos implementables con suites de contrato · `Money` · máquina de estados con outbox y códigos de razón · fronteras verificadas · CI (con Postgres real: migra + siembra + test de contrato del adaptador) · **Payload 3.88 embebido** (admin en `/admin`, schema `payload` en Supabase con RLS, `push:false` — solo migraciones, localización es/en/ar) · **catálogo completo** (`categories`/`products`/`variants`/`prices`/`inventory`/`leads`; precios/inventario/leads solo-servidor; precios fijos por mercado en unidades menores) · **adaptador `commerce-payload`** pasando la suite de contrato contra Postgres real vía el composition root · **rutas `/robots` y `/robots/[slug]`** cacheadas por tags con revalidación desde hooks · **captación de leads** (server action validada, honeypot, consentimiento) · **live preview + draft mode en páginas y en productos** (`/next/preview` autenticado con payload.auth, sin secreto compartido; la PDP lee el borrador con `getDraftRobot` y la mitad de commerce —variantes, precios, existencias— sigue siendo la viva, porque no tiene versiones) · **SEO por página + redirecciones editoriales + 404 real** (ADR-026: cadena de respaldo en un módulo, tarjeta OG generada desde tokens, `redirects` creadas al renombrar y resueltas en el proxy).
 
 Pendiente, en orden (cada paquete = una sesión):
 

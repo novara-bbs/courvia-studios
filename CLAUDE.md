@@ -145,7 +145,7 @@ Firma exacta: `packages/commerce-domain/src/payment.ts` (la fuente de verdad es 
 - **Tema activo + overrides → Global `ThemeSettings` de Payload** (una sola fuente de verdad). Override = **JSON parcial validado con Zod**; whitelist: `font.display`, `container.width`, `radius.*`, `color.accent`, `color.surface`. **Restaurar = borrar la clave** → vuelve al valor de Git.
 - Render: **CSS variables + `data-theme` en `<html>` desde el servidor** (patrón next-themes, **sin FOUC**). *Tradeoff conocido:* leer la cookie en el layout raíz fuerza render dinámico de toda la app; aceptado en S0, revisar en S1 (cacheComponents/PPR o theming vía middleware) antes de medir CWV.
 - **Nombres de tema:** `data-theme` usa los alias cortos `volt` · `carbon` · `club`, que mapean a las claves canónicas `volt-precision` · `carbon-drive` · `club-real` de `brand/courvia-tokens.json` (los **valores exactos** de tokens los manda siempre el JSON).
-- **Bloques Payload: 10-12 específicos, no 50 genéricos** (el admin degrada con exceso de bloques/campos).
+- **Bloques Payload: específicos, no genéricos, y con techo — 24 en total y 12 por balda del selector** (ADR-028). Hoy hay 19 y WP13 suma cuatro vinculadas. El techo lo vigila `packages/sections/src/registry.test.ts`, no la buena voluntad; subirlo otra vez es un ADR nuevo. La cifra anterior (10-12) se escribió cuando el selector era una lista plana de nombres: hoy agrupa en cuatro baldas y cada sección lleva miniatura.
 
 | Tema | Uso | bg / surface | accent (AA) | Tipografías |
 |---|---|---|---|---|
@@ -198,7 +198,7 @@ Las decisiones 01–14 están resumidas abajo y desarrolladas en `docs/`. Las de
 | 12 | Tokens: JSON DTCG tipado + script propio; Style Dictionary solo con más plataformas |
 | 13 | Puerto `PaymentProvider` con eventos normalizados; idempotencia `(provider, provider_event_id)` |
 | 14 | Multi-gateway por mercado en `MarketSettings.paymentProviders[]`; el cliente elige |
-| **15–26** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL · commerce en el CMS · catálogo real Tempo/Go/Rally con régimen de evidencia · vocabulario de composición (sin HTML libre) · portabilidad del puerto de commerce (Shopify: catálogo sí, checkout no) · mercados publicados frente a preparados · SEO por página, redirecciones editoriales y 404 real desde el proxy |
+| **15–28** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL · commerce en el CMS · catálogo real Tempo/Go/Rally con régimen de evidencia · vocabulario de composición (sin HTML libre) · portabilidad del puerto de commerce (Shopify: catálogo sí, checkout no) · mercados publicados frente a preparados · SEO por página, redirecciones editoriales y 404 real desde el proxy · el envío como documento · techo de secciones en 24 con test |
 
 ---
 
