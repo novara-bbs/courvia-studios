@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Proof that the CommerceService port survives an external platform: the catalog half over Shopify's Storefront API, and an honest NotImplementedError for the half Shopify hosts itself (ADR-024).",
+  "description": "A study, not an integration: Shopify's Storefront API behind declared EngineCapabilities (catalog and availability, nothing else) plus the frozen ADR-024 CommerceService facade. No HTTP client, no token, no shop — code_complete, never sandbox_verified (ADR-029).",
   "exports": {
     ".": "./src/index.ts"
   },

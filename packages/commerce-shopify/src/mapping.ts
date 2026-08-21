@@ -5,8 +5,26 @@
  */
 import { CURRENCY_MINOR_UNITS, MARKET_DEFINITIONS, SPORTS } from "@courvia/platform";
 import type { Currency, MarketId, Sport } from "@courvia/platform";
-import { money } from "@courvia/commerce-domain";
-import type { Money, Product, ProductImage, Spec, Variant } from "@courvia/commerce-domain";
+import {
+  COMMERCE_SERVICE_ASSUMED_PRECISION,
+  UNKNOWN_AVAILABILITY,
+  booleanAvailability,
+  exactAvailability,
+  isAllowedUnder,
+  matchAvailability,
+  money,
+} from "@courvia/commerce-domain";
+import type {
+  AvailabilityPrecision,
+  AvailabilityView,
+  Money,
+  Product,
+  ProductFilter,
+  ProductImage,
+  ProductSummary,
+  Spec,
+  Variant,
+} from "@courvia/commerce-domain";
 
 import { StorefrontError } from "./storefront";
 import type { ShopifyImage, ShopifyMoney, ShopifyProduct, ShopifyVariant } from "./storefront";
@@ -59,21 +77,104 @@ export function toMinorUnits(value: ShopifyMoney): Money {
 }
 
 /**
- * Shopify's stock answer, as an integer the port can carry.
+ * Shopify's stock answer, in the shape THIS CONNECTION is allowed to claim
+ * (ADR-029, plan invariant 16).
  *
- * `quantityAvailable` exists only when a shop publishes inventory levels to
- * the Storefront API; the default answer is the boolean `availableForSale`.
- * So the number below is a PRESENCE FLAG whenever the count is absent, and
- * any UI that renders "only 1 left" from it would be lying. ADR-024 §3.1
- * records this as the leak the port cannot paper over: `Availability` says
- * integer because our own stock ledger has one, and a hosted catalog does
- * not have to.
+ * Two facts have to meet here and neither one alone decides:
+ *
+ * 1. **What the shop published.** `quantityAvailable` exists only when the
+ *    shop publishes inventory levels to the Storefront API and the token
+ *    carries the scope; the default answer is the boolean `availableForSale`.
+ *    So "Shopify is boolean" is as false as the old `1` was — it depends on
+ *    the shop.
+ * 2. **What the connection declared.** `AvailabilityPrecision` is a CEILING,
+ *    not a promise (`availability.ts`). An `exact` connection may degrade to
+ *    boolean when a variant carries no count; a `boolean` connection may not
+ *    climb, even if a count leaks into the payload — it declared it cannot
+ *    count, and the type `AvailabilityView<"boolean">` has no exact branch.
+ *
+ * What never happens either way: a number nobody counted. Where the count is
+ * absent the answer is `booleanAvailability(availableForSale)`, and a SKU the
+ * shop does not know is `unknown` rather than a zero the storefront would
+ * paint as "sold out".
+ */
+export function toAvailabilityView<P extends AvailabilityPrecision>(
+  variant: ShopifyVariant | undefined,
+  precision: P,
+): AvailabilityView<P> {
+  const view = viewUnder(variant, precision);
+  assertUnder(view, precision);
+  return view;
+}
+
+/**
+ * The one narrowing in this package, and it is CHECKED rather than asserted:
+ * `isAllowedUnder` is the runtime twin of the conditional type, so a mapping
+ * that ever climbed above its declared ceiling would throw here instead of
+ * reaching a PDP. TypeScript cannot prove the relation while `P` is still a
+ * free parameter; this is what stands in for the proof.
+ */
+function assertUnder<P extends AvailabilityPrecision>(
+  view: AvailabilityView,
+  precision: P,
+): asserts view is AvailabilityView<P> {
+  if (!isAllowedUnder(view, precision)) {
+    throw new StorefrontError(
+      `mapped a "${view.kind}" availability under a "${precision}" connection`,
+    );
+  }
+}
+
+/**
+ * Lo que el techo declarado NO protege, y conviene saberlo antes de la Fase 6.
+ *
+ * `isAllowedUnder` y el tipo condicional acotan la FAMILIA de formas que una
+ * conexión puede devolver. Ninguno de los dos sabe si el número que va dentro
+ * de una vista exacta se contó o se inventó. Medido: poner
+ * `availableForSale ? 1 : 0` **solo dentro de la rama exacta** respeta el
+ * techo, pasa el tipo, y pasa las tres suites de contrato. Los únicos que lo
+ * cazan son los tests que afirman la FORMA concreta de la vista para una
+ * variante sin `quantityAvailable`, y por eso existen.
+ *
+ * Cuando el cliente real de la Storefront API sustituya a las fixtures, la
+ * trampa sigue ahí: el sitio donde se decide es este, y la red no la cierra.
+ */
+function viewUnder(
+  variant: ShopifyVariant | undefined,
+  precision: AvailabilityPrecision,
+): AvailabilityView {
+  // A SKU this shop has never heard of is not sold out. It is unknown, and
+  // saying so lets the storefront show an editorial CTA (ADR-029) instead of
+  // an "agotado" nobody checked.
+  if (variant === undefined || precision === "unknown") return UNKNOWN_AVAILABILITY;
+  const counted = variant.quantityAvailable;
+  if (precision === "exact" && typeof counted === "number") {
+    return exactAvailability(Math.max(0, Math.trunc(counted)));
+  }
+  return booleanAvailability(variant.availableForSale);
+}
+
+/**
+ * The same answer squeezed into the legacy facade's integer.
+ *
+ * `CommerceService.getAvailability` returns `Availability { available:
+ * number }`, so its precision is always exact — the domain says as much in
+ * `COMMERCE_SERVICE_ASSUMED_PRECISION`. When the shop published no count
+ * there is no honest integer to give it, and the `1` below is the presence
+ * flag ADR-024 §3.1 recorded as the leak the port cannot paper over.
+ *
+ * It survives ONLY here, feeding `ShopifyCommerceService`, and it is derived
+ * from the honest view rather than computed beside it: there is one place
+ * that decides what Shopify said about stock, and the lossy step is visible
+ * as a fold that throws information away. The capability surface
+ * (`ShopifyCatalogEngine`) never calls this.
  */
 export function toAvailable(variant: ShopifyVariant): number {
-  if (typeof variant.quantityAvailable === "number") {
-    return Math.max(0, Math.trunc(variant.quantityAvailable));
-  }
-  return variant.availableForSale ? 1 : 0;
+  return matchAvailability(toAvailabilityView(variant, COMMERCE_SERVICE_ASSUMED_PRECISION), {
+    exact: (quantity) => quantity,
+    boolean: (available) => (available ? 1 : 0),
+    unknown: () => 0,
+  });
 }
 
 function toImage(image: ShopifyImage): ProductImage {
@@ -161,6 +262,51 @@ export function toProduct(product: ShopifyProduct): Product {
       : {}),
     specs: toSpecs(product),
     variantIds: product.variants.map((v) => v.id),
+  };
+}
+
+/**
+ * The filters Shopify was already asked for, applied again locally.
+ *
+ * Shopify filters by tag server-side and paginates by cursor; the fixture
+ * fetcher does neither. Re-applying `slugs`, `sport`, `offset` and `limit`
+ * here is what makes the same call answer the same way against both — and in
+ * a real deployment it is the guarantee behind the wire query, because a tag
+ * typo would otherwise widen a listing in silence.
+ */
+export function selectProducts(
+  products: readonly ShopifyProduct[],
+  filter: ProductFilter,
+): ShopifyProduct[] {
+  const matched = products.filter((product) => {
+    if (filter.slugs !== undefined && !filter.slugs.includes(product.handle)) return false;
+    if (filter.sport !== undefined) return toProduct(product).sports.includes(filter.sport);
+    return true;
+  });
+  const offset = filter.offset ?? 0;
+  return filter.limit === undefined
+    ? matched.slice(offset)
+    : matched.slice(offset, offset + filter.limit);
+}
+
+/** A grid card, priced in whatever currency the `@inContext` call quoted. */
+export function toSummary(product: ShopifyProduct): ProductSummary {
+  const mapped = toProduct(product);
+  const fromPrice = product.variants
+    .map((variant) => toMinorUnits(variant.price))
+    .reduce<Money | null>(
+      (lowest, price) => (lowest === null || price.amount < lowest.amount ? price : lowest),
+      null,
+    );
+  return {
+    id: mapped.id,
+    slug: mapped.slug,
+    title: mapped.title,
+    sports: mapped.sports,
+    ...(mapped.excerpt === undefined ? {} : { excerpt: mapped.excerpt }),
+    ...(mapped.images?.[0] === undefined ? {} : { image: mapped.images[0] }),
+    ...(mapped.brand === undefined ? {} : { brand: mapped.brand }),
+    fromPrice,
   };
 }
 
