@@ -27,6 +27,10 @@ export interface CourviaAdminStrings {
   siteHint: string;
   recentTitle: string;
   recentEmpty: string;
+  /** The page-starter picker, shown only while a page has no blocks. */
+  startersEyebrow: string;
+  startersHeading: string;
+  startersLead: string;
 }
 
 /**
@@ -50,6 +54,19 @@ export interface CourviaAdminI18n {
 }
 
 /**
+ * What `useTranslation()` gives a CLIENT component of ours.
+ *
+ * Same problem as `CourviaAdminKey` and the same answer: Payload types `t`
+ * against its own key union, which cannot know about a namespace added
+ * through config. Narrowing the hook's result once here keeps the cast out
+ * of every component and keeps the keys checked.
+ */
+export interface CourviaTranslation {
+  i18n: { language: string };
+  t: (key: CourviaAdminKey) => string;
+}
+
+/**
  * Three languages, one voice — not three literal translations
  * (.claude/rules/content-voice.md). Second person, present tense, and the
  * next action rather than a welcome.
@@ -68,6 +85,9 @@ export const courviaAdminTranslations: Record<"ar" | "en" | "es", { courvia: Cou
       siteHint: "Lo que ve un visitante ahora mismo.",
       recentTitle: "Editado hace poco",
       recentEmpty: "Todavía no hay páginas. Crea la primera.",
+      startersEyebrow: "Página vacía",
+      startersHeading: "Empieza por una composición, no por un bloque.",
+      startersLead: "Escribe las secciones de golpe y luego cambia lo que quieras. Solo aparece mientras la página está vacía.",
     },
   },
   en: {
@@ -83,6 +103,9 @@ export const courviaAdminTranslations: Record<"ar" | "en" | "es", { courvia: Cou
       siteHint: "What a visitor sees right now.",
       recentTitle: "Edited recently",
       recentEmpty: "No pages yet. Create the first one.",
+      startersEyebrow: "Empty page",
+      startersHeading: "Start from a composition, not from a block.",
+      startersLead: "It writes the sections in one go and you change whatever you want after. It only shows while the page is empty.",
     },
   },
   ar: {
@@ -98,6 +121,9 @@ export const courviaAdminTranslations: Record<"ar" | "en" | "es", { courvia: Cou
       siteHint: "ما يراه الزائر الآن.",
       recentTitle: "عُدِّلت مؤخرًا",
       recentEmpty: "لا توجد صفحات بعد. أنشئ الأولى.",
+      startersEyebrow: "صفحة فارغة",
+      startersHeading: "ابدأ بتركيبة، لا ببلوك واحد.",
+      startersLead: "تكتب الأقسام دفعة واحدة ثم تغيّر ما تشاء. لا تظهر إلا والصفحة فارغة.",
     },
   },
 };

@@ -10,6 +10,7 @@ import { setRequestRegion } from "../../../../src/i18n/request-region";
 import { getDraftPage, getPage } from "../../../../src/content/get-page";
 import { makeRenderContext } from "../../../../src/content/render-context";
 import { DraftModeBar } from "../../../../src/preview/draft-mode-bar";
+import { PreviewEditingBridge } from "../../../../src/preview/editing-bridge";
 import { RefreshRouteOnSave } from "../../../../src/preview/refresh-route-on-save";
 import { pageMetadata } from "../../../../src/seo/page-metadata";
 import { siteUrl } from "../../../../src/seo/site-url";
@@ -82,6 +83,9 @@ export default async function CmsPage({ params }: PageArgs) {
         <>
           <DraftModeBar exitPath={`/${region}/${page.slug}`} />
           <RefreshRouteOnSave serverUrl={siteUrl()} />
+          {/* The other direction: a click on the page focuses the field that
+              wrote it, in the panel next to the frame. */}
+          <PreviewEditingBridge />
         </>
       ) : null}
       <SectionList

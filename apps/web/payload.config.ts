@@ -166,6 +166,14 @@ export default buildConfig({
         Logo: "/src/admin/graphics#CourviaLogo",
       },
       beforeDashboard: ["/src/admin/quick-start#CourviaQuickStart"],
+      /**
+       * The panel half of click-to-edit. A PROVIDER rather than a view or a
+       * field component because the message it answers can arrive at any
+       * moment and for any document: it wraps the whole panel, listens for
+       * the preview iframe, and focuses the field that wrote whatever the
+       * editor clicked (src/admin/editing-bridge.tsx).
+       */
+      providers: ["/src/admin/editing-bridge#CourviaEditingBridge"],
     },
 
     /**

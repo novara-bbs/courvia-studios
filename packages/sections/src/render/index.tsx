@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { SECTIONS } from "../registry";
 import type { RenderContext } from "../registry";
+import { editingAttributes } from "./editing";
 
 interface RawBlock {
   blockType?: unknown;
@@ -11,6 +12,8 @@ interface RawBlock {
    *  long page readable in the admin; we reuse it as the section's anchor
    *  so `anchorNav` works without adding a field to every block. */
   blockName?: unknown;
+  /** Payload's row id. Stable across a reorder, unlike the position. */
+  id?: unknown;
   [key: string]: unknown;
 }
 
@@ -88,8 +91,21 @@ export function SectionRenderer({
 
   const attrs = appearanceAttributes(appearance, definition.appearance);
   const id = typeof block.blockName === "string" ? anchorId(block.blockName) : undefined;
+  // The click-to-field index (see ./editing.ts), and ONLY in draft. A
+  // published page carries none of it: no block ids, no field paths and no
+  // copy of its own text in an attribute. Asserted over HTTP against the
+  // built server, not just here — an attribute this file emits correctly can
+  // still reach production through a route that turns preview on by mistake.
+  const editing = ctx.preview
+    ? editingAttributes(definition.fields, parsed.data as Record<string, unknown>, block.id, index)
+    : {};
   return (
-    <section data-cv-section={definition.type} {...(id === undefined ? {} : { id })} {...attrs}>
+    <section
+      data-cv-section={definition.type}
+      {...(id === undefined ? {} : { id })}
+      {...attrs}
+      {...editing}
+    >
       {/* The band paints, the inner measures. Emitted HERE rather than by a
        *  @courvia/ui primitive on purpose: it is layout the RENDERER owns,
        *  so no primitive has to start accepting a className to get it. A

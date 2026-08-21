@@ -1,3 +1,4 @@
+import { PageStarters as PageStarters_799faada5c390db4570d6c3f0cfb6a7d } from '../../../src/admin/page-starters'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { LexicalDiffComponent as LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -24,10 +25,12 @@ import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0
 import { CourviaIcon as CourviaIcon_9361be91300a9ff3e063f604559234b1 } from '../../../src/admin/graphics'
 import { CourviaLogo as CourviaLogo_9361be91300a9ff3e063f604559234b1 } from '../../../src/admin/graphics'
 import { CourviaQuickStart as CourviaQuickStart_68a1ead3d1a1bf66c0631610d5cf7a0f } from '../../../src/admin/quick-start'
+import { CourviaEditingBridge as CourviaEditingBridge_1115f2e0dfe53509028aef3934d7523d } from '../../../src/admin/editing-bridge'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
 export const importMap = {
+  "/src/admin/page-starters#PageStarters": PageStarters_799faada5c390db4570d6c3f0cfb6a7d,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#LexicalDiffComponent": LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e,
@@ -54,5 +57,6 @@ export const importMap = {
   "/src/admin/graphics#CourviaIcon": CourviaIcon_9361be91300a9ff3e063f604559234b1,
   "/src/admin/graphics#CourviaLogo": CourviaLogo_9361be91300a9ff3e063f604559234b1,
   "/src/admin/quick-start#CourviaQuickStart": CourviaQuickStart_68a1ead3d1a1bf66c0631610d5cf7a0f,
+  "/src/admin/editing-bridge#CourviaEditingBridge": CourviaEditingBridge_1115f2e0dfe53509028aef3934d7523d,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

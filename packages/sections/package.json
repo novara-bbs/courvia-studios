@@ -7,6 +7,7 @@
   "exports": {
     "./registry": "./src/registry.ts",
     "./render": "./src/render/index.tsx",
+    "./starters": "./src/starters.ts",
     "./sections.css": "./src/sections.css"
   },
   "scripts": {

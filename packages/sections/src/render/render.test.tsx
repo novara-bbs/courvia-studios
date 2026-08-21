@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { SECTIONS } from "../registry";
 import type { RenderContext } from "../registry";
+import { editableEntries } from "./editing";
 import { SectionRenderer, anchorId } from "./index";
 
 /** A context with every injected renderer present, as the app supplies. */
@@ -301,6 +302,80 @@ describe("no section nests one control inside another", () => {
     it(`${type} keeps its controls flat`, () => {
       const found = nestedControl(render({ blockType: type, ...section.fixture }));
       expect(found, `${type} renders ${String(found)}`).toBeNull();
+    });
+  }
+});
+
+/**
+ * The click-to-field bridge, and the promise that it never reaches a reader.
+ *
+ * `data-cv-fields` carries a copy of the section's own text. On a published
+ * page that would be dead weight in every response and a map of the CMS's
+ * field names for anyone who reads source. The gate is `ctx.preview`, which
+ * is `draftMode().isEnabled` — asserted here on the markup and again over
+ * HTTP against the built server in apps/web/src/preview/editing-bridge.http.test.ts,
+ * because this test would keep passing if a route enabled preview by mistake.
+ */
+describe("the editing bridge exists only in draft", () => {
+  const block = {
+    blockType: "quote",
+    id: "68c0ffee",
+    ...SECTIONS.quote?.fixture,
+  };
+
+  it("emits no bridge attribute on a published page", () => {
+    const html = render(block);
+    expect(html).not.toContain("data-cv-block");
+    expect(html).not.toContain("data-cv-fields");
+    expect(html).not.toContain("data-cv-index");
+  });
+
+  it("emits the block id, its position and its field index in preview", () => {
+    const html = render(block, previewCtx);
+    expect(html).toContain('data-cv-block="68c0ffee"');
+    expect(html).toContain('data-cv-index="0"');
+    expect(html).toContain("data-cv-fields=");
+  });
+
+  it("maps the text on the page to the field that wrote it", () => {
+    const html = renderToStaticMarkup(
+      <SectionRenderer raw={block} ctx={previewCtx} index={2} />,
+    );
+    const index = /data-cv-fields="([^"]*)"/.exec(html)?.[1] ?? "";
+    // React escapes the attribute; the browser un-escapes it before JSON.parse.
+    const entries = JSON.parse(
+      index.replaceAll("&quot;", '"').replaceAll("&#x27;", "'").replaceAll("&amp;", "&"),
+    ) as { path: string; text: string }[];
+    const quote = SECTIONS.quote?.fixture.quote as string;
+    expect(entries).toContainEqual({ path: "quote", text: quote });
+    // And the text it points at is really on the page, or the browser would
+    // never match it back.
+    expect(html).toContain(quote);
+    expect(html).toContain('data-cv-index="2"');
+  });
+
+  /**
+   * Every indexed path has to be text the visitor can actually see, or the
+   * browser has nothing to match the click against and the entry is a lie
+   * that costs bytes. Run across all nineteen sections, it is also the check
+   * that catches a field indexed by the DSL but dropped by a renderer.
+   */
+  for (const [type, section] of Object.entries(SECTIONS)) {
+    it(`${type} indexes only text it really renders`, () => {
+      const html = renderToStaticMarkup(
+        <SectionRenderer
+          raw={{ blockType: type, id: "id", ...section.fixture }}
+          ctx={previewCtx}
+        />,
+      );
+      const body = html.slice(html.indexOf("<div"));
+      for (const entry of editableEntries(section.fields, section.fixture)) {
+        if (entry.kind === "media") continue;
+        expect(
+          body.includes(entry.text.replaceAll("&", "&amp;")),
+          `${type} indexes "${entry.path}" but never renders it`,
+        ).toBe(true);
+      }
     });
   }
 });

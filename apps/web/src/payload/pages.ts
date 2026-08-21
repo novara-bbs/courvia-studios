@@ -1,3 +1,6 @@
+import { STARTERS, starterBlockTypes } from "@courvia/sections/starters";
+import { SECTIONS } from "@courvia/sections/registry";
+import type { LocalizedText } from "@courvia/appearance";
 import { revalidateTag } from "next/cache";
 import type { CollectionConfig } from "payload";
 
@@ -5,6 +8,27 @@ import { isAdmin, isAuthenticated } from "./access";
 import { buildBlocks } from "./blocks";
 import { redirectOnSlugChange } from "./page-redirects";
 import { previewRegion, previewUrl } from "./preview";
+
+/**
+ * What each starter writes, named in the three panel languages.
+ *
+ * Resolved HERE rather than in the picker because the picker is a client
+ * component: importing the registry from it would ship every section's
+ * render function to every admin route (ARCHITECTURE.md §1 — a collection
+ * may not pull storefront components into the panel's bundle). The registry
+ * already lives on this side of the line, so the labels cross as data.
+ */
+function starterSectionLabels(): Record<string, LocalizedText[]> {
+  return Object.fromEntries(
+    STARTERS.map((starter) => [
+      starter.id,
+      starterBlockTypes(starter).flatMap((type) => {
+        const section = SECTIONS[type];
+        return section === undefined ? [] : [section.labels.singular];
+      }),
+    ]),
+  );
+}
 
 /**
  * Editable pages: a slug plus a stack of registered sections. The layout is
@@ -99,6 +123,29 @@ export const Pages: CollectionConfig = {
           },
           fields: [
             { name: "title", type: "text", label: "Título", required: true, localized: true },
+            /**
+             * The starter picker. A `ui` field, so it stores nothing and
+             * costs no column: it writes into the `blocks` field below and
+             * then disappears, because it renders nothing once that field
+             * has rows (src/admin/page-starters.tsx).
+             *
+             * Above `blocks` on purpose. An editor opening a new page reads
+             * top to bottom, and the offer has to arrive BEFORE the empty
+             * array with nineteen choices in it — which is the screen this
+             * exists to replace.
+             */
+            {
+              name: "starter",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: {
+                    clientProps: { sections: starterSectionLabels() },
+                    path: "/src/admin/page-starters#PageStarters",
+                  },
+                },
+              },
+            },
             { name: "blocks", type: "blocks", label: "Secciones", blocks: buildBlocks() },
           ],
         },

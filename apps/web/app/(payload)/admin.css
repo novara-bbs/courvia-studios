@@ -232,3 +232,112 @@
     display: none;
   }
 }
+
+/* ── Click on the page, focus in the panel ────────────────────────────── */
+
+/*
+ * The field the preview just sent us. A focus ring alone is not enough
+ * feedback when the panel had to scroll a long form and open two collapsed
+ * rows to get there: the eye needs to be told which of the fields now on
+ * screen is the one that answered.
+ *
+ * `outline` rather than a border or a background, so nothing about the
+ * field's box changes and the form does not reflow when the class is added
+ * or removed. The class is dropped by src/admin/editing-bridge.tsx.
+ */
+.cv-field-flash {
+  outline: 2px solid var(--cv-color-accent);
+  outline-offset: var(--cv-space-1);
+  border-radius: var(--cv-radius-sm);
+}
+
+/* ── Arranques de página ──────────────────────────────────────────────── */
+
+/*
+ * The picker an editor sees INSTEAD of an empty array of nineteen choices.
+ * It renders only while the page has no blocks (src/admin/page-starters.tsx),
+ * so none of this is ever on screen next to real content.
+ *
+ * Payload's own colours for the surface, Courvia's for the accent: the panel
+ * flips between light and dark themes and a hardcoded background would be
+ * unreadable in one of them.
+ */
+
+.cv-starters {
+  margin-block: var(--cv-space-4);
+  padding: var(--cv-space-4);
+  border: 1px solid var(--theme-elevation-100);
+  border-radius: var(--cv-radius-md);
+  background: var(--theme-elevation-50);
+}
+
+.cv-starters__eyebrow {
+  margin: 0;
+  color: var(--theme-elevation-500);
+  font-family: var(--font-mono);
+  font-size: var(--cv-font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cv-starters__heading {
+  margin-block: var(--cv-space-2) 0;
+  font-size: var(--cv-font-size-lg);
+}
+
+.cv-starters__lead {
+  margin-block: var(--cv-space-1) var(--cv-space-4);
+  max-inline-size: 62ch;
+  color: var(--theme-elevation-600);
+  font-size: var(--cv-font-size-sm);
+}
+
+.cv-starters__list {
+  display: grid;
+  gap: var(--cv-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/*
+ * A button, not a card with a click handler: choosing a starter rewrites the
+ * page, and that belongs to something the keyboard can reach and a screen
+ * reader announces as an action.
+ */
+.cv-starters__card {
+  display: grid;
+  gap: var(--cv-space-1);
+  padding: var(--cv-space-3);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: var(--cv-radius-sm);
+  background: var(--theme-input-bg);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.cv-starters__card:hover {
+  border-color: var(--cv-color-accent);
+}
+
+.cv-starters__card:focus-visible {
+  outline: 2px solid var(--cv-color-accent);
+  outline-offset: var(--cv-space-1);
+}
+
+.cv-starters__name {
+  font-weight: 600;
+}
+
+.cv-starters__summary {
+  color: var(--theme-elevation-600);
+  font-size: var(--cv-font-size-sm);
+}
+
+/* The sections it writes, in the panel's language. An editor should not have
+ * to click to find out what lands on the page. */
+.cv-starters__sections {
+  margin-block-start: var(--cv-space-1);
+  color: var(--theme-elevation-450);
+  font-family: var(--font-mono);
+  font-size: var(--cv-font-size-xs);
+}
