@@ -36,7 +36,10 @@ webhook POST /next/webhooks/{provider}
 Códigos de respuesta del webhook: `200` aplicado/duplicado/replay/ignorado —
 también los **conflictos** (paid sobre pedido cancelado, importe o moneda que
 no cuadran): se guarda el evento + una alerta `alert_payment_conflict` en el
-outbox y se responde 200 para que la pasarela no reintente lo irresoluble ·
+outbox y se responde 200 para que la pasarela no reintente lo irresoluble.
+**Esa alerta se manda por correo a `OPS_EMAIL`**; sin esa variable la fila se
+queda pendiente y el censo del cron la nombra en cada tick, que es la
+diferencia entre una alerta y un log que nadie mira ·
 `400` firma inválida · `404` proveedor desconocido o no configurado ·
 `409` válido pero prematuro para el estado (la pasarela debe reintentar).
 

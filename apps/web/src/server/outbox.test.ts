@@ -336,6 +336,59 @@ describeDb("dispatching", () => {
     logged.mockRestore();
   });
 
+  it("avisa a operaciones de un pago que se contradice, y solo si hay a quién", async () => {
+    /*
+     * `alert_payment_conflict` es dinero contradiciéndose: la pasarela dice
+     * una cosa y el pedido dice otra. El webhook responde 200 a propósito
+     * —reintentar no lo arregla— y deja esta fila, que era el único rastro. Su
+     * ÚNICO aviso era un `console.error` en el log del cron una vez al día, y
+     * un log que nadie mira no es una alerta.
+     *
+     * Sin `OPS_EMAIL` el handler NO se registra, y eso también se comprueba:
+     * registrarlo sin dirección quemaría los cinco intentos y dejaría la fila
+     * en `failed`, que se ve MENOS que pendiente.
+     */
+    const previous = process.env.OPS_EMAIL;
+    const row = await queue("alert_payment_conflict");
+    await payload.update({
+      collection: "outbox",
+      id: row.id,
+      data: { payload: { reason: "amount_mismatch", providerEventId: "evt_abc" } },
+      overrideAccess: true,
+    });
+
+    try {
+      // ---------------------------------------------- sin dirección: nada
+      delete process.env.OPS_EMAIL;
+      const { outboxHandlers } = await import("./outbox-handlers");
+      expect(Object.keys(outboxHandlers())).not.toContain("alert_payment_conflict");
+
+      // ---------------------------------------------- con dirección: correo
+      process.env.OPS_EMAIL = "operaciones@courvia.test";
+      const sent = vi
+        .spyOn(payload, "sendEmail")
+        .mockResolvedValue(undefined as unknown as ReturnType<typeof payload.sendEmail>);
+      const handlers = outboxHandlers();
+      expect(Object.keys(handlers)).toContain("alert_refund_failure");
+
+      await dispatchOutbox(payload, { handlers });
+
+      const call = sent.mock.calls.find(
+        ([message]) => typeof message.subject === "string" && message.subject.includes("alert_payment_conflict"),
+      );
+      expect(call, "no se mandó la alerta").toBeDefined();
+      expect(call?.[0].to).toBe("operaciones@courvia.test");
+      expect(String(call?.[0].text)).toContain("amount_mismatch");
+      expect(String(call?.[0].text)).toContain("evt_abc");
+      sent.mockRestore();
+
+      expect((await read(row.id)).status).toBe("dispatched");
+    } finally {
+      if (previous === undefined) delete process.env.OPS_EMAIL;
+      else process.env.OPS_EMAIL = previous;
+    }
+  });
+
   it("sends the real confirmation for a lead row", async () => {
     const row = await queue("notify_sales_lead");
     const sent = vi

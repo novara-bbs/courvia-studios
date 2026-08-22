@@ -19,9 +19,15 @@
  *     channel the warehouse reads, and there is no warehouse yet. Leaving
  *     `stop_picking` off this list would be the dangerous omission: it is
  *     the counter-order that stops a refunded order from shipping.
- *   - `alert_payment_conflict`, `alert_refund_failure` — a human reads them.
- *     Routing alerts to an inbox needs an operations address, which is
- *     observability work (docs/gap-analysis.md, extras #5), not this task.
+ *   - `alert_payment_conflict`, `alert_refund_failure` — **registrados desde
+ *     el 22 ago 2026, y solo si hay a quién avisar.** Los dos son dinero
+ *     contradiciéndose y su único aviso era un `console.error` en el log del
+ *     cron una vez al día; un log que nadie mira no es una alerta. Ahora van
+ *     a `OPS_EMAIL`, y si esa variable no está configurada el handler NO se
+ *     registra: la fila se queda pendiente y visible, que es exactamente lo
+ *     que este fichero defiende para todo lo que no se puede ejecutar. Un
+ *     handler que fallara por falta de dirección quemaría los cinco intentos
+ *     y dejaría la fila en `failed`, que es peor: menos visible.
  *   - `send_confirmation_email`, `send_tracking_email`, `send_post_sale_email`,
  *     `send_refund_email`, `issue_tax_invoice`, `issue_credit_note`,
  *     `notify_crm`, `open_withdrawal_window` — order-side effects, several
@@ -39,6 +45,7 @@ import type { LocaleId, MarketId, RegionId } from "@courvia/platform";
 import type { BasePayload } from "payload";
 
 import { leadConfirmationEmail } from "../email/lead-confirmation";
+import { opsAlertEmail } from "../email/ops-alert";
 import type { LeadIntent } from "../email/lead-confirmation";
 import { siteUrl } from "../seo/site-url";
 import { PermanentEffectError } from "./outbox";
@@ -126,11 +133,59 @@ const sendLeadConfirmation: OutboxHandler = async (row: OutboxRow, payload: Base
  * The effects this deployment executes. A function rather than a constant so
  * a test can substitute its own registry without reaching into the module.
  */
+/**
+ * La alerta que una persona tiene que leer.
+ *
+ * Se construye por efecto, porque los dos que la usan quieren el mismo correo
+ * con distinto asunto: quien lo recibe decide a quién le toca por el nombre
+ * del efecto antes de abrirlo.
+ */
+function sendOpsAlert(effect: string, to: string): OutboxHandler {
+  return async (row: OutboxRow, payload: BasePayload) => {
+    const message = opsAlertEmail({
+      effect,
+      orderId: row.order,
+      detail: row.payload,
+      origin: siteUrl(),
+      outboxId: row.id,
+    });
+    await payload.sendEmail({
+      to,
+      subject: message.subject,
+      text: message.text,
+      // Igual que la confirmación de lead: cierra la ventana entre «enviado»
+      // y «marcado como despachado». Con clave por FILA, así que una alerta
+      // nueva sobre el mismo pedido sí se manda.
+      headers: { "Idempotency-Key": `outbox-${String(row.id)}` },
+    });
+    console.info(`[outbox] ${effect} avisado a operaciones (fila #${String(row.id)})`);
+  };
+}
+
 export function outboxHandlers(): OutboxHandlers {
-  return {
+  // Mutable aquí y `Readonly` en el tipo de salida: el registro se compone y
+  // luego se congela en la firma, para que quien lo reciba no lo amplíe.
+  const handlers: Record<string, OutboxHandler> = {
     // The lead funnel writes this row (src/leads/create-lead.ts). Its name
     // predates the customer-facing confirmation; notifying the sales inbox
     // as well needs an operations address this deployment does not have yet.
     notify_sales_lead: sendLeadConfirmation,
   };
+
+  /*
+   * Las alertas, solo si hay a quién avisar.
+   *
+   * Registrar el handler sin dirección haría que cada fila quemara sus cinco
+   * intentos y acabara en `failed`, que es MENOS visible que pendiente: un
+   * `execute_provider_refund` muerto era, hasta esta semana, invisible del
+   * todo. Sin `OPS_EMAIL`, la fila se queda pendiente y el censo la nombra en
+   * cada tick.
+   */
+  const ops = process.env.OPS_EMAIL?.trim();
+  if (ops !== undefined && ops !== "") {
+    handlers.alert_payment_conflict = sendOpsAlert("alert_payment_conflict", ops);
+    handlers.alert_refund_failure = sendOpsAlert("alert_refund_failure", ops);
+  }
+
+  return handlers;
 }
