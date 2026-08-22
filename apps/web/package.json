@@ -22,6 +22,7 @@
     "seed:templates": "tsx src/seeds/seed-templates.ts",
     "seed:e2e-operator": "tsx src/seeds/seed-e2e-operator.ts",
     "sweep:checkouts": "tsx src/scripts/expire-checkouts.ts",
+    "check:blocks": "tsx src/scripts/check-blocks.ts",
     "test": "vitest run",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui"

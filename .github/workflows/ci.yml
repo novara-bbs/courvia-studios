@@ -103,6 +103,14 @@ jobs:
 
       # Runs the same entry point a contributor runs locally, so a broken
       # root script cannot ship green.
+      # La red del tercer paso de retirar una sección: si queda contenido
+      # usando un bloque que ya no existe en el registro, borrar su código lo
+      # haría desaparecer en silencio (docs/ARCHITECTURE.md, «Resiliencia»).
+      # Corre DESPUÉS de sembrar porque las semillas son el contenido que se
+      # publica; contra una base vacía no diría nada.
+      - name: Bloques huérfanos
+        run: pnpm --filter @courvia/web check:blocks
+
       - name: Verify
         run: pnpm verify
 

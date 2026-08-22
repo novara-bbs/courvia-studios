@@ -345,21 +345,29 @@ marketplace · promociones avanzadas.
 
 ---
 
-### Deuda de documentación que queda, y no es cosmética
+### Deuda de documentación que quedaba — cerrada el 22 ago 2026
 
-El barrido arregló las once confirmadas. Quedaron señaladas y **sin tocar**
-tres más, por respetar el alcance encargado:
+El barrido arregló once y dejó señaladas tres, más una cuarta que apareció al
+planificar. Al ir a por ellas resultó que **tres ya estaban arregladas** por
+commits posteriores al barrido, y esta lista era la que se había quedado
+obsoleta. Se comprobó una por una antes de tocar nada:
 
-- **`docs/data-model.md`, «Bloques (definitivos)»** — cuatro líneas debajo de
-  la que se arregló, lista doce nombres de bloque que no existen
-  (`BentoGrid`, `SpecsTable`, `ProductComparator`, `VideoBlock`, `LeadForm`,
-  `TestimonialStrip`, `WarrantyBlock`, `MediaGallery`). El registro tiene 19
-  con otros nombres. Es la misma avería que `academyPosts`, a una línea de
-  distancia.
-- **`docs/gap-analysis.md:86, :87, :90`** siguen en «pendiente» aunque
-  `fab7019` acredita los tres.
-- **`docs/product.md` §12** dice `/robots/comparar`; la ruta viva es
-  `/{region}/comparar`.
+- ~~**`docs/data-model.md`, «Bloques (definitivos)»**~~ — ya corregida: la
+  lista dice 24 (el techo de ADR-028), coincide con
+  `packages/sections/src/blocks/`, y el propio párrafo deja escrito que la
+  versión anterior llevaba doce nombres inventados.
+- ~~**`docs/gap-analysis.md:86, :87, :90`**~~ — ya acreditadas a `fab7019`.
+- ~~**`docs/product.md` §12**~~ — ya dice `/{región}/comparar`.
+- **El «check nocturno» de `blockType` que `docs/ARCHITECTURE.md` prometía** —
+  esta sí faltaba, y era la única con consecuencia: sin ella, borrar el código
+  de una sección que aún tiene instancias hace desaparecer contenido publicado
+  en silencio. Ahora existe como `pnpm --filter @courvia/web check:blocks`, CI
+  lo corre después de sembrar, y la arquitectura dice lo que hay —un check en
+  CI contra la base de datos que le digan— en vez de lo que se prometió.
+
+**La lección, que es la misma que este documento repite:** una lista de
+pendientes envejece igual que un comentario. Se comprueban contra el código
+antes de trabajar sobre ella, no después.
 
 ### Un límite del diseño de capabilities, medido
 

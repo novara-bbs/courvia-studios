@@ -178,7 +178,7 @@ Un producto puede apuntar a otra plantilla o añadir secciones en puntos de inse
 ### Resiliencia
 
 - Bloque referenciado pero ausente del código → el renderer lo omite; en preview muestra un diagnóstico visible. **Un bloque roto nunca debe tumbar una página.**
-- Retirar una sección son tres pasos: marcarla `deprecated` (desaparece del selector, sigue renderizando) → migración que reescribe las instancias → borrar el código en una release posterior. Un check nocturno compara los `blockType` presentes en contenido con el registro.
+- Retirar una sección son tres pasos: marcarla `deprecated` (desaparece del selector, sigue renderizando) → migración que reescribe las instancias → borrar el código en una release posterior. `pnpm --filter @courvia/web check:blocks` compara los bloques presentes en contenido con el registro y sale con 1 si queda alguno huérfano; CI lo corre después de sembrar. **No es nocturno ni mira producción**: mira la base de datos que le diga `DATABASE_URL`, y apuntarlo a producción exige una URL de solo lectura que este repo no tiene (`.claude/rules/database.md`). Durante meses esta línea prometió un check que no existía.
 - Cada instancia lleva versión; los cambios de forma son *upgraders* en código, no ediciones masivas en base de datos.
 
 ---
