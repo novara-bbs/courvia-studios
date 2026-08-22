@@ -458,7 +458,13 @@ describe("every effect is handled or named as deferred", () => {
     // Without this, a reformatted comment would turn the assertion above
     // into a test about the empty set, which passes forever.
     const documented = deferredNames();
+    // Dos que la cabecera nombra y NUNCA van a tener handler aquí: uno mueve
+    // dinero y exige aprobación humana, el otro acaba en alguien abriendo una
+    // caja devuelta. Antes el segundo canario era `stop_picking`, que desde
+    // el 22 ago 2026 sí se registra —seguía en la cabecera y por eso seguía
+    // pasando, que es justo el modo de fallo que este test existe para
+    // evitar en el otro—.
     expect(documented.has("execute_provider_refund")).toBe(true);
-    expect(documented.has("stop_picking")).toBe(true);
+    expect(documented.has("restock_if_applicable")).toBe(true);
   });
 });

@@ -13,12 +13,21 @@
  *     `NotImplementedError` on purpose, and `.claude/rules/payments.md`
  *     requires explicit human approval for anything that touches real money.
  *     It stays a pending task, and the dispatcher logs it loudly every tick.
- *   - `restock_if_applicable`, `start_picking`, `stop_picking` — warehouse
- *     actions. Each ends in a person moving a robot, not in a row update
- *     (docs/orders-state-machine.md, ADR-027), so the handler is whatever
- *     channel the warehouse reads, and there is no warehouse yet. Leaving
- *     `stop_picking` off this list would be the dangerous omission: it is
- *     the counter-order that stops a refunded order from shipping.
+ *   - `restock_if_applicable` — warehouse action. Acaba en una persona
+ *     moviendo un robot, no en una fila (docs/orders-state-machine.md,
+ *     ADR-027), y a diferencia de los dos de abajo no es una instrucción: es
+ *     la consecuencia de una devolución que hay que contar cuando la caja se
+ *     abre y se comprueba, no cuando el pedido cambia de estado.
+ *   - `start_picking`, `stop_picking` — **registrados desde el 22 ago 2026, y
+ *     solo si hay a quién decírselo.** Siguen sin WMS al que llamar; el canal
+ *     es el mismo que las alertas, `OPS_EMAIL`, y el día que exista un
+ *     almacén cambia `src/email/ops-work-order.ts` y no la máquina de
+ *     estados. `stop_picking` es el que importa: es la contraorden que
+ *     impide que un pedido reembolsado se envíe, y por eso además cuenta
+ *     como fila que exige una persona en el censo del despachador
+ *     (`REQUIRES_HUMAN` en outbox.ts). `start_picking` no: perderla retrasa
+ *     un envío y el cliente reclama; perder la contraorden manda un robot
+ *     cuyo dinero ya va de vuelta y no reclama nadie.
  *   - `alert_payment_conflict`, `alert_refund_failure` — **registrados desde
  *     el 22 ago 2026, y solo si hay a quién avisar.** Los dos son dinero
  *     contradiciéndose y su único aviso era un `console.error` en el log del
@@ -60,6 +69,7 @@ import type { BasePayload } from "payload";
 
 import { leadConfirmationEmail } from "../email/lead-confirmation";
 import { opsAlertEmail } from "../email/ops-alert";
+import { opsWorkOrderEmail } from "../email/ops-work-order";
 import type { LeadIntent } from "../email/lead-confirmation";
 import { siteUrl } from "../seo/site-url";
 import { collectionTable, PermanentEffectError } from "./outbox";
@@ -251,6 +261,57 @@ function sendOpsAlert(effect: string, to: string): OutboxHandler {
   };
 }
 
+/**
+ * La orden de trabajo del almacén, y su contraorden.
+ *
+ * El payload de la fila no basta: `start_picking` guarda `{market}` y
+ * `stop_picking` no guarda nada —lo emite la máquina desde la ruta de pagos,
+ * no desde el fulfilment—, así que las unidades hay que ir a buscarlas. Es
+ * una LECTURA, sin la pérdida de escrituras que obligó a `openWithdrawalWindow`
+ * a bajar a SQL: aquí no se escribe nada.
+ *
+ * Un pedido que ya no existe es un error permanente. Reintentar cuatro veces
+ * no lo resucita, y una contraorden que se queda `pending` es peor que una
+ * que muere: el censo la nombra en cada tick precisamente porque nadie
+ * debería tener que ir a buscarla.
+ */
+function sendPickingOrder(effect: "start_picking" | "stop_picking", to: string): OutboxHandler {
+  return async (row: OutboxRow, payload: BasePayload) => {
+    if (row.order === null) throw new PermanentEffectError("la fila no lleva pedido");
+
+    const order = (await payload
+      .findByID({ collection: "orders", id: row.order, depth: 0, overrideAccess: true })
+      .catch(() => null)) as {
+      market?: unknown;
+      lines?: { sku?: unknown; quantity?: unknown }[];
+    } | null;
+    if (order === null) {
+      throw new PermanentEffectError(`el pedido ${String(row.order)} ya no existe`);
+    }
+
+    const message = opsWorkOrderEmail({
+      effect,
+      orderId: row.order,
+      market: marketOf(order.market),
+      lines: (order.lines ?? []).map((line) => ({
+        sku: String(line.sku ?? "(sin sku)"),
+        quantity: Number(line.quantity ?? 0),
+      })),
+      origin: siteUrl(),
+      outboxId: row.id,
+    });
+    await payload.sendEmail({
+      to,
+      subject: message.subject,
+      text: message.text,
+      // Clave por FILA, no por pedido: la orden y su contraorden son dos
+      // filas del mismo pedido y las dos tienen que llegar.
+      headers: { "Idempotency-Key": `outbox-${String(row.id)}` },
+    });
+    console.info(`[outbox] ${effect} enviado a operaciones (fila #${String(row.id)})`);
+  };
+}
+
 export function outboxHandlers(): OutboxHandlers {
   // Mutable aquí y `Readonly` en el tipo de salida: el registro se compone y
   // luego se congela en la firma, para que quien lo reciba no lo amplíe.
@@ -276,6 +337,10 @@ export function outboxHandlers(): OutboxHandlers {
   if (ops !== undefined && ops !== "") {
     handlers.alert_payment_conflict = sendOpsAlert("alert_payment_conflict", ops);
     handlers.alert_refund_failure = sendOpsAlert("alert_refund_failure", ops);
+    // Mismo argumento, distinto correo: esto no es una contradicción que
+    // alguien tenga que investigar, es trabajo que alguien tiene que hacer.
+    handlers.start_picking = sendPickingOrder("start_picking", ops);
+    handlers.stop_picking = sendPickingOrder("stop_picking", ops);
   }
 
   return handlers;

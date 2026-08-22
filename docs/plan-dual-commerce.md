@@ -304,7 +304,7 @@ están hechos.
 | Totales con **envío** | ✅ hecho: tarifa por mercado en `MarketSettings`, `quoteShipping` en el dominio, porte guardado aparte en el pedido |
 | Totales con **impuestos** | ⏳ pendiente, y a propósito: los precios son tax-inclusive en Fase 1 y el motor fiscal se COMPRA (Stripe Tax, §2 de CLAUDE.md). Un tipo escrito a mano sería una cifra sin respaldo |
 | Stripe en modo prueba | 🔒 **bloqueado**: necesita credenciales, y el agente no las pide ni las usa |
-| Handlers de outbox (3 de 15 registrados) | ⏳ en curso. Las dos `alert_*` ya van a `OPS_EMAIL` — eran dinero contradiciéndose cuyo único aviso era un `console.error` diario. El resto espera copy escrito o el almacén, no código; `outbox-handlers.ts` dice por qué falta cada uno |
+| Handlers de outbox (6 de 15 registrados) | ⏳ en curso. Las dos `alert_*` van a `OPS_EMAIL` (eran dinero contradiciéndose cuyo único aviso era un `console.error` diario); `open_withdrawal_window` escribe la fecha que la ley fija por mercado (Fase 8 adelantada, 22 ago); `start_picking` y `stop_picking` van también a `OPS_EMAIL` mientras no haya WMS, con la contraorden contando como fila que exige una persona. Lo que queda espera **copy escrito** o **credenciales**, no código; `outbox-handlers.ts` dice por qué falta cada uno |
 | Cadencia del cron | 🔒 **bloqueado**: `*/5` exige plan Pro en Vercel (tarea #47) |
 
 **El bloqueo, que era el primero de la lista y resultó ser tres sitios y no

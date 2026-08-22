@@ -104,11 +104,22 @@ export const MAX_ATTEMPTS = RETRY_DELAY_MINUTES.length;
  *  route's `maxDuration`, and below the first retry delay. */
 export const DISPATCH_BUDGET_MS = 45_000;
 
-/** Rows nobody should have to go looking for: money or a contradiction. */
+/**
+ * Rows nobody should have to go looking for: money or a contradiction.
+ *
+ * `stop_picking` está aquí desde el 22 ago 2026 y no por simetría con
+ * `start_picking`, que NO está. Los dos avisan al almacén, pero fallan hacia
+ * lados distintos: una orden de preparación perdida retrasa un envío y el
+ * cliente reclama; la contraorden perdida manda un robot cuyo dinero ya va de
+ * vuelta, y eso no lo reclama nadie hasta que falta el robot
+ * (`order-state-machine.ts:53-56`). Una fila silenciosa solo es aceptable
+ * cuando hay alguien fuera esperándola.
+ */
 const REQUIRES_HUMAN = new Set([
   "execute_provider_refund",
   "alert_payment_conflict",
   "alert_refund_failure",
+  "stop_picking",
 ]);
 
 export interface DispatchOptions {
