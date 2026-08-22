@@ -135,7 +135,8 @@ export interface ProductSummary {
 /** A variant enriched with its offer for one market. */
 export interface VariantOffer extends Variant {
   price: Money | null;
-  available: number;
+  /** Igual que `Availability.available`: `null` es «no se cuenta», no cero. */
+  available: number | null;
 }
 
 /** Everything a PDP needs in one call. */
@@ -168,8 +169,26 @@ export interface Price {
 
 export interface Availability {
   sku: string;
-  /** qty_on_hand - qty_committed; stock is committed only after `paid`. */
-  available: number;
+  /**
+   * `qty_on_hand - qty_committed`, o **`null` cuando no se cuenta**.
+   *
+   * El `null` no es un hueco que rellenar con un cero: es la respuesta. Una
+   * variante sin fila de inventario es stock NO CONTROLADO —accesorios,
+   * consumibles, todo lo que se repone sin llevar la cuenta— y decir «0» de
+   * ella es decir «agotado» de algo que sí se vende. Eso llegaba a dos
+   * sitios: la PDP pintaba «Agotado» y escondía el botón de comprar, y el
+   * JSON-LD publicaba `OutOfStock` a cada buscador y comparador que lo lee.
+   *
+   * Y un SKU que ni siquiera existe también contestaba `0`, que es peor: una
+   * errata de tipografía en una integración se leía como «lo tenemos, y no
+   * queda». Ahora contesta `null`: no lo sé.
+   *
+   * El puerto nuevo (`AvailabilityView` de `availability.ts`) hace esta misma
+   * distinción con una unión discriminada de tres ramas, porque además tiene
+   * que representar el «se puede comprar, sin cifra» de una Shopify. Aquí
+   * bastan dos: este motor cuenta o no cuenta.
+   */
+  available: number | null;
 }
 
 export const ORDER_STATUSES = [

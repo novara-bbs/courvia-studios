@@ -116,6 +116,7 @@ export {
   booleanAvailability,
   exactAvailability,
   exactQuantity,
+  inStock,
   isAllowedUnder,
   lowStockRemaining,
   matchAvailability,

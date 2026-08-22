@@ -6,6 +6,7 @@ import {
   booleanAvailability,
   exactAvailability,
   exactQuantity,
+  inStock,
   isAllowedUnder,
   lowStockRemaining,
   matchAvailability,
@@ -91,5 +92,28 @@ describe("exactQuantity", () => {
     expect(exactQuantity(exactAvailability(7))).toBe(7);
     expect(exactQuantity(booleanAvailability(true))).toBeNull();
     expect(exactQuantity(UNKNOWN_AVAILABILITY)).toBeNull();
+  });
+});
+
+describe("inStock: lo que no se cuenta, se vende", () => {
+  it("una cifra manda: cero es agotado y uno no", () => {
+    expect(inStock(0)).toBe(false);
+    expect(inStock(1)).toBe(true);
+    expect(inStock(42)).toBe(true);
+  });
+
+  it("`null` NO es cero, y esa es toda la función", () => {
+    /*
+     * Este era el fallo: `available` venía de un `?? 0` en el adaptador, así
+     * que una variante sin fila de inventario —stock no controlado— entraba
+     * como cero. Cero es «agotado», y agotado significaba: la PDP sin botón
+     * de comprar, la etiqueta en rojo, y `OutOfStock` en el JSON-LD que leen
+     * Google Shopping y cada comparador de precios.
+     *
+     * La regla vive aquí, en una función, y no en tres comparaciones escritas
+     * en tres ficheros, porque eso es lo que permitió que las tres estuvieran
+     * mal a la vez.
+     */
+    expect(inStock(null)).toBe(true);
   });
 });

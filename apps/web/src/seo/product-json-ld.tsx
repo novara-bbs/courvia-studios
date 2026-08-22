@@ -1,4 +1,4 @@
-import { toDecimalString } from "@courvia/commerce-domain";
+import { inStock, toDecimalString } from "@courvia/commerce-domain";
 import type { ProductDetail } from "@courvia/commerce-domain";
 import type { RegionId } from "@courvia/platform";
 
@@ -34,10 +34,14 @@ export function ProductJsonLd({ detail, region }: { detail: ProductDetail; regio
             // crawler and shopping feed that reads this block.
             price: toDecimalString(offer.price!),
             priceCurrency: offer.price!.currency,
+            // `inStock` y no `available > 0`: `null` es stock no controlado,
+            // se vende y no se cuenta. Publicar `OutOfStock` por no llevar la
+            // cuenta le dice a cada buscador, cada comparador de precios y
+            // cada asistente que lee esto que no lo tenemos.
             availability:
               status === "preorder"
                 ? "https://schema.org/PreOrder"
-                : offer.available > 0
+                : inStock(offer.available)
                   ? "https://schema.org/InStock"
                   : "https://schema.org/OutOfStock",
             url,

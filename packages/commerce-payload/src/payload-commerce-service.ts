@@ -335,7 +335,10 @@ export class PayloadCommerceService implements CommerceService {
       variants: variantDocs.map((variantDoc) => ({
         ...toVariant(variantDoc),
         price: priceByVariant.get(String(variantDoc.id)) ?? null,
-        available: availability.get(String(variantDoc.id)) ?? 0,
+        // `?? null`, no `?? 0`: una variante sin fila de inventario es stock
+        // no controlado, no stock agotado. El cero mentía en la PDP y en el
+        // JSON-LD (ver `Availability.available` en el dominio).
+        available: availability.get(String(variantDoc.id)) ?? null,
       })),
     };
   }
@@ -424,10 +427,14 @@ export class PayloadCommerceService implements CommerceService {
     });
     const variantDocs = result.docs as unknown as VariantDoc[];
     const availability = await this.findInventory(variantDocs.map((v) => String(v.id)));
-    const bySku = new Map(
-      variantDocs.map((v) => [v.sku, availability.get(String(v.id)) ?? 0]),
+    // Dos `null` distintos, y los dos son la verdad: la variante existe pero
+    // no lleva inventario, o el SKU no existe en absoluto. Los dos contestaban
+    // `0` — «lo tenemos, y no queda»— y el segundo convertía una errata de
+    // una integración en un agotado creíble.
+    const bySku = new Map<string, number | null>(
+      variantDocs.map((v) => [v.sku, availability.get(String(v.id)) ?? null]),
     );
-    return skus.map((sku) => ({ sku, available: bySku.get(sku) ?? 0 }));
+    return skus.map((sku) => ({ sku, available: bySku.get(sku) ?? null }));
   }
 
   /** True when MarketSettings enables this provider for this market. */

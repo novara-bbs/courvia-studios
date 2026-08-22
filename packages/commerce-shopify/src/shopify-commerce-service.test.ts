@@ -89,8 +89,13 @@ describe("the leak the port cannot close (ADR-024 §3.1)", () => {
     expect(toAvailable({ id: "v", sku: "s", title: "t", price: { amount: "1", currencyCode: "EUR" }, availableForSale: true, quantityAvailable: 12 })).toBe(12);
   });
 
-  it("degrades to a PRESENCE FLAG when it does not — 1 means 'in stock', not 'one left'", () => {
-    expect(toAvailable({ id: "v", sku: "s", title: "t", price: { amount: "1", currencyCode: "EUR" }, availableForSale: true })).toBe(1);
+  it("says «not counted» instead of inventing a 1 — the leak got smaller", () => {
+    // Esto devolvía `1`, y `1` en una tienda se lee «queda uno»: metía prisa
+    // a un cliente al que nadie estaba metiendo prisa. Desde que
+    // `Availability.available` es `number | null`, la rama sin cuenta tiene
+    // dónde caer con la verdad.
+    expect(toAvailable({ id: "v", sku: "s", title: "t", price: { amount: "1", currencyCode: "EUR" }, availableForSale: true })).toBeNull();
+    // `false` SÍ es una cuenta que la tienda publicó: cero.
     expect(toAvailable({ id: "v", sku: "s", title: "t", price: { amount: "1", currencyCode: "EUR" }, availableForSale: false })).toBe(0);
   });
 });
@@ -115,8 +120,11 @@ describe("batched availability", () => {
       "GO-PICKLEBALL",
     ]);
     expect(availability).toEqual([
-      { sku: "NOPE-000", available: 0 },
+      // Desconocido: `null`, no cero.
+      { sku: "NOPE-000", available: null },
+      // La tienda publica `quantityAvailable`: una cifra de verdad.
       { sku: "TEMPO-R1-PADEL", available: 12 },
+      // `availableForSale: false` es una cuenta publicada: cero de verdad.
       { sku: "GO-PICKLEBALL", available: 0 },
     ]);
   });

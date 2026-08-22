@@ -155,26 +155,33 @@ function viewUnder(
 }
 
 /**
- * The same answer squeezed into the legacy facade's integer.
+ * The same answer folded into the legacy facade's shape — and the fold no
+ * longer lies.
  *
- * `CommerceService.getAvailability` returns `Availability { available:
- * number }`, so its precision is always exact — the domain says as much in
- * `COMMERCE_SERVICE_ASSUMED_PRECISION`. When the shop published no count
- * there is no honest integer to give it, and the `1` below is the presence
- * flag ADR-024 §3.1 recorded as the leak the port cannot paper over.
+ * `Availability.available` used to be `number`, so "the shop says you can buy
+ * it but published no count" had no honest value: this function returned `1`,
+ * and ADR-024 §3.1 recorded that `1` as the leak the port could not paper
+ * over. A storefront read it as "queda 1" and rushed a customer who was not
+ * being rushed.
  *
- * It survives ONLY here, feeding `ShopifyCommerceService`, and it is derived
- * from the honest view rather than computed beside it: there is one place
- * that decides what Shopify said about stock, and the lossy step is visible
- * as a fold that throws information away. The capability surface
- * (`ShopifyCatalogEngine`) never calls this.
+ * The domain type is `number | null` now — `null` meaning "not counted", the
+ * same distinction `AvailabilityView` makes with three branches — so the two
+ * lossy branches have somewhere true to land. What is still lost is the
+ * difference between "sellable, uncounted" and "unknown SKU": both fold to
+ * `null`. That is a fold, not an invention, and it is the last of ADR-024
+ * §3.1 that survives here. The capability surface (`ShopifyCatalogEngine`)
+ * never calls this and keeps all three branches.
  */
-export function toAvailable(variant: ShopifyVariant): number {
-  return matchAvailability(toAvailabilityView(variant, COMMERCE_SERVICE_ASSUMED_PRECISION), {
-    exact: (quantity) => quantity,
-    boolean: (available) => (available ? 1 : 0),
-    unknown: () => 0,
-  });
+export function toAvailable(variant: ShopifyVariant): number | null {
+  return matchAvailability<number | null>(
+    toAvailabilityView(variant, COMMERCE_SERVICE_ASSUMED_PRECISION),
+    {
+      exact: (quantity) => quantity,
+      // `false` IS a count the shop published: zero. Only `true` is uncounted.
+      boolean: (available) => (available ? null : 0),
+      unknown: () => null,
+    },
+  );
 }
 
 function toImage(image: ShopifyImage): ProductImage {

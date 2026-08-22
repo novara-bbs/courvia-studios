@@ -150,7 +150,10 @@ export class ShopifyCommerceService implements CommerceService {
     // answer by one the first time a SKU went missing.
     return skus.map((sku) => {
       const variant = bySku.get(sku);
-      return { sku, available: variant === undefined ? 0 : toAvailable(variant) };
+      // Un SKU que esta tienda no conoce contesta `null`, no `0`: no está
+      // agotado, se desconoce. `0` convertía una errata en un agotado
+      // creíble, y nadie investiga un agotado.
+      return { sku, available: variant === undefined ? null : toAvailable(variant) };
     });
   }
 

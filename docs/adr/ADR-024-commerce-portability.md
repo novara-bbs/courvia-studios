@@ -55,7 +55,7 @@ verificada.
 |---|---|---|
 | `getProductDetail(slug, market)` | **Sí** | `product(handle:)` con la directiva `@inContext(country:, language:)`. `slug`↔`handle` es 1:1. Un handle desconocido es `null` en GraphQL, igual que en el puerto. |
 | `listProducts(filter)` | **Sí, con matices** | `products(first:, query:)`. El filtrado por deporte va por tag (`tag:sport:padel`) porque el deporte es atributo de variante aquí (ADR-04) y taxonomía allí. Paginación real es por cursor, no por `offset`: con catálogos grandes, `offset` obliga a paginar y descartar. |
-| `getAvailability(skus)` | **Sí en forma, degradada en fondo** | Una sola consulta por lote, sin N+1. Pero el número que devuelve **no siempre es un número** (§3.1). |
+| `getAvailability(skus)` | **Sí en forma, con un pliegue en fondo** | Una sola consulta por lote, sin N+1. El número que devuelve no siempre es un número — pero desde el 22 ago 2026 eso se dice con `null` en vez de inventarse un `1` (§3.1). |
 | `createCheckout(input)` | **No** | §4. |
 | `getOrder(id)` | **No** | Requiere la Customer Account API (OAuth 2.0 desde febrero de 2026) o la Admin API. Ninguna de las dos pinta en un storefront. |
 | `requestReturn(input)` | **No** | Operación de Admin API sobre un pedido que es de Shopify. |
@@ -71,21 +71,36 @@ en la máquina de estados que ningún webhook va a avanzar nunca.
 
 ## 3. Las fugas, con su severidad
 
-### 3.1 El stock es un entero aquí y un booleano allí — **alta, irreparable**
+### 3.1 El stock es un entero aquí y un booleano allí — **alta, reducida a un pliegue** *(revisado 22 ago 2026)*
 
-`Availability.available` es un entero porque nuestro libro de stock lo tiene:
+`Availability.available` era un entero porque nuestro libro de stock lo tiene:
 `qty_on_hand - qty_committed`. La Storefront API expone `availableForSale`
 (booleano) y solo publica `quantityAvailable` si la tienda activa
 explícitamente el inventario en el canal. La mayoría no lo hace.
 
-El adaptador mapea `availableForSale ? 1 : 0`, y el test lo llama por su
-nombre: **ese 1 es un indicador de presencia, no un recuento**. Cualquier UI
-que escriba «queda 1» leyendo ese campo estaría mintiendo al cliente.
+El adaptador mapeaba `availableForSale ? 1 : 0`, y el test lo llamaba por su
+nombre: **ese 1 era un indicador de presencia, no un recuento**. Una UI que
+escribiera «queda 1» leyendo ese campo mentía al cliente.
 
-No es un bug que arreglar en el adaptador: es información que el otro lado no
-tiene. Si algún día se integra, `Availability` necesita distinguir «hay» de
-«hay N» —un campo `exact: boolean` o un tipo suma— y eso **toca el dominio**,
-no solo el adaptador. Queda anotado como el precio de entrada.
+**Lo que ha cambiado.** El `1` no era el único problema, ni siquiera el más
+caro: el MISMO redondeo lo hacía el adaptador nativo. `findInventory` solo
+devuelve las variantes que tienen fila de inventario, y un `?? 0` convertía
+las que no la tienen —stock no controlado— en agotadas. La PDP las pintaba
+sin botón de comprar y el JSON-LD publicaba `OutOfStock` a Google Shopping y
+a cada comparador de precios. Y un SKU inexistente contestaba `0` también, o
+sea: una errata en una integración se leía como «lo tenemos, y no queda».
+
+Así que el dominio ya distingue las dos cosas, y no porque Shopify lo pidiera:
+`Availability.available` y `VariantOffer.available` son `number | null`, donde
+`null` es «no se cuenta». La decisión de si eso se vende la toma una sola
+función, `inStock`, y no tres comparaciones repartidas por la app.
+
+Queda **un** pliegue en `toAvailable`: «vendible sin contar» y «SKU que esta
+tienda no conoce» caen los dos en `null`. Es un pliegue, no una invención, y
+la superficie de capacidades (`ShopifyCatalogEngine`) conserva las tres ramas
+de `AvailabilityView` intactas. El precio de entrada baja de "el dominio no
+puede representar esto" a "la fachada vieja pierde un matiz que el motor
+nuevo no pierde".
 
 ### 3.2 La conversión de divisa por defecto viola ADR-05 — **alta, evitable**
 
@@ -207,7 +222,8 @@ escenario.
    quedan aquí; carrito y checkout se ceden.
 4. **Dos cambios de dominio quedan anotados como precio de entrada**, y
    ninguno se hace ahora por especulación:
-   - `Availability` tendría que distinguir «hay» de «hay N» (§3.1).
+   - ~~`Availability` tendría que distinguir «hay» de «hay N»~~ — hecho el
+     22 ago 2026, y por un fallo propio, no por Shopify (§3.1).
    - `ProductFilter` tendría que admitir paginación por cursor además de
      `offset` (§3.5).
 5. **Sin adaptador no hay decisión.** Cualquier integración real vuelve a

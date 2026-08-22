@@ -47,7 +47,11 @@ export class FakeCommerceService implements CommerceService {
       .map((variant) => ({
         ...variant,
         price: this.priceFor(variant.id, market)?.unitAmount ?? null,
-        available: this.catalog.stock[variant.sku] ?? 0,
+        // `?? null`, no `?? 0`. Un fake que redondea a cero lo que no sabe
+        // deja pasar el fallo que el contrato existe para cazar: fue así
+        // como el adaptador real llegó a pintar «Agotado» sobre stock no
+        // controlado sin que nada se pusiera rojo.
+        available: this.catalog.stock[variant.sku] ?? null,
       }));
     return Promise.resolve({ product, variants });
   }
@@ -83,7 +87,7 @@ export class FakeCommerceService implements CommerceService {
   }
 
   getAvailability(skus: readonly string[]): Promise<Availability[]> {
-    return Promise.resolve(skus.map((sku) => ({ sku, available: this.catalog.stock[sku] ?? 0 })));
+    return Promise.resolve(skus.map((sku) => ({ sku, available: this.catalog.stock[sku] ?? null })));
   }
 
   createCheckout(input: CheckoutInput): Promise<Checkout> {

@@ -185,3 +185,26 @@ export interface SkuAvailability<P extends AvailabilityPrecision = AvailabilityP
   readonly sku: string;
   readonly view: AvailabilityView<P>;
 }
+
+/* ------------------------------------------------- la pregunta de siempre */
+
+/**
+ * ¿Hay para vender?
+ *
+ * Tres sitios respondían a esto con tres redacciones distintas sobre el mismo
+ * `available`, y las tres estaban mal del mismo modo: `available > 0` sobre
+ * un `?? 0`. Una variante sin fila de inventario —stock NO CONTROLADO— salía
+ * agotada en la tabla de la PDP, sin botón de comprar, y como `OutOfStock` en
+ * el JSON-LD que leen Google Shopping y cada comparador de precios.
+ *
+ * `null` no es un hueco: es «no lo cuento». Y lo que no se cuenta se vende —
+ * el checkout es de la misma opinión, porque solo rechaza cuando conoce la
+ * cifra y no llega. La cifra que no existe no puede quedarse corta.
+ *
+ * Vive en el dominio y no en la PDP porque la respuesta no es de una vista:
+ * el JSON-LD la necesita igual, y el día que haya un motor alojado la
+ * necesitará también con su propia forma de no contar.
+ */
+export function inStock(available: number | null): boolean {
+  return available === null || available > 0;
+}

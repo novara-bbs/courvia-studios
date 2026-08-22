@@ -23,8 +23,8 @@
  * the one this replaced, so any "improvement" made in passing would show up
  * there as a difference, which is exactly what it is.
  */
-import { format, type Money } from "@courvia/commerce-domain";
-import type { ProductDetail, ProductSummary } from "@courvia/commerce-domain";
+import { format, inStock, type Money } from "@courvia/commerce-domain";
+import type { ProductDetail, ProductSummary, VariantOffer } from "@courvia/commerce-domain";
 import { REGION_DEFINITIONS } from "@courvia/platform";
 import type { RegionId } from "@courvia/platform";
 import type { ProductSubject, ProductSurface } from "@courvia/sections/registry";
@@ -198,7 +198,19 @@ export async function makeProductSurfaces({
    * lista de espera y sin precios tras ADR-022— esta columna no se pinta ni
    * una vez, que es exactamente lo que debe pasar.
    */
-  const buyable = variants.some((offer) => offer.price !== null && offer.available > 0);
+  /**
+   * ¿Se puede comprar esta variante? Precio en ESTE mercado, y existencias.
+   *
+   * Las existencias las decide `inStock` del dominio, no una comparación
+   * escrita aquí: `available === null` es stock NO CONTROLADO, no agotado, y
+   * el checkout es de la misma opinión —solo rechaza cuando conoce la cifra y
+   * no llega—, así que esconder el botón sería negarse a vender algo que sí
+   * se vende. Antes esto era `offer.available > 0` sobre un `?? 0`.
+   */
+  const sellable = (offer: VariantOffer): boolean =>
+    offer.price !== null && inStock(offer.available);
+
+  const buyable = variants.some(sellable);
   const addLabels = {
     submit: tCart("add"),
     added: tCart("added"),
@@ -238,7 +250,9 @@ export async function makeProductSurfaces({
                       // Not sold in this market: stock is irrelevant, and
                       // showing "in stock" for an unbuyable variant misleads.
                       <span className="stock stock--out">{t("notSoldHere")}</span>
-                    ) : offer.available > 0 ? (
+                    ) : inStock(offer.available) ? (
+                      // Sin cifra tampoco se inventa una: «Disponible» es lo
+                      // que se sabe, y es lo que dice esta etiqueta.
                       <span className="stock stock--in">{t("inStock")}</span>
                     ) : (
                       <span className="stock stock--out">{t("outOfStock")}</span>
@@ -246,7 +260,7 @@ export async function makeProductSurfaces({
                   </td>
                   {buyable ? (
                     <td>
-                      {offer.price === null || offer.available <= 0 ? null : (
+                      {!sellable(offer) ? null : (
                         <AddToCart
                           labels={addLabels}
                           region={region}

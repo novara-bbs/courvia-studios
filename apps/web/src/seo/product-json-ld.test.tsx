@@ -19,7 +19,7 @@ import { ProductJsonLd } from "./product-json-ld";
 function detail(overrides: {
   launchStatus?: ProductDetail["product"]["launchStatus"];
   price?: ReturnType<typeof money> | null;
-  available?: number;
+  available?: number | null;
 }): ProductDetail {
   const price = overrides.price === undefined ? money(129000, "EUR") : overrides.price;
   return {
@@ -40,7 +40,7 @@ function detail(overrides: {
         sport: "padel",
         attributes: {},
         price,
-        available: overrides.available ?? 3,
+        available: overrides.available === undefined ? 3 : overrides.available,
       },
     ],
   };
@@ -91,6 +91,22 @@ describe("launch status decides what may be published at all", () => {
   it("reports OutOfStock when an available product has none", () => {
     const offers = emitted(detail({ available: 0 })).offers as Array<{ availability: string }>;
     expect(offers[0]?.availability).toBe("https://schema.org/OutOfStock");
+  });
+
+  it("does not publish OutOfStock for stock nobody counts", () => {
+    /*
+     * `available: null` es stock NO CONTROLADO —accesorios, consumibles, todo
+     * lo que se repone sin llevar la cuenta— y hasta ahora un `?? 0` en el
+     * adaptador lo convertía en cero. Cero aquí es `OutOfStock`, y
+     * `OutOfStock` es lo que leen Google Shopping, cada comparador de precios
+     * y cada asistente que responde por nosotros: «no lo tienen». Sobre algo
+     * que sí se vende.
+     *
+     * Nadie lo habría visto en un navegador, que es exactamente el motivo por
+     * el que esta suite existe.
+     */
+    const offers = emitted(detail({ available: null })).offers as Array<{ availability: string }>;
+    expect(offers[0]?.availability).toBe("https://schema.org/InStock");
   });
 
   it("skips a variant with no price in this market", () => {

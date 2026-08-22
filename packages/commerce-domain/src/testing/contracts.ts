@@ -351,7 +351,12 @@ export function describeCatalogContract(
       const priced = detail?.variants.find((v) => v.price !== null);
       expect(priced, "at least one variant must carry a price in the market").toBeDefined();
       expect(priced?.price?.currency).toBeDefined();
-      expect(detail?.variants.every((v) => Number.isSafeInteger(v.available))).toBe(true);
+      // Un entero o `null`. Lo que NO vale es un cero de relleno: eso es lo
+      // que la PDP pinta como «Agotado» y el JSON-LD publica como
+      // `OutOfStock` (ver `Availability.available`).
+      expect(
+        detail?.variants.every((v) => v.available === null || Number.isSafeInteger(v.available)),
+      ).toBe(true);
     });
 
     it("returns null for an unknown slug instead of throwing", async () => {
@@ -400,7 +405,27 @@ export function describeCatalogContract(
       const skus = [fixtures.knownSku, fixtures.unknownSku];
       const availability = await service.getAvailability(skus);
       expect(availability.map((a) => a.sku)).toEqual(skus);
-      expect(availability.every((a) => Number.isSafeInteger(a.available))).toBe(true);
+      expect(
+        availability.every((a) => a.available === null || Number.isSafeInteger(a.available)),
+      ).toBe(true);
+    });
+
+    it("says «no lo sé» for an unknown SKU, never «zero»", async () => {
+      /*
+       * Un SKU que no existe contestaba `0`, y `0` se lee «lo tenemos, y no
+       * queda». Una errata de tipografía en una integración se convertía así
+       * en un agotado perfectamente creíble — nadie va a investigar un
+       * agotado.
+       *
+       * Va en el contrato y no en un test del adaptador porque es la clase de
+       * mentira que cada motor nuevo reinventa: `commerce-shopify` la tenía
+       * también, devolviendo `1` para «se puede comprar» y `0` para «no lo
+       * sé».
+       */
+      const service = await make();
+      const [row] = await service.getAvailability([fixtures.unknownSku]);
+      expect(row?.sku).toBe(fixtures.unknownSku);
+      expect(row?.available, "un SKU desconocido no está agotado: se desconoce").toBeNull();
     });
   });
 }

@@ -28,6 +28,23 @@ const dbIsDisposable =
 // The fake gateway drives checkout/webhooks end-to-end without credentials.
 process.env.PAYMENT_FAKE_SECRET ??= "test-secret";
 
+/**
+ * La cifra de stock de un SKU que SÍ lleva inventario.
+ *
+ * `Availability.available` es `number | null` desde que un `?? 0` dejó de
+ * mentir sobre las variantes sin fila de inventario. Las fixtures de este
+ * banco la tienen, así que un `null` aquí no es un caso a tratar: es la
+ * fixture rota, y conviene que lo diga con esas palabras y no con un
+ * «expected null to be 4».
+ */
+function counted(rows: readonly { sku: string; available: number | null }[], sku: string): number {
+  const row = rows.find((entry) => entry.sku === sku);
+  if (row?.available === undefined || row.available === null) {
+    throw new Error(`la fixture ${sku} no lleva inventario contado`);
+  }
+  return row.available;
+}
+
 const CHECKOUT_INPUT = {
   market: "es" as const,
   lines: [{ sku: "TST-RIG-P", quantity: 1 }],
@@ -254,10 +271,10 @@ if (hasDb && dbIsDisposable) {
       const payload = await loadPayload();
       const service = await getCommerce("es");
 
-      const before = await service.getAvailability(["TST-RIG-P"]);
+      const before = counted(await service.getAvailability(["TST-RIG-P"]), "TST-RIG-P");
       const checkout = await service.createCheckout(CHECKOUT_INPUT);
-      const after = await service.getAvailability(["TST-RIG-P"]);
-      expect(after[0]!.available).toBe(before[0]!.available - 1);
+      const after = counted(await service.getAvailability(["TST-RIG-P"]), "TST-RIG-P");
+      expect(after).toBe(before - 1);
 
       const order = await service.getOrder(checkout.orderId);
       expect(order?.status).toBe("pending_payment");
@@ -281,14 +298,13 @@ if (hasDb && dbIsDisposable) {
       const payload = await loadPayload();
       const service = await getCommerce("es");
 
-      const before = await service.getAvailability(["TST-RIG-B"]);
+      const before = counted(await service.getAvailability(["TST-RIG-B"]), "TST-RIG-B");
       const checkout = await service.createCheckout({
         ...CHECKOUT_INPUT,
         lines: [{ sku: "TST-RIG-B", quantity: 2 }],
         email: "expiry@courvia.test",
       });
-      const reserved = await service.getAvailability(["TST-RIG-B"]);
-      expect(reserved[0]!.available).toBe(before[0]!.available - 2);
+      expect(counted(await service.getAvailability(["TST-RIG-B"]), "TST-RIG-B")).toBe(before - 2);
 
       // "Older than an hour", measured by a clock an hour ahead: the fresh
       // order qualifies without touching createdAt.
@@ -300,8 +316,7 @@ if (hasDb && dbIsDisposable) {
 
       const order = await service.getOrder(checkout.orderId);
       expect(order?.status).toBe("cancelled");
-      const released = await service.getAvailability(["TST-RIG-B"]);
-      expect(released[0]!.available).toBe(before[0]!.available);
+      expect(counted(await service.getAvailability(["TST-RIG-B"]), "TST-RIG-B")).toBe(before);
 
       // Idempotent: a second sweep finds nothing to move on this order.
       await expireStaleCheckouts(payload, {
@@ -604,14 +619,13 @@ if (hasDb && dbIsDisposable) {
       // Relativo a lo que haya, no a la constante de la fixture: los tests de
       // arriba ya han consumido stock y el banco no se resiembra entre ellos.
       const stockBefore = await inventoryRow();
-      const before = await service.getAvailability(["TST-RIG-P"]);
+      const before = counted(await service.getAvailability(["TST-RIG-P"]), "TST-RIG-P");
       const [first, second] = await Promise.all([
         service.createCheckout(CHECKOUT_INPUT),
         service.createCheckout(CHECKOUT_INPUT),
       ]);
       // Dos pedidos de una unidad cada uno: el checkout ya comprometió dos.
-      const reserved = await service.getAvailability(["TST-RIG-P"]);
-      expect(reserved[0]!.available).toBe(before[0]!.available - 2);
+      expect(counted(await service.getAvailability(["TST-RIG-P"]), "TST-RIG-P")).toBe(before - 2);
 
       const paid = (orderId: string): PaymentEvent => ({
         type: "paid",
