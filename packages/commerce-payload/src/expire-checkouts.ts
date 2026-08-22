@@ -28,6 +28,8 @@ export interface ExpireResult {
   scanned: number;
   expired: number;
   skipped: number;
+  /** Órdenes cuya liberación LANZÓ — cada una está nombrada en el log. */
+  failed: number;
 }
 
 export async function expireStaleCheckouts(
@@ -55,13 +57,24 @@ export async function expireStaleCheckouts(
 
   let expired = 0;
   let skipped = 0;
+  let failed = 0;
 
   for (const doc of stale.docs) {
-    if (await releaseCheckout(payload, Number(doc.id))) expired += 1;
-    else skipped += 1;
+    // Una orden envenenada no secuestra el barrido: `releaseCheckout` ya
+    // trata los no-errores (fila evaporada, transición inaplicable) como
+    // `false`, así que lo que LANZA es una avería de esa orden — se cuenta,
+    // se nombra, y las reservas de las demás se liberan igual. Con cadencia
+    // diaria, abortar aquí retenía el stock de todas las siguientes 24 h más.
+    try {
+      if (await releaseCheckout(payload, Number(doc.id))) expired += 1;
+      else skipped += 1;
+    } catch (error) {
+      failed += 1;
+      console.error(`[expire-checkouts] orden ${String(doc.id)} falló: ${String(error)}`);
+    }
   }
 
-  return { scanned: stale.docs.length, expired, skipped };
+  return { scanned: stale.docs.length, expired, skipped, failed };
 }
 
 /**

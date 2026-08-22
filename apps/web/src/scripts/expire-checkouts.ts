@@ -23,6 +23,6 @@ const { default: config } = await import("../../payload.config");
 const payload = await getPayload({ config });
 const result = await sweepStaleCheckouts(payload);
 console.log(
-  `checkout sweep: ${result.scanned} scanned · ${result.expired} expired · ${result.skipped} skipped`,
+  `checkout sweep: ${result.scanned} scanned · ${result.expired} expired · ${result.skipped} skipped · ${result.failed} failed`,
 );
 process.exit(0);

@@ -461,6 +461,56 @@ if (hasDb && dbIsDisposable) {
       const still = await service.getOrder(checkout.orderId);
       expect(still?.status).toBe("cancelled");
     });
+
+    it("una orden envenenada no aborta el barrido: las demás se liberan y el fallo queda contado", async () => {
+      const { getCommerce } = await loadContainer();
+      const { expireStaleCheckouts } = await import("@courvia/commerce-payload");
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+
+      const poisoned = await service.createCheckout({
+        ...CHECKOUT_INPUT,
+        lines: [{ sku: "TST-RIG-B", quantity: 2 }],
+        email: "veneno@courvia.test",
+      });
+      const healthy = await service.createCheckout({
+        ...CHECKOUT_INPUT,
+        lines: [{ sku: "TST-RIG-B", quantity: 1 }],
+        email: "sano@courvia.test",
+      });
+
+      // Envenenar la línea por SQL crudo, saltándose la validación: una
+      // cantidad negativa hace lanzar el `int()` de tx-sql dentro de
+      // `releaseCheckout` — la clase de fila rota que, con cadencia diaria,
+      // dejaba las reservas de todas las órdenes siguientes 24 h más presas.
+      const db = payload.db as unknown as {
+        pool: { query: (text: string, values: unknown[]) => Promise<unknown> };
+        schemaName?: string;
+      };
+      const schema = db.schemaName ?? "public";
+      await db.pool.query(
+        `update "${schema}"."orders_lines" set "quantity" = -1 where "_parent_id" = $1`,
+        [Number(poisoned.orderId)],
+      );
+
+      const result = await expireStaleCheckouts(payload, {
+        olderThanMinutes: 60,
+        now: () => Date.now() + 61 * 60_000,
+      });
+      expect(result.failed).toBe(1);
+      expect(result.expired).toBeGreaterThanOrEqual(1);
+
+      // La sana quedó cancelada; la envenenada sigue pendiente, no a medias.
+      expect((await service.getOrder(healthy.orderId))?.status).toBe("cancelled");
+      expect((await service.getOrder(poisoned.orderId))?.status).toBe("pending_payment");
+
+      // Reparar la fila para no dejarle una mina al resto de la suite; el
+      // siguiente barrido la cancelará por el camino normal.
+      await db.pool.query(
+        `update "${schema}"."orders_lines" set "quantity" = 2 where "_parent_id" = $1`,
+        [Number(poisoned.orderId)],
+      );
+    });
   });
 
   describe("payment pipeline (§4: ledger-first, transactional, outbox)", () => {
