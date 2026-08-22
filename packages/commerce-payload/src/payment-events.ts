@@ -284,10 +284,13 @@ export async function applyPaymentEvent(
       if (order.status === "cancelled") {
         return await commitConflict(payload, req, orderId, "paid_on_cancelled_order", event);
       }
-      if (
-        order.status === "pending_payment" &&
-        (event.amount.currency !== currency || event.amount.amount !== order.totalAmount)
-      ) {
+      // En TODOS los estados, no solo pending_payment: un segundo `paid` con
+      // event id nuevo e importe distinto sobre un pedido ya pagado salía
+      // como replay (`already_applied`) sin alerta — y eso puede ser una
+      // segunda captura. `totalAmount` no cambia nunca (los reembolsos van
+      // en refundedAmount), así que el replay legítimo con el importe
+      // correcto sigue cayendo en `already_applied` más abajo.
+      if (event.amount.currency !== currency || event.amount.amount !== order.totalAmount) {
         return await commitConflict(
           payload,
           req,

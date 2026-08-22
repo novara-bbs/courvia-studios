@@ -700,6 +700,57 @@ if (hasDb && dbIsDisposable) {
       expect(alerts.totalDocs).toBe(1);
     });
 
+    it("a second paid with a NEW id and a different amount on a paid order is a CONFLICT, not a replay", async () => {
+      // Antes la comprobación de importe solo corría en pending_payment: un
+      // segundo `paid` con id nuevo e importe distinto sobre un pedido
+      // pagado salía como `already_applied` sin alerta — y eso puede ser
+      // una segunda captura. El replay con el importe CORRECTO sí es un
+      // replay, y se afirma aquí también.
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+      // TST-RIG-B (99.000 EUR) a propósito: el presupuesto de stock de
+      // TST-RIG-P se lo reparten los tests de concurrencia de más abajo.
+      const checkout = await service.createCheckout({
+        ...CHECKOUT_INPUT,
+        lines: [{ sku: "TST-RIG-B", quantity: 1 }],
+        email: "recaptura@courvia.test",
+      });
+      const paidAt = (eventId: string, amount: number): PaymentEvent => ({
+        type: "paid",
+        provider: "stripe",
+        providerEventId: eventId,
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount, currency: "EUR" },
+        occurredAt: "2026-08-19T12:00:00.000Z",
+      });
+
+      const paid = await applyPaymentEvent(paidAt("evt_recapture_base", 99_000));
+      expect(paid).toMatchObject({ outcome: "applied", status: "paid" });
+
+      const recapture = await applyPaymentEvent(paidAt(`evt_recapture_${checkout.orderId}`, 1));
+      expect(recapture.outcome).toBe("conflict");
+
+      const order = await service.getOrder(checkout.orderId);
+      expect(order?.status).toBe("paid");
+      const alerts = await payload.find({
+        collection: "outbox",
+        where: {
+          and: [
+            { order: { equals: Number(checkout.orderId) } },
+            { effect: { equals: "alert_payment_conflict" } },
+          ],
+        },
+        overrideAccess: true,
+      });
+      expect(alerts.totalDocs).toBe(1);
+
+      // La misma verdad con el importe correcto sigue siendo un replay.
+      const replay = await applyPaymentEvent(paidAt("evt_recapture_ok", 99_000));
+      expect(replay).toMatchObject({ outcome: "already_applied" });
+    });
+
     it("paid arriving on a cancelled order raises a conflict, never silence", async () => {
       const { getCommerce, applyPaymentEvent } = await loadContainer();
       const payload = await loadPayload();
