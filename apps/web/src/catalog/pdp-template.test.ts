@@ -302,6 +302,70 @@ describe("what a product template may hold", () => {
       expect(block.appearance).toEqual({ spaceBlockStart: "none", spaceBlockEnd: "none" });
     }
   });
+
+  it.runIf(hasDb)("la plantilla del CMS manda sobre la de Git, y no al revés", async () => {
+    /*
+     * EL ESLABÓN QUE NUNCA SE EJERCITÓ. La cadena declarada es de tres —
+     * plantilla asignada al producto, plantilla por defecto del CMS,
+     * `DEFAULT_PRODUCT_TEMPLATE`— pero la tabla `templates` estaba vacía, así
+     * que en toda base de datos existente mandaba el tercer eslabón. «La
+     * ficha de producto es editable» era cierto en el código y falso en
+     * pantalla: un editor abría Plantillas, veía una lista vacía y no tenía
+     * por dónde empezar.
+     *
+     * `seed:templates` la llena con exactamente los bloques del array —
+     * sembrar no cambia lo que se sirve, que es lo que hace segura la
+     * semilla— y esto comprueba lo otro: que si la fila del CMS DICE otra
+     * cosa, es la del CMS la que sale. Si no, la semilla sería decorativa y
+     * reordenar en el panel no haría nada.
+     *
+     * Se crea una plantilla propia en vez de tocar la sembrada: esta suite
+     * corre contra la base de desarrollo y editar la plantilla real sería
+     * pisarle el trabajo a quien la esté editando.
+     */
+    const { getPayload } = await import("payload");
+    const { default: config } = await import("@payload-config");
+    const { getDraftProductTemplate } = await import("./product-template");
+    const payload = await getPayload({ config });
+
+    const previous = await payload.find({
+      collection: "templates",
+      where: { kind: { equals: "product" }, isDefault: { equals: true } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    });
+    const previousId = previous.docs[0]?.id;
+
+    // Una sola sección, y distinta del array: si la salida trae cinco
+    // bloques, el eslabón 2 no se está leyendo.
+    const probe = await payload.create({
+      collection: "templates",
+      overrideAccess: true,
+      data: {
+        name: "Sonda de plantilla (test)",
+        kind: "product",
+        isDefault: true,
+        blocks: [{ blockType: "productSpecs" }] as never,
+      },
+    });
+    try {
+      const blocks = await getDraftProductTemplate("tempo-r1");
+      expect(blocks.map((block) => block.blockType)).toEqual(["productSpecs"]);
+    } finally {
+      // El `afterChange` de templates desmarcó la anterior al marcar esta;
+      // borrar la sonda no la devuelve, así que se restaura a mano.
+      await payload.delete({ collection: "templates", id: probe.id, overrideAccess: true });
+      if (previousId !== undefined) {
+        await payload.update({
+          collection: "templates",
+          id: previousId,
+          data: { isDefault: true },
+          overrideAccess: true,
+        });
+      }
+    }
+  });
 });
 
 /**

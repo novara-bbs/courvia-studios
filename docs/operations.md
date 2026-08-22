@@ -32,7 +32,17 @@ Commitear la migración **y también** `src/migrations/index.ts` (el generador l
 ### Seeds, en orden
 
 1. `ADMIN_EMAIL=... ADMIN_PASSWORD=... pnpm --filter @courvia/web seed:admin` — primer usuario admin por Local API (`ADMIN_NAME` opcional). Idempotente: se niega a correr si ya existe algún usuario.
-2. `pnpm seed` — ejecuta en orden `seed:catalog` → `seed:markets` → `seed:content`.
+2. `pnpm seed` — ejecuta en orden `seed:catalog` → `seed:media` → `seed:markets` →
+   `seed:templates` → `seed:content`.
+
+`seed:templates` merece una línea aparte porque no siembra contenido: siembra la
+**plantilla de ficha de producto** con exactamente los bloques de
+`DEFAULT_PRODUCT_TEMPLATE` (`src/catalog/product-template.ts`). Correrla no
+cambia lo que se sirve —el array es la recaída y los bloques son los mismos— y
+lo que cambia es el panel: sin ella, Plantillas está vacío y «la ficha de
+producto es editable» solo lo es para quien sepa de antemano qué cinco
+secciones crear y en qué orden. Es idempotente en el único sentido que importa
+aquí: si ya hay una plantilla `product` por defecto, no la toca.
 
 ### El tick de mantenimiento, y cómo ejecutarlo a mano
 
