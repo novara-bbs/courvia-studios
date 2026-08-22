@@ -133,6 +133,18 @@ export interface DispatchResult {
   /** Pending rows this dispatcher has no handler for. */
   deferred: number;
   deferredByEffect: Record<string, number>;
+  /**
+   * Filas que exigen una persona, contadas EXACTO y por estado.
+   *
+   * Aparte de `deferredByEffect` a propósito, y por dos motivos que eran dos
+   * fallos: aquel se calculaba sobre la página de 100 del censo, así que tres
+   * reembolsos pendientes detrás de ciento cincuenta filas de otro efecto no
+   * salían en la alerta; y solo miraba `pending`, así que una fila que agotó
+   * sus cinco intentos y pasó a `failed` desaparecía del informe para
+   * siempre. `execute_provider_refund` en `failed` es dinero que el cliente
+   * espera y que nadie va a mandar.
+   */
+  needsHuman: { pending: Record<string, number>; failed: Record<string, number> };
 }
 
 function toNumber(value: unknown): number {
@@ -200,7 +212,10 @@ export function eligibleWhere(effects: string[], nowMs: number): Where {
  * database, so a rename fails CI rather than production.
  */
 interface PostgresHandle {
-  query: (text: string, values: unknown[]) => Promise<{ rowCount: number | null }>;
+  query: (
+    text: string,
+    values: unknown[],
+  ) => Promise<{ rowCount: number | null; rows?: Record<string, unknown>[] }>;
 }
 
 function outboxTable(payload: BasePayload): { pool: PostgresHandle; table: string } {
@@ -248,7 +263,10 @@ export async function claimOutboxRow(payload: BasePayload, row: OutboxRow): Prom
 }
 
 /** Pending rows nobody here can execute, counted and named. */
-async function census(payload: BasePayload, handled: string[]): Promise<Pick<DispatchResult, "deferred" | "deferredByEffect">> {
+async function census(
+  payload: BasePayload,
+  handled: string[],
+): Promise<Pick<DispatchResult, "deferred" | "deferredByEffect" | "needsHuman">> {
   const pending = await payload.find({
     collection: "outbox",
     where: {
@@ -270,7 +288,13 @@ async function census(payload: BasePayload, handled: string[]): Promise<Pick<Dis
     deferredByEffect[effect] = (deferredByEffect[effect] ?? 0) + 1;
   }
 
-  const attention = Object.entries(deferredByEffect).filter(([effect]) => REQUIRES_HUMAN.has(effect));
+  const needsHuman = await countNeedsHuman(payload);
+  const attention = [
+    ...Object.entries(needsHuman.pending).map(([effect, count]) => `${String(count)}× ${effect}`),
+    ...Object.entries(needsHuman.failed).map(
+      ([effect, count]) => `${String(count)}× ${effect} SIN REINTENTO`,
+    ),
+  ];
   if (attention.length > 0) {
     // `execute_provider_refund` is money leaving the company and is
     // deliberately NOT automated (nothing here calls a gateway; the four
@@ -278,12 +302,52 @@ async function census(payload: BasePayload, handled: string[]): Promise<Pick<Dis
     // needs explicit human approval). `alert_*` is a contradiction somebody
     // has to look at. Both are pending TASKS in the admin, so the one thing
     // this dispatcher owes them is that nobody has to notice on their own.
-    console.error(
-      `[outbox] ${attention.map(([effect, count]) => `${count}× ${effect}`).join(", ")} pending human action`,
-    );
+    console.error(`[outbox] ${attention.join(", ")} pending human action`);
   }
 
-  return { deferred: pending.totalDocs, deferredByEffect };
+  return { deferred: pending.totalDocs, deferredByEffect, needsHuman };
+}
+
+/**
+ * Cuántas filas esperan a una persona, exacto, por efecto y por estado.
+ *
+ * UNA consulta agrupada y no el desglose de la página del censo, y las dos
+ * diferencias son las dos que fallaban:
+ *
+ *  - **Exacto.** El censo pagina de 100 en 100 y sin `sort` propio, así que
+ *    Payload ordena por `-createdAt`: la página son las 100 más NUEVAS y lo
+ *    que se cae es lo más antiguo — la fila que lleva más tiempo esperando a
+ *    una persona, que es justo la peor de perder. Tres reembolsos de hace
+ *    días detrás de ciento cincuenta filas recientes no aparecían en el
+ *    desglose, así que la alerta no se escribía. `totalDocs` era exacto pero
+ *    no dice de QUÉ.
+ *  - **También los muertos.** El censo filtra `status: pending`. Una fila que
+ *    agota sus cinco intentos pasa a `failed` y desaparecía del informe para
+ *    siempre — y un `execute_provider_refund` en `failed` es dinero que un
+ *    cliente está esperando y que nadie va a mandar.
+ *
+ * `GROUP BY` en SQL porque la Local API no agrupa, y los efectos van
+ * parametrizados: son constantes nuestras, pero un `IN` construido por
+ * concatenación es una costumbre que el siguiente caso hereda con datos de
+ * fuera.
+ */
+async function countNeedsHuman(
+  payload: BasePayload,
+): Promise<DispatchResult["needsHuman"]> {
+  const { pool, table } = outboxTable(payload);
+  const result = await pool.query(
+    `SELECT effect, status, count(*)::int AS n
+       FROM ${table}
+      WHERE status IN ('pending', 'failed') AND effect = ANY($1)
+      GROUP BY effect, status`,
+    [[...REQUIRES_HUMAN]],
+  );
+  const needsHuman: DispatchResult["needsHuman"] = { pending: {}, failed: {} };
+  for (const row of result.rows ?? []) {
+    const bucket = String(row.status) === "failed" ? needsHuman.failed : needsHuman.pending;
+    bucket[String(row.effect)] = toNumber(row.n);
+  }
+  return needsHuman;
 }
 
 /**

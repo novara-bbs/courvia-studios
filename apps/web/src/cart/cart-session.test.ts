@@ -186,3 +186,23 @@ describe("lo que la fase 4 NO promete", () => {
     ).toBe(false);
   });
 });
+
+describe("el portador de la sesión no sale en un mensaje de error", () => {
+  it("`cart_not_found` no lleva el sessionId dentro", () => {
+    /*
+     * El `sessionId` es un portador: quien lo tiene puede leer y modificar
+     * ese carrito, y por eso la cookie es httpOnly. Un `Error.message` va a
+     * la salida de la función, al agregador de logs y a cualquier informe de
+     * errores conectado — sitios cuyo control de acceso no es el de la
+     * cookie. Y `cart_not_found` es de los que más se registran, porque lo
+     * lanza cada visitante cuyo carrito caducó.
+     *
+     * Se lee el fichero porque lo que hay que impedir es la INTERPOLACIÓN,
+     * no un valor concreto: un test que llamara al motor con una sesión
+     * inventada pasaría igual el día que alguien vuelva a meter la plantilla.
+     */
+    const engine = read("packages/commerce-payload/src/native-commerce-engine.ts");
+    expect(engine).not.toContain("cart_not_found: ${ref.externalId}");
+    expect(engine, "el motor ya no lanza cart_not_found").toContain("cart_not_found");
+  });
+});

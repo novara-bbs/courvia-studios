@@ -297,8 +297,6 @@ describe("el panel habla los tres idiomas que declara", () => {
       "payload-folders",
       "payload-jobs",
       "payload-kv",
-      // Owned by the templates work in flight.
-      "templates",
     ]);
     const unknown = resolved.collections
       .map((entry) => entry.slug)

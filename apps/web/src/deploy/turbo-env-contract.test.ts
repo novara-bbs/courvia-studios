@@ -20,6 +20,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readTurboJson } from "./turbo-json";
 
 const repoRoot = join(import.meta.dirname, "..", "..", "..", "..");
 
@@ -42,7 +43,7 @@ function ciWorkflowEnvNames(): string[] {
 }
 
 function turboForwardedNames(): string[] {
-  const turbo: unknown = JSON.parse(readFileSync(join(repoRoot, "turbo.json"), "utf8"));
+  const turbo: unknown = readTurboJson(join(repoRoot, "turbo.json"));
   const config = turbo as {
     globalEnv?: string[];
     globalPassThroughEnv?: string[];

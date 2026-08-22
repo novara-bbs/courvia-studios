@@ -263,6 +263,79 @@ describeDb("dispatching", () => {
     logged.mockRestore();
   });
 
+  it("cuenta los reembolsos que exigen una persona EXACTO, no los de la primera página", async () => {
+    /*
+     * El desglose salía de `pending.docs`, y el censo pagina de 100 en 100.
+     * Tres reembolsos pendientes detrás de ciento cincuenta filas de otro
+     * efecto no aparecían, así que la alerta no se escribía — y la alerta es
+     * lo ÚNICO que hace que alguien se entere de que hay dinero parado.
+     *
+     * El censo no pide orden, así que Payload usa el suyo: `-createdAt`. La
+     * página son las 100 MÁS NUEVAS, y por tanto la fila que se cae es la más
+     * antigua — la que lleva más tiempo esperando a una persona, que es
+     * exactamente la peor de perder. Así que la alerta se crea PRIMERO y el
+     * relleno encima. 120 es lo mínimo que lo demuestra con margen y lo
+     * máximo que se puede sembrar sin que la suite tarde.
+     *
+     * `alert_refund_failure` y no `execute_provider_refund` a propósito:
+     * otro test de este fichero deja un `execute_provider_refund` reciente,
+     * que SÍ entra en la página, y con él la comprobación pasaba con el
+     * código roto. Un efecto que solo crea este test permite exigir el número
+     * exacto en vez de «al menos uno», que es la diferencia entre probar el
+     * conteo y describirlo. (Medido: con el orden al revés y el otro efecto,
+     * este test pasaba en verde sobre el código que existe para arreglar.)
+     */
+    const alerta = await queue("alert_refund_failure");
+    const relleno: number[] = [];
+    for (let index = 0; index < 120; index += 1) {
+      relleno.push((await queue("restock_if_applicable")).id);
+    }
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await dispatchOutbox(payload, {
+      handlers: { notify_sales_lead: () => Promise.resolve() },
+    });
+
+    expect(
+      result.needsHuman.pending.alert_refund_failure,
+      "la alerta se cayó de la página del censo",
+    ).toBe(1);
+    // Y el desglose paginado NO la ve: eso es lo que hacía falta arreglar.
+    expect(result.deferredByEffect.alert_refund_failure).toBeUndefined();
+    expect(logged.mock.calls.flat().join(" ")).toContain("alert_refund_failure");
+    logged.mockRestore();
+
+    for (const id of [...relleno, alerta.id]) {
+      await payload.delete({ collection: "outbox", id, overrideAccess: true }).catch(() => null);
+    }
+  }, 60_000);
+
+  it("un reembolso ya muerto sigue saliendo en el informe, y marcado como muerto", async () => {
+    /*
+     * El censo filtra `status: pending`. Una fila que agota sus cinco
+     * intentos pasa a `failed` y desaparecía del informe PARA SIEMPRE. Un
+     * `execute_provider_refund` en `failed` es dinero que un cliente está
+     * esperando y que nadie va a mandar: es justo la fila que más falta hace
+     * que se vea, y era la única invisible.
+     */
+    const muerto = await queue("execute_provider_refund");
+    await payload.update({
+      collection: "outbox",
+      id: muerto.id,
+      data: { status: "failed", attempts: 5, lastError: "sin reintento" },
+      overrideAccess: true,
+    });
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await dispatchOutbox(payload, {
+      handlers: { notify_sales_lead: () => Promise.resolve() },
+    });
+
+    expect(result.needsHuman.failed.execute_provider_refund).toBeGreaterThanOrEqual(1);
+    expect(logged.mock.calls.flat().join(" ")).toContain("SIN REINTENTO");
+    logged.mockRestore();
+  });
+
   it("sends the real confirmation for a lead row", async () => {
     const row = await queue("notify_sales_lead");
     const sent = vi

@@ -389,13 +389,23 @@ futura, no como mejora.
 
 Sigue vivo y se integra en las fases 3 y siguientes.
 
+**Esta tabla decía `not_started` en las cinco filas mientras la §3 de arriba
+describía tres de ellas como entregadas.** Un plan que se contradice consigo
+mismo a doscientas líneas de distancia no es una imprecisión: es la parte del
+documento que deja de leerse. Corregida el 22 ago 2026, y partida donde hacía
+falta — «migración conjunta» eran cinco trabajos con tres estados distintos.
+
 | Tarea | Fase | Estado |
 |---|---|---|
-| Migración conjunta: selector de enlace, anclas validadas, fragmentos, papelera, versiones en globals | 3 | `not_started` |
-| PDP como plantilla editable (WP13) | 3 | `not_started` |
-| Etiquetas de colecciones en los tres idiomas del panel | 3 | `not_started` |
-| Segunda barrera de `href` en el renderer | 3 | `not_started` |
-| Reproducir o descartar la pérdida de escrituras en `adjustStock` | 5 | `not_started` |
+| Papelera en `pages`/`media`/`redirects`, con sus índices únicos parciales | 3 | `code_complete` (`9b1e199`) |
+| Versiones en los globals que un editor toca | 3 | `code_complete` (`9b1e199`; `market-settings` no, ver bitácora del 22 ago) |
+| Anclas validadas al publicar | 3 | `code_complete` — y desde `55d4f6d` tolerantes: el renderer y la validación normalizan con `anchorId`, así que el editor escribe el nombre del bloque y ya |
+| PDP como plantilla editable (WP13) | 3 | `code_complete` (`9b1e199`), y **sembrada** desde `f55355f`: sin `seed:templates` la tabla estaba vacía y mandaba la recaída de Git |
+| Etiquetas de colecciones en los tres idiomas del panel | 3 | `code_complete` (`a80fab5`) |
+| Selector de enlace (`kind: "link"` con grupo interno/externo/ancla) | 3 | `not_started` — necesita migración y convertir las 11 páginas sembradas |
+| Fragmentos compartidos (`partials` + `partialRef`) | 3 | `not_started` — **bloqueado**: el techo de ADR-028 está en 24/24 y añadir el bloque exige un ADR nuevo |
+| Segunda barrera de `href` en el renderer | 3 | `not_started` — prioridad baja: React neutraliza `javascript:` y la barrera de autoría ya rechaza al guardar |
+| Reproducir o descartar la pérdida de escrituras en `adjustStock` | 5 | **Reproducida y cerrada** (`5d3d351`, `df5e235`): era real, y el mismo idioma roto estaba en cuatro sitios más |
 
 Ya cerrado en esta rama y que **no se reconstruye**: panel en castellano con `i18n`,
 selector de bloques con baldas y miniaturas, permisos por rol, arranques de página,

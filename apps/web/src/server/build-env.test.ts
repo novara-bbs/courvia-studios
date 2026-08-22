@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { BUILD_GATE_ENV, FIXTURE_SLUGS, assertNoFixtureData, isDatabaselessBuild } from "./build-env";
+import { readTurboJson } from "../deploy/turbo-json";
 
 const BUILD = "phase-production-build";
 
@@ -125,7 +126,7 @@ describe("the signals reach the build", () => {
   // comment, not a guardrail — and this repo has shipped that mistake before
   // (see the header of .dependency-cruiser.cjs).
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
-  const turboJson = JSON.parse(readFileSync(path.join(repoRoot, "turbo.json"), "utf8")) as {
+  const turboJson = readTurboJson(path.join(repoRoot, "turbo.json")) as {
     globalEnv?: string[];
     globalPassThroughEnv?: string[];
     tasks: { build: { env?: string[]; passThroughEnv?: string[] } };

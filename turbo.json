@@ -69,6 +69,24 @@
         "build"
       ],
       "cache": false
+    },
+    // typecheck y lint de la app LEEN `.next/types`, que lo escribe su propio
+    // build. Mientras corrían en paralelo, `pnpm verify` fallaba a veces con
+    // `Cannot find module './routes.js'`: el validador ya escrito y las rutas
+    // todavía no. Medido dos veces el 22 ago 2026. Depender del build propio
+    // cuesta esperar a un camino crítico que ya lo era, y a cambio los tipos
+    // que se validan son los de ESTE build y no los del anterior.
+    "@courvia/web#typecheck": {
+      "dependsOn": [
+        "^build",
+        "build"
+      ]
+    },
+    "@courvia/web#lint": {
+      "dependsOn": [
+        "^build",
+        "build"
+      ]
     }
   }
 }

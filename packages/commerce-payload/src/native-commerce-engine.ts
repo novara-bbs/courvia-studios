@@ -616,11 +616,25 @@ export class NativeCommerceEngine
     const req: Req = { payload: this.#payload };
     await initTransaction(req as Parameters<typeof initTransaction>[0]);
     try {
+      /*
+       * El mensaje NO lleva `ref.externalId`, y no es cosmética.
+       *
+       * Ese id es el `sessionId` del carrito, y es un PORTADOR: quien lo
+       * tiene puede leer y modificar ese carrito (`apps/web/src/cart/session.ts`
+       * lo dice y por eso la cookie es httpOnly). Metido en un
+       * `Error.message` acaba en la salida de la función, en el agregador de
+       * logs y en cualquier informe de errores que alguien conecte — es
+       * decir, en sitios cuyo control de acceso no es el de la cookie. Y el
+       * caso en que se lanza es justo el que más se registra.
+       *
+       * Lo que sí ayuda a diagnosticar y no es un portador es el id de fila,
+       * y ese solo existe cuando el carrito se llegó a encontrar.
+       */
       const found = await this.#findCart(ref, req);
-      if (found === null) throw new Error(`cart_not_found: ${ref.externalId}`);
+      if (found === null) throw new Error("cart_not_found");
       await lockCartRow(this.#payload, req, Number(found.id));
       const fresh = await this.#findCart(ref, req);
-      if (fresh === null) throw new Error(`cart_not_found: ${ref.externalId}`);
+      if (fresh === null) throw new Error(`cart_not_found: fila ${String(found.id)}`);
 
       const next = await transform(writableLines(fresh));
       const updated = (await this.#payload.update({
