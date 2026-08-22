@@ -10,11 +10,24 @@
  *
  * TRES DECISIONES QUE NO SON OBVIAS.
  *
- * 1. **Sin versiones ni borradores.** Una plantilla gobierna N páginas
- *    publicadas a la vez; «publicar» la plantilla publicaría a la vez el
- *    layout de todo el catálogo, y previsualizarla exigiría elegir un
- *    producto de muestra. Los productos y las páginas sí llevan versiones
- *    porque cada documento es una URL. Esto no lo es.
+ * 1. **Sin versiones, sin borradores y SIN PREVISUALIZACIÓN.** Una plantilla
+ *    gobierna N páginas publicadas a la vez; «publicar» la plantilla
+ *    publicaría de golpe el layout de todo el catálogo. Los productos y las
+ *    páginas sí llevan versiones porque cada documento es una URL. Esto no
+ *    lo es.
+ *
+ *    Lo de la previsualización se replanteó al sembrar la plantilla por
+ *    defecto (`seed:templates`), que es cuando pasó a haber algo que
+ *    previsualizar, y la respuesta sigue siendo no: sin borradores, cada
+ *    guardado YA está publicado, así que un panel de vista previa enseñaría
+ *    lo que el visitante ve en ese momento y no «lo que pasaría si guardo».
+ *    Es la clase de vista previa que parece una red y no lo es. Además
+ *    obligaría a elegir un producto de muestra, y el layout se ve distinto
+ *    según cuántas imágenes y specs tenga el elegido.
+ *
+ *    Lo honesto con la herramienta que hay: el editor abre la PDP de un
+ *    producto en otra pestaña y recarga. El día que las plantillas lleven
+ *    borradores, la vista previa entra con ellos y no antes.
  *
  * 2. **`isDefault` en vez de una convención.** «La plantilla por defecto de
  *    su tipo» tenía que ser un dato, no «la primera que se creó»: la recaída
