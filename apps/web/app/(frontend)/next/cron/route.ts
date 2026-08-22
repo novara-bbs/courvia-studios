@@ -36,6 +36,7 @@ import { sweepStaleCarts } from "../../../../src/scripts/sweep-carts";
 import { sweepStaleCheckouts } from "../../../../src/scripts/sweep-checkouts";
 import { DISPATCH_BUDGET_MS, dispatchOutbox } from "../../../../src/server/outbox";
 import { outboxHandlers } from "../../../../src/server/outbox-handlers";
+import { recordCronRun } from "../../../../src/server/ops-runs";
 
 /**
  * Seconds this function may run. Must stay above DISPATCH_BUDGET_MS (the
@@ -68,6 +69,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const started = Date.now();
   const payload = await getPayload({ config });
 
   /*
@@ -104,9 +106,32 @@ export async function GET(request: NextRequest): Promise<Response> {
   const failed = [outbox, checkouts, carts].filter(
     (result) => typeof result === "object" && result !== null && "error" in result,
   ).length;
+  const status = failed === 0 ? 200 : 207;
+  const summary = { outbox, checkouts, carts };
 
-  return Response.json(
-    { outbox, checkouts, carts },
-    { status: failed === 0 ? 200 : 207, headers: { "cache-control": "no-store" } },
-  );
+  /*
+   * LA MARCA, y por qué es un cuarto trabajo y no parte de los otros tres.
+   *
+   * Hasta hoy el único rastro de que un tick ocurrió era este `Response.json`
+   * —que vive en el log de invocación de Vercel— y algún `console.*`. Si el
+   * cron deja de dispararse no hay error en ninguna parte: se paran los
+   * correos al cliente, la ventana legal de desistimiento, la contraorden que
+   * impide enviar un robot ya reembolsado y la liberación de stock, todo en
+   * silencio. `docs/deployment.md` ya lo avisaba y nadie podía verlo.
+   *
+   * Va en su propio `attempt` por lo mismo que los otros tres: que no se pueda
+   * anotar la ejecución no puede convertir un tick que funcionó en un 500 que
+   * esconde lo que sí hizo. Y va DESPUÉS de calcular `status`, para que la
+   * fila diga cómo fue el trabajo de verdad y no cómo fue anotarlo.
+   */
+  const startedAt = new Date(started);
+  await attempt("ops-runs", async () => {
+    await recordCronRun(payload, { startedAt, finishedAt: new Date(), status, summary });
+    return true;
+  });
+
+  return Response.json(summary, {
+    status,
+    headers: { "cache-control": "no-store" },
+  });
 }

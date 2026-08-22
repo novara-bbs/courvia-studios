@@ -60,6 +60,7 @@ const LOCALIZED = {
     "commerce-connections",
     "commerce-bindings",
     "commerce-product-refs",
+    "ops-runs",
   ],
   globals: ["theme-settings", "market-settings", "navigation"],
 };

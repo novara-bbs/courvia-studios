@@ -104,10 +104,11 @@ enterrada como `[cause]`: dos ciclos completos para descubrir dos ausencias.
 | `S3_REGION` | opcional | Por defecto `auto`; los proveedores compatibles la ignoran. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Production/Preview | Correo saliente. **Sin ellas, en un despliegue cada envío FALLA en voz alta** (la fila del outbox se pone en rojo) en vez de tragarse el mensaje. Las dos van juntas. `EMAIL_FROM` es un remitente de un dominio verificado en Resend: `Courvia <hola@dominio>`. |
 | `CRON_SECRET` | Production (y Preview si se quiere el tick allí) | Autentica `GET /next/cron`. Vercel lo envía solo, como `Authorization: Bearer`. **Sin ella la ruta responde 503 y no ejecuta nada.** |
+| `OPS_EMAIL` | Production | La dirección de operaciones. Con ella se mandan cuatro efectos: las dos alertas de dinero contradiciéndose (`alert_payment_conflict`, `alert_refund_failure`) y la orden y **contraorden** de almacén (`start_picking`, `stop_picking`). **Sin ella esos handlers NO se registran** y las filas se quedan pendientes y visibles en el censo, sin destinatario. Estaba en `.env.example` y no en esta tabla: se podía desplegar siguiendo este documento y quedarse sin ningún canal de alerta. |
 
 ### Cron de mantenimiento: `GET /next/cron`
 
-Un único tick programado en `apps/web/vercel.json` hace dos trabajos:
+Un único tick programado en `apps/web/vercel.json` hace **cuatro** trabajos:
 
 1. **Despacha el outbox** — saca de la tabla los efectos que la máquina de
    estados encoló dentro de su transacción y los ejecuta fuera de ella

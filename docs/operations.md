@@ -48,8 +48,14 @@ aquí: si ya hay una plantilla `product` por defecto, no la toca.
 
 En un despliegue lo dispara Vercel Cron **una vez al día**, a las 04:00 UTC
 (`"schedule": "0 4 * * *"` en `apps/web/vercel.json`), sobre `GET /next/cron`
-(autenticado con `CRON_SECRET`; ver `docs/deployment.md`). Hace dos cosas:
-despachar el outbox y caducar los checkouts abandonados.
+(autenticado con `CRON_SECRET`; ver `docs/deployment.md`). Hace **cuatro**
+cosas: despachar el outbox, caducar los checkouts abandonados, **borrar los
+carritos vencidos** y **dejar constancia de que corrió** en `ops-runs`.
+
+Las dos últimas no estaban aquí. La barrida de carritos entró con la Fase 4 y
+este documento —y `docs/deployment.md`— siguieron diciendo «dos» durante meses,
+en los dos únicos sitios donde un operador miraría. La constancia es del
+22 ago 2026 y es de lo que va la sección siguiente.
 
 **La cadencia es diaria a propósito, y hay que saber lo que cuesta.** Vercel
 Hobby rechaza cualquier `schedule` más fino y hace fallar el despliegue al
@@ -65,7 +71,61 @@ peor caso real, con un solo tick al día:
 
 Un pedido `pending_payment` de veinte horas es, por tanto, la cadencia
 elegida y no una avería: solo hay que sospechar del cron si sobrevive a un
-tick. Mientras el plan siga en Hobby, el puente es dispararlo a mano: la misma
+tick.
+
+### Salud: cómo saber que esto sigue vivo
+
+**El fallo que no se ve.** Si el planificador de Vercel deja de disparar el
+tick no hay error en ninguna parte. Lo que se para está contado: la
+confirmación de la waitlist —la única conversión del sitio—, los correos de
+seguimiento y posventa, **la ventana legal de desistimiento** (Art. 102
+TRLGDCU: 14 días, y **doce meses si no se informa**), **`stop_picking`** —la
+contraorden que impide enviar un robot cuyo reembolso ya va de camino—, las dos
+alertas de dinero contradiciéndose y la liberación de las reservas de stock.
+
+Hasta el 22 ago 2026 la única forma de detectarlo era la heurística de arriba:
+mirar un pedido y calcular a ojo si había pasado un tick.
+
+**Ahora cada tick deja una fila** en `ops-runs` (`job`, `startedAt`,
+`finishedAt`, `status`, `summary`; 90 días de historia, podados por el propio
+tick). Una colección y no un global a propósito: un global dice cuándo fue el
+último, pero no que faltaron tres días seguidos.
+
+**`GET /next/health`** contesta la única pregunta que hace falta: **200 si el
+último tick tiene menos de 26 horas, 503 si no.** Veintiséis y no veinticuatro
+porque con cadencia diaria el peor caso legítimo ya son ~25 h (ver la tabla de
+arriba); un umbral de 24 sería un vigilante que grita todos los días, y un
+vigilante que grita todos los días se silencia.
+
+La ruta es **pública y callada**: devuelve `ok` y la edad en horas, nunca el
+resumen del tick ni el error de un trabajo. Sin autenticar porque el vigilante
+es un `curl`, y meterle un secreto sería un secreto más que rotar para proteger
+un booleano.
+
+**Quién vigila:** `.github/workflows/health.yml`, diario a las 09:00 UTC. Exige
+la variable de repositorio `HEALTH_URL` (Settings → Secrets and variables →
+Actions → Variables) y **falla a propósito si no está**: un vigilante sin
+configurar que sale verde es la misma avería que vino a arreglar. Se puede
+disparar a mano con `workflow_dispatch`.
+
+**El canal de `OPS_EMAIL` NO sirve para esto** y conviene saber por qué: viaja
+dentro del outbox, y el outbox lo drena el cron. Un aviso que se apaga
+exactamente cuando se apaga lo que vigila no es un aviso.
+
+#### Cuando el vigilante salta
+
+1. **Mira `GET /next/health` a mano.** Si `ageHours` es `null`, el cron no ha
+   corrido nunca en ese despliegue: lo primero que hay que comprobar es
+   `CRON_SECRET` — sin ella la ruta responde 503 y no ejecuta nada.
+2. **Dispara el tick a mano** con la llamada autenticada de abajo. Si responde
+   200 o 207, el problema es el planificador, no la aplicación.
+3. **Mira `ops-runs` en el panel.** El `summary` de los últimos ticks dice cuál
+   de los trabajos venía fallando, y el `status` 207 marca los que fallaron a
+   medias.
+4. **Mientras tanto, los dos escapes manuales:**
+   `pnpm --filter @courvia/web sweep:checkouts` libera las reservas de stock de
+   los checkouts muertos, y `pnpm --filter @courvia/web sweep:carts` borra los
+   carritos vencidos. Mientras el plan siga en Hobby, el puente es dispararlo a mano: la misma
 llamada autenticada de abajo, con el dominio del despliegue en lugar de
 `localhost:3000`.
 

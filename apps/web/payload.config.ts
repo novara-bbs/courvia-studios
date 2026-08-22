@@ -17,6 +17,7 @@ import { emailAdapter } from "./src/email/adapter";
 import { withAdminPasswordReset } from "./src/email/admin-password-reset";
 import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
 import { Carts, Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
+import { OpsRuns } from "./src/payload/ops-runs";
 import {
   CommerceBindings,
   CommerceConnections,
@@ -243,6 +244,11 @@ export default buildConfig({
     Returns,
     Carriers,
     Shipments,
+    // Telemetría de operación, no contenido: una fila por tick del cron, para
+    // que «el cron dejó de correr» sea detectable. Sin ella lo único que se
+    // para son los correos al cliente, la ventana legal de desistimiento y la
+    // liberación de stock — y nada da error en ninguna parte.
+    OpsRuns,
   ],
   globals: [ThemeSettings, MarketSettings, Navigation],
 

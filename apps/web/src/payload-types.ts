@@ -89,6 +89,7 @@ export interface Config {
     returns: Return;
     carriers: Carrier;
     shipments: Shipment;
+    'ops-runs': OpsRun;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -122,6 +123,7 @@ export interface Config {
     returns: ReturnsSelect<false> | ReturnsSelect<true>;
     carriers: CarriersSelect<false> | CarriersSelect<true>;
     shipments: ShipmentsSelect<false> | ShipmentsSelect<true>;
+    'ops-runs': OpsRunsSelect<false> | OpsRunsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -2954,6 +2956,36 @@ export interface Return {
   createdAt: string;
 }
 /**
+ * SERVER ONLY. One row per cron tick. It exists so that «the cron stopped» is detectable: without it the only thing that stops is the emails, the statutory withdrawal window and the stock release, and nothing errors anywhere.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ops-runs".
+ */
+export interface OpsRun {
+  id: number;
+  job: 'cron';
+  startedAt: string;
+  finishedAt: string;
+  /**
+   * The status the tick returned: 200 when all three jobs succeeded, 207 when one failed.
+   */
+  status: number;
+  /**
+   * What the tick answered: outbox, checkouts and carts, each with its error if it had one.
+   */
+  summary?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -3064,6 +3096,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'shipments';
         value: number | Shipment;
+      } | null)
+    | ({
+        relationTo: 'ops-runs';
+        value: number | OpsRun;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -4514,6 +4550,19 @@ export interface ShipmentsSelect<T extends boolean = true> {
   deliveredAt?: T;
   incoterm?: T;
   markedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ops-runs_select".
+ */
+export interface OpsRunsSelect<T extends boolean = true> {
+  job?: T;
+  startedAt?: T;
+  finishedAt?: T;
+  status?: T;
+  summary?: T;
   updatedAt?: T;
   createdAt?: T;
 }
