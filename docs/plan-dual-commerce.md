@@ -289,9 +289,41 @@ sembrar. Se retiran las versiones de ese global y
 `apps/web/src/payload/admin-schema.test.ts` rechaza esa forma en cualquier
 colección o global con versiones.
 
-### Fase 5 — Nativo production-capable · **siguiente**
+### Fase 5 — Nativo production-capable · **en curso**
 Quote, shipping/tax, Stripe real en test mode, checkout, webhooks, pedidos, emails,
 fulfillment, devoluciones, reembolsos, outbox, reconciliación, E2E en sandbox.
+
+El orden lo fijó la Fase 0: **bloqueo correcto → carrito → totales con envío e
+impuestos → Stripe → handlers de outbox → cadencia de cron**. Los dos primeros
+están hechos.
+
+| Tarea | Estado |
+|---|---|
+| Bloqueo correcto (`5d3d351`) | ✅ hecho, con dos tests de concurrencia vistos en rojo |
+| Carrito (Fase 4, `1a7c9ca`) | ✅ hecho |
+| Totales con envío e impuestos | ⏳ pendiente |
+| Stripe en modo prueba | 🔒 **bloqueado**: necesita credenciales, y el agente no las pide ni las usa |
+| Handlers de outbox (1 de 15 registrados) | ⏳ pendiente; varios esperan copy escrito, no código |
+| Cadencia del cron | 🔒 **bloqueado**: `*/5` exige plan Pro en Vercel (tarea #47) |
+
+**El bloqueo, que era el primero de la lista y resultó ser tres sitios y no
+dos.** `payload.update` con payload vacío toma el lock pero el `update` por id
+de Payload es un read-modify-write: carga el documento antes del lock y
+reescribe la fila entera al soltarlo, así que el bloqueado deshace lo que el
+ganador confirmó. Se vio, con los tests nuevos contra el código anterior:
+
+- dos pedidos pagados a la vez bajaban el stock **una** unidad, no dos, y
+  dejaban una unidad comprometida de un pedido ya pagado;
+- dos webhooks «paid» del **mismo** pedido aplicaban los dos: dos correos,
+  dos facturas, dos avisos al CRM.
+
+El tercer sitio no estaba en el parte: la reserva de `createCheckout`. Ahora
+las tres usan SQL —`SELECT … FOR UPDATE` para bloquear, una sola sentencia
+`UPDATE … SET x = x ± n` para contar— concentrado en
+`packages/commerce-payload/src/tx-sql.ts`. Y un orden que ahora es
+obligatorio: **el lock va antes de la fila del libro mayor**, porque
+insertarla toma un `FOR KEY SHARE` sobre el pedido y pedir el `FOR UPDATE`
+después provoca un abrazo mortal (`40P01`, medido).
 
 ### Fase 6 — Shopify production-capable · `not_started`
 Cliente Storefront, catálogo real, Cart API, hosted checkout, Admin API, webhooks,
@@ -407,3 +439,4 @@ secretos de pago.
 | 21 ago 2026 | Fase 3: plantillas de PDP, papelera, versiones y el renombrado de `market_settings` sin perder las pasarelas (`9b1e199`). |
 | 22 ago 2026 | Fase 4: carrito nativo, sesión por cookie y superficie de compra (`1a7c9ca`). |
 | 22 ago 2026 | CI en rojo por la Fase 3: Payload 3.88 no sabe escribir la tabla de versiones de un global con un select `hasMany` dentro de un array. Se retiran las versiones de `market-settings` y un test rechaza esa forma en cualquier versionado. |
+| 22 ago 2026 | Fase 5 arranca por donde debía: el bloqueo. Tres sitios con el mismo idioma roto, dos tests de concurrencia y `tx-sql.ts` (`5d3d351`). |
