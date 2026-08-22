@@ -39,6 +39,7 @@ import { z } from "zod";
 
 import { DEFAULT_SITE_KEY } from "../payload/commerce-connections";
 import { CommerceRuntimeUnavailableError, commerce } from "../server/container";
+import { CART_CREATE_RULE, clientIpKey, rateLimitStore } from "../server/rate-limit";
 import type { CommerceRuntime } from "../server/container";
 import { unitsOf } from "./read-cart";
 import { clearCartSession, readCartSession, writeCartSession } from "./session";
@@ -147,6 +148,27 @@ export async function addToCart(
   const { variantId, quantity, region } = parsed.data;
 
   const sessionId = await readCartSession();
+  /*
+   * LA PUERTA, y solo en la rama que escribe una fila nueva.
+   *
+   * Sin cookie `cv_cart` esta acción CREA un carrito, así que era el segundo
+   * sitio —y nadie lo había contado— donde alguien sin sesión escribe filas en
+   * el esquema `payload`. `carts` vive 14 días y la barrida borra 500 al día
+   * en un cron diario: un script dejaba miles de filas que tardan meses en
+   * drenarse.
+   *
+   * `addLine` y `setLine` NO pasan por aquí: mutan una fila que quien navega
+   * ya tiene, y limitarlas rompería a quien está comprando de verdad.
+   *
+   * Se responde `unavailable`, que es lo que el mensaje del carrito ya sabe
+   * pintar, y no un 429 con su `Retry-After`: decirle a un script su cadencia
+   * exacta es afinárselo gratis (el mismo argumento que `rate-limit.ts`).
+   */
+  if (sessionId === null) {
+    const gate = await rateLimitStore.consume(await clientIpKey("cart:create"), CART_CREATE_RULE);
+    if (!gate.allowed) return failure("unavailable");
+  }
+
   let runtime: CommerceRuntime;
   try {
     runtime =

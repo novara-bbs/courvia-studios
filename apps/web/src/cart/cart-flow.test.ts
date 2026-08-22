@@ -52,7 +52,25 @@ vi.mock("next/headers", () => ({
         jar.delete(name);
       },
     }),
+  /*
+   * `headers` hace falta desde que crear un carrito pasa por el limitador:
+   * `clientIpKey` deriva la clave de la dirección de quien pide
+   * (`src/server/rate-limit.ts`). Una sola dirección fija para toda la suite
+   * es lo correcto aquí — este test recorre UN carrito, y la regla permite
+   * cinco creaciones por minuto y dirección.
+   */
+  headers: () => Promise.resolve(new Headers({ "x-forwarded-for": clientIp })),
 }));
+
+/**
+ * La dirección de quien pide, mutable para que cada prueba gaste su propio
+ * presupuesto: el limitador va por IP, así que compartir una haría que un test
+ * agotase el cupo del siguiente y el fallo apareciera en el sitio equivocado.
+ */
+let clientIp = "203.0.113.10";
+
+/** Los carritos creados fuera del `jar`, para poder borrarlos al final. */
+const strayCarts: string[] = [];
 
 const revalidated: string[] = [];
 vi.mock("next/cache", () => ({
@@ -136,6 +154,21 @@ async function purge(payload: Awaited<ReturnType<typeof loadPayload>>): Promise<
   });
   const ids = variants.docs.map((doc) => doc.id as number);
   if (ids.length > 0) {
+    /*
+     * Los carritos que apuntan a la variante, PRIMERO.
+     *
+     * Sin esto, borrar la variante con un carrito vivo delante deja abortada
+     * la transacción de Payload y el error sale de `deleteUserPreferences`, a
+     * tres capas de la causa — y no en el `afterAll` que lo provocó, sino en
+     * el `beforeAll` de la ejecución SIGUIENTE, que es donde cuesta media hora
+     * entender qué pasa. Apareció al añadir la prueba del limitador, que deja
+     * cinco carritos en vez de uno.
+     */
+    await payload.delete({
+      collection: "carts",
+      where: { "lines.variant": { in: ids } },
+      overrideAccess: true,
+    });
     for (const collection of ["prices", "inventory"] as const) {
       await payload.delete({
         collection,
@@ -158,8 +191,14 @@ async function purge(payload: Awaited<ReturnType<typeof loadPayload>>): Promise<
 
 async function cleanup(): Promise<void> {
   const payload = await loadPayload();
-  await purge(payload);
-  const sessions = [...jar.values()].map((cookie) => cookie.value);
+  /*
+   * Los carritos PRIMERO, y el orden importa: sus líneas apuntan a la
+   * variante, así que borrarla con carritos vivos deja la transacción de
+   * Payload abortada y el fallo aparece dentro de `deleteUserPreferences`,
+   * a tres capas del sitio donde está la causa. Medido al añadir la prueba
+   * del limitador, que deja cinco carritos en vez de uno.
+   */
+  const sessions = [...[...jar.values()].map((cookie) => cookie.value), ...strayCarts];
   if (sessions.length > 0) {
     await payload.delete({
       collection: "carts",
@@ -167,6 +206,7 @@ async function cleanup(): Promise<void> {
       overrideAccess: true,
     });
   }
+  await purge(payload);
 }
 
 function form(entries: Record<string, string>): FormData {
@@ -251,6 +291,104 @@ if (hasDb && dbIsDisposable) {
       const after = await readCart("es");
       expect(after.lines).toHaveLength(0);
       expect(after.subtotal).toEqual({ amount: 0, currency: "EUR" });
+    });
+  });
+
+  describe("la puerta que le faltaba al carrito", () => {
+    /*
+     * -------------------------------------------------------------------
+     * LA AVERÍA
+     * -------------------------------------------------------------------
+     *
+     * Desde la Fase 4, una petición sin cookie `cv_cart` CREA una fila en
+     * `carts`, y no pasaba por ningún limitador — mientras la cabecera de
+     * `rate-limit.ts` seguía diciendo que el formulario de leads era «the only
+     * place an unauthenticated visitor writes rows».
+     *
+     * `carts` vive 14 días y la barrida borra 500 filas al día en un cron
+     * DIARIO, así que un script dejaba miles de filas que tardan meses en
+     * drenarse, en el mismo esquema que los pedidos. No es exfiltración: es
+     * coste y agotamiento de plan.
+     *
+     * -------------------------------------------------------------------
+     * LO QUE SE AFIRMA, Y POR QUÉ LAS DOS MITADES
+     * -------------------------------------------------------------------
+     *
+     * Que la puerta cierra, y —tan importante— que cierra SOLO donde debe.
+     * Un limitador puesto un poco más arriba cortaría a quien está comprando
+     * de verdad, que toca su carrito muchas veces, sin cerrar nada: `addLine`
+     * muta una fila que ya existe.
+     */
+    it("cinco carritos por dirección y minuto; el sexto no crea fila", async () => {
+      const { addToCart } = await import("./actions");
+      clientIp = "203.0.113.51";
+      const nuevo = () => {
+        jar.clear();
+        return addToCart(
+          { status: "ok" as const, units: 0 },
+          form({ variantId: String(variantId), region: "es" }),
+        );
+      };
+
+      for (let intento = 1; intento <= 5; intento += 1) {
+        const result = await nuevo();
+        expect(result.status, `el carrito ${String(intento)} debería haberse creado`).toBe("ok");
+        const session = jar.get("cv_cart")?.value;
+        if (session !== undefined) strayCarts.push(session);
+      }
+
+      const sexto = await nuevo();
+      expect(
+        sexto.status,
+        "la sexta creación seguida desde la misma dirección abrió otra fila en `carts`",
+      ).toBe("unavailable");
+      // Y no dejó rastro: la puerta está ANTES de tocar la base de datos.
+      expect(jar.get("cv_cart")?.value).toBeUndefined();
+    });
+
+    it("pero quien YA tiene carrito sigue pudiendo usarlo, aunque su IP esté agotada", async () => {
+      /*
+       * El discriminador. Si alguien mueve el `consume` fuera de la rama
+       * `sessionId === null`, esta prueba se pone roja: una persona con el
+       * cupo gastado —un club detrás de un NAT, una oficina— dejaría de poder
+       * añadir a SU carrito, que es exactamente a quien no hay que cortar.
+       */
+      const { addToCart } = await import("./actions");
+      clientIp = "203.0.113.52";
+      jar.clear();
+
+      const primero = await addToCart(
+        { status: "ok" as const, units: 0 },
+        form({ variantId: String(variantId), region: "es" }),
+      );
+      expect(primero.status).toBe("ok");
+      const session = jar.get("cv_cart")?.value;
+      if (session !== undefined) strayCarts.push(session);
+
+      // Se agota el cupo de CREACIÓN de esa dirección con las cuatro que
+      // quedan, más una que ya no cabe.
+      for (let intento = 0; intento < 5; intento += 1) {
+        const saved = new Map(jar);
+        jar.clear();
+        const result = await addToCart(
+          { status: "ok" as const, units: 0 },
+          form({ variantId: String(variantId), region: "es" }),
+        );
+        const created = jar.get("cv_cart")?.value;
+        if (result.status === "ok" && created !== undefined) strayCarts.push(created);
+        jar.clear();
+        for (const [name, cookie] of saved) jar.set(name, cookie);
+      }
+
+      // Con la cookie puesta, añadir a un carrito existente NO gasta token.
+      const conCarrito = await addToCart(
+        { status: "ok" as const, units: 0 },
+        form({ variantId: String(variantId), region: "es" }),
+      );
+      expect(
+        conCarrito.status,
+        "el limitador cortó a quien ya tenía carrito: está fuera de la rama que crea",
+      ).toBe("ok");
     });
   });
 

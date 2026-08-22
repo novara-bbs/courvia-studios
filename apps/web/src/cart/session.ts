@@ -39,6 +39,8 @@
  */
 import { cookies } from "next/headers";
 
+import { secureCookies } from "../server/secure-cookies";
+
 import {
   CART_COOKIE_MAX_AGE,
   CART_COUNT_COOKIE,
@@ -49,10 +51,13 @@ import {
  * `secure` solo fuera de local: en `http://localhost` una cookie `secure` no
  * se guarda, y entonces el carrito no funciona en desarrollo y el fallo se
  * parece a un error del código.
+ *
+ * La regla se mudó a `src/server/secure-cookies.ts` el 22 ago 2026, y de paso
+ * dejó de ser `NODE_ENV === "production"`: `next start` pone eso mismo y sirve
+ * por http en 127.0.0.1, así que un build servido en local emitía una cookie
+ * que el navegador tiraba. Ahora la decide el ORIGEN, que es lo que importa.
+ * La comparte con la sesión del panel, que no tenía ninguna.
  */
-function secureCookies(): boolean {
-  return process.env.NODE_ENV === "production";
-}
 
 /** El `sessionId` del carrito de este navegador, o `null` si no hay. */
 export async function readCartSession(): Promise<string | null> {

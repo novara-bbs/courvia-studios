@@ -1,6 +1,18 @@
 /**
- * Rate limiting for the public write paths — today, the lead form: the only
- * place an unauthenticated visitor writes rows. Its whole defence used to be
+ * Rate limiting for the public write paths — hoy el formulario de leads y la
+ * CREACIÓN de carrito, que son los dos sitios donde alguien sin sesión escribe
+ * filas.
+ *
+ * Esta cabecera decía «the lead form: the only place an unauthenticated
+ * visitor writes rows», y dejó de ser cierto el día que entró el carrito en la
+ * Fase 4: `src/cart/actions.ts` crea una fila en `carts` cada vez que llega
+ * una petición sin cookie `cv_cart`. Es la avería que este repo persigue —una
+ * afirmación que declara la intención y no el efecto—, y la peor de su clase:
+ * quien audita la superficie de escritura pública lee esa frase y para de
+ * mirar. Se arregló el 22 ago 2026, cinco meses después de dejar de ser
+ * verdad.
+ *
+ * El del lead: su whole defence used to be
  * a honeypot field, which a script bypasses by simply not sending it, leaving
  * an open faucet into `leads` and `outbox`: attacker-controlled PII we become
  * the controller of (RGPD art. 5.1.c), a table that grows until the plan
@@ -73,6 +85,29 @@ export const LEAD_PER_IP_RULE: RateLimitRule = { capacity: 5, refillMs: 60_000 }
  * abuser who rotates addresses but not payloads.
  */
 export const LEAD_DUPLICATE_RULE: RateLimitRule = { capacity: 1, refillMs: 600_000 };
+
+/**
+ * Per-IP budget para CREAR un carrito. No para usarlo.
+ *
+ * Se limita solo la rama que escribe una fila NUEVA —petición sin cookie
+ * `cv_cart`—, no `addLine` ni `setLine`: esas mutan una fila que quien navega
+ * ya tiene, y limitarlas rompería a quien de verdad está comprando.
+ *
+ * Un visitante necesita UN carrito. Cinco de golpe cubren el doble clic, el
+ * navegador que rechaza cookies y vuelve a empezar en cada intento, y un club
+ * detrás de un NAT compartido. Un token por minuto deja el sostenido en 60
+ * filas por hora y dirección, que es lo que convierte «una tabla que crece
+ * hasta el tope del plan» en «una IP alquilada por cada 60 filas».
+ *
+ * El contexto que hace que esto importe: `carts` vive 14 días
+ * (`CART_TTL_DAYS`) y la barrida borra como mucho 500 filas por día en un cron
+ * DIARIO (`sweep-carts.ts`, `vercel.json`). Sin puerta, un script deja miles
+ * de filas que tardan meses en drenarse, en el mismo esquema que los pedidos.
+ *
+ * Y la limitación honesta sigue siendo la de arriba: esto para un script desde
+ * una dirección, no una botnet. Comprar eso exige estado compartido.
+ */
+export const CART_CREATE_RULE: RateLimitRule = { capacity: 5, refillMs: 60_000 };
 
 /**
  * Hard bound on the map. A limiter that OOMs the function is a worse denial
