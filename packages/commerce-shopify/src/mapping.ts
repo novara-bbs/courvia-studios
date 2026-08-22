@@ -208,11 +208,22 @@ export function toSpecs(product: ShopifyProduct): Spec[] {
   return fields
     .filter((field) => field.namespace === "specs")
     .map((field) => {
-      const parsed = JSON.parse(field.value) as {
-        label?: string;
-        value?: string;
-        unit?: string;
-      };
+      // A metafield is whatever the shop stored: a `single_line_text_field`
+      // here would make bare JSON.parse leak a SyntaxError (and "null" a
+      // TypeError below) past the package's own error type. Same discipline
+      // as toMinorUnits: the typed error, naming the field, not a soft lie.
+      let candidate: unknown;
+      try {
+        candidate = JSON.parse(field.value);
+      } catch {
+        candidate = null;
+      }
+      if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
+        throw new StorefrontError(
+          `Shopify metafield specs.${field.key} is not a JSON object: ${field.value}`,
+        );
+      }
+      const parsed = candidate as { label?: string; value?: string; unit?: string };
       return {
         key: field.key,
         label: parsed.label ?? field.key,

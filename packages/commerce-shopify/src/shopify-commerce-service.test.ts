@@ -14,8 +14,10 @@ import { describeCatalogContract } from "@courvia/commerce-domain/testing";
 import { describe, expect, it } from "vitest";
 
 import { fixtureStorefront } from "./fixture-shop";
-import { toAvailable, toMinorUnits } from "./mapping";
+import { toAvailable, toMinorUnits, toSpecs } from "./mapping";
 import { ShopifyCommerceService } from "./shopify-commerce-service";
+import { StorefrontError } from "./storefront";
+import type { ShopifyProduct } from "./storefront";
 
 const make = (): ShopifyCommerceService =>
   new ShopifyCommerceService({ fetch: fixtureStorefront() });
@@ -86,6 +88,37 @@ describe("money crosses the boundary exactly", () => {
     expect(() => toMinorUnits({ amount: "10.005", currencyCode: "EUR" })).toThrow(/finer than/);
     // Trailing zeros beyond the exponent are not extra precision.
     expect(toMinorUnits({ amount: "10.500", currencyCode: "EUR" })).toEqual(money(1050, "EUR"));
+  });
+});
+
+describe("specs metafields cross the boundary guarded", () => {
+  const withMetafield = (value: string): ShopifyProduct => ({
+    id: "gid://shopify/Product/1",
+    handle: "tempo-r1",
+    title: "Tempo R1",
+    images: [],
+    variants: [],
+    metafields: [{ namespace: "specs", key: "capacity", value }],
+  });
+
+  it("maps a well-formed metafield to a Spec", () => {
+    expect(
+      toSpecs(withMetafield(JSON.stringify({ label: "Capacidad", value: "120", unit: "bolas" }))),
+    ).toEqual([{ key: "capacity", label: "Capacidad", value: "120", unit: "bolas" }]);
+  });
+
+  it("fails as StorefrontError when the shop stored plain text, never SyntaxError", () => {
+    // Un metafield `single_line_text_field` es una cadena cruda: sin guardia,
+    // JSON.parse dejaba escapar un SyntaxError ajeno al tipo de error del
+    // paquete, y el llamante que atrapa StorefrontError no lo veía.
+    expect(() => toSpecs(withMetafield("120 bolas"))).toThrow(StorefrontError);
+    expect(() => toSpecs(withMetafield("120 bolas"))).toThrow(/specs\.capacity/);
+  });
+
+  it('fails the same way for "null" and other JSON that is not an object', () => {
+    // JSON.parse("null") sí parsea — y `parsed.label` sería un TypeError.
+    expect(() => toSpecs(withMetafield("null"))).toThrow(StorefrontError);
+    expect(() => toSpecs(withMetafield('["a"]'))).toThrow(StorefrontError);
   });
 });
 
