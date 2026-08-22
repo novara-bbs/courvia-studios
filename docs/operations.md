@@ -95,9 +95,24 @@ Ejecuta `expireStaleCheckouts` (`packages/commerce-payload`): los pedidos `pendi
 |---|---|---|---|
 | Unit | Vitest | Dominio, Zod, monedas (zero-decimal, redondeo), **normalización de PaymentEvents** | Cada PR |
 | Integración | Vitest + **Stripe test clocks** (+ sandbox Tabby/Tamara en S4) | Adaptadores, webhooks idempotentes, máquina de estados | Cada PR |
-| E2E | **Playwright** (verdad) | Checkout **por mercado y proveedor**: EUR+Bizum · GBP+Klarna · AED+tarjeta y AED+Tabby; RMA; desistimiento | Smoke por PR · completo nightly |
-| Visual | Storybook (+Chromatic opc.) | `ui` en 3 temas + RTL | Nightly/release |
-| A11y | axe en Playwright | AA en 3 temas, foco, RTL | Nightly |
+| Navegador | **Playwright** — `pnpm e2e` | **Existe desde el 22 ago 2026.** Geometría del raíl pegajoso · desbordamiento horizontal a 320/390 en cuatro rutas + RTL · axe AA en los tres temas y en RTL · teclado (menú móvil, salto al contenido) | Job `e2e` en cada PR |
+| E2E de compra | Playwright | Checkout **por mercado y proveedor**: EUR+Bizum · GBP+Klarna · AED+tarjeta y AED+Tabby; RMA; desistimiento | 🔒 pendiente: exige credenciales de pasarela |
+| Visual | Storybook (+Chromatic opc.) | `ui` en 3 temas + RTL | ⏳ pendiente |
+
+**El harness de navegador, en concreto** (`apps/web/playwright.config.ts`,
+`apps/web/e2e/`). Un solo servidor para todas las pruebas —Playwright lo
+levanta con `next start` en el 3999— frente a los siete `next start` que las
+suites HTTP de Vitest arrancan cada una por su cuenta. Va en un job de CI
+**separado** de `verify`: aquel ya tarda unos cuatro minutos, y mezclarlos hace
+que un fallo de layout se lea como un fallo de tipos.
+
+El navegador es el Chromium de la máquina si lo hay —este contenedor trae uno
+preinstalado— y el que Playwright descarga si no. Se detecta; fijar la ruta a
+ciegas rompería CI y no fijarla obliga a descargar 170 MB en cada sesión.
+
+Lo primero que encontró al correr: **32px de desbordamiento horizontal a 320px
+en las cuatro rutas**, todos de la cabecera. Llevaba ahí desde que el CTA entró
+en la barra.
 
 Ningún merge sin CI verde; humano aprueba pagos/RLS.
 

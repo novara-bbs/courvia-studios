@@ -17,6 +17,7 @@
     "verify": "turbo run build typecheck lint test && pnpm stylelint && pnpm arch",
     "migrate:new": "node scripts/migrate-new.mjs",
     "seed": "pnpm --filter @courvia/web seed:catalog && pnpm --filter @courvia/web seed:media && pnpm --filter @courvia/web seed:markets && pnpm --filter @courvia/web seed:templates && pnpm --filter @courvia/web seed:content",
+    "e2e": "pnpm --filter @courvia/web e2e",
     "dev:db": "bash scripts/dev-db.sh"
   },
   "devDependencies": {

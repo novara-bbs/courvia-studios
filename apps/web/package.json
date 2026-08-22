@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Courvia storefront — Next.js App Router with server-side theming",
+  "description": "Courvia storefront \u2014 Next.js App Router with server-side theming",
   "scripts": {
     "dev": "next dev",
     "build": "node ../../scripts/deploy-preflight.mjs && next build",
@@ -21,7 +21,9 @@
     "seed:content": "tsx src/seeds/seed-content.ts",
     "seed:templates": "tsx src/seeds/seed-templates.ts",
     "sweep:checkouts": "tsx src/scripts/expire-checkouts.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@courvia/appearance": "workspace:*",
@@ -52,7 +54,9 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@courvia/config": "workspace:*",
+    "@playwright/test": "1.62.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "vitest": "4.1.11"

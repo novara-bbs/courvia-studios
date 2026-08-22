@@ -32,6 +32,20 @@
  * declarations still exist and still hang off `.pdp-hero`. That is a
  * containment check, not a measurement, and it would not catch a wrong
  * `inset-block-start`.
+ *
+ * Y AHORA SÍ LO CAZA ALGO. Desde WP16, `apps/web/e2e/sticky-rail.spec.ts`
+ * mide el raíl en un navegador: que su celda está estirada y NO se mueve
+ * mientras su hijo sí —lo que `align-self: stretch` compra—, y que al pegarse
+ * queda por debajo de la cabecera y no tapado por ella. Ese segundo es
+ * exactamente el `inset-block-start` que este párrafo daba por imposible:
+ * comprobado poniéndolo a 0, y el fallo dice «el raíl se pega a 0 y la
+ * cabecera acaba en 64: queda tapado».
+ *
+ * Escribirlo enseñó algo que este comentario tampoco sabía: el desastre que
+ * `app.css` describe —el raíl viajando la página entera— YA NO SE REPRODUCE
+ * como está escrito, porque las pistas se movieron a `.pdp-hero` y Chromium
+ * acota el pegajoso a ese contenedor. La afirmación obvia pasa con el CSS
+ * roto; la que distingue las dos versiones es la de la celda.
  */
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
@@ -57,7 +71,8 @@ const CSS = readFileSync(`${APP_DIR}app/(frontend)/app.css`, "utf8").replace(
 
 const hasDb = typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL !== "";
 
-/** Neither 3987 (http-status), 3988 (product-surfaces) nor 3990 (preview). */
+/** Ninguno de los cogidos: 3987, 3988, 3989, 3990, 3991, 3993 y 3999. La lista
+ *  completa y por qué importa, en `src/preview/home-preview.http.test.ts`. */
 const PORT = 3992;
 const BASE = `http://127.0.0.1:${String(PORT)}`;
 

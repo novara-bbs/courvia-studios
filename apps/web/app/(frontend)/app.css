@@ -258,7 +258,27 @@ code {
   background: var(--cv-color-bg);
 }
 
+/*
+ * El CTA de cabecera NO CABE en el móvil pequeño, y por eso no se pinta ahí.
+ *
+ * Medido con el harness de navegador, que es lo que lo destapó: a 320px la
+ * barra tiene 288px útiles y sus hijos piden 344 — marca 89 + CTA 119 +
+ * carrito 56 + menú 48, más los huecos. Los 32 que sobran empujaban la PÁGINA
+ * ENTERA hacia el lado, en TODAS las rutas, porque la cabecera es común. Es
+ * exactamente el fallo que el comentario de `.site-nav-desktop` (más abajo)
+ * anticipa para el nav y resuelve con `overflow-x`; para un botón con
+ * `white-space: nowrap` esa salida no existe.
+ *
+ * Ocultarlo no pierde la acción: el menú lleva la navegación completa, y la
+ * portada y la ficha tienen su propio formulario de lista de espera — que es
+ * a donde este botón apunta.
+ *
+ * 480 es el primer breakpoint del sistema (CLAUDE.md §5), no un número
+ * elegido para que pase el test: a 390px el CTA cabría por 14px, y 14px de
+ * margen se los come la primera traducción más larga.
+ */
 .site-header-cta {
+  display: none;
   flex: 0 0 auto;
   font-size: var(--cv-font-size-sm);
   font-weight: 600;
@@ -442,6 +462,12 @@ code {
 
 .site-menu-list a:hover {
   color: var(--cv-color-link);
+}
+
+@media (min-width: 480px) {
+  .site-header-cta {
+    display: inline-block;
+  }
 }
 
 @media (min-width: 680px) {

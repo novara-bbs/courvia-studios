@@ -15,7 +15,11 @@
  * (turbo.json makes @courvia/web#test depend on @courvia/web#build), on a
  * port of its own, and a missing build FAILS instead of skipping.
  *
- * What this file CANNOT check, said plainly: computed geometry. Whether the
+ * QUÉ NO COMPRUEBA ESTE FICHERO. La geometría computada no se mide aquí —y
+ * desde WP16 se mide en `apps/web/e2e/`, con un navegador de verdad: el menú
+ * móvil se abre, se recorre con Tab y se cierra con Escape en
+ * `a11y.spec.ts`, y el desbordamiento de la cabecera en `layout.spec.ts`.
+ * Lo que sigue debajo describe por qué no podía comprobarse aquí. Whether the
  * header measures exactly 64px, whether a focus ring is visible, whether the
  * Arabic word joins — those are properties of a laid-out page and this repo
  * has no browser harness (WP16). They were measured by hand in Chromium and

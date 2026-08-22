@@ -15,6 +15,16 @@ export default defineConfig({
   oxc: { jsx: { runtime: "automatic", importSource: "react" } },
   test: {
     setupFiles: ["./vitest.setup.ts"],
+    /*
+     * `e2e/` es de Playwright, no de Vitest.
+     *
+     * Los dos recogen `*.spec.ts` por defecto, así que sin esto Vitest carga
+     * los ficheros del navegador y muere con «Playwright Test did not expect
+     * test.describe() to be called here» — un fallo que no dice en absoluto
+     * lo que pasa. Se excluye por carpeta y no por extensión para que el
+     * nombre del fichero no sea lo que decide quién lo corre.
+     */
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
     // The adapter contract talks to a real Postgres through Payload; one
     // worker keeps the connection pool sane.
     pool: "forks",

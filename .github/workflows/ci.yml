@@ -112,5 +112,65 @@ jobs:
         if: failure()
         run: pnpm arch
 
-      # Playwright E2E, axe and visual regression join this workflow when the
-      # first route and section land (roadmap WP16, docs/operations.md §13).
+  # ---------------------------------------------------------------------------
+  # El navegador (WP16 · Fase 8). Job SEPARADO de `verify`, y a propósito:
+  # `verify` ya tarda unos cuatro minutos y mezclar las dos cosas hace que un
+  # fallo de layout se lea como un fallo de tipos. Aquí se levanta el mismo
+  # Postgres, se migra, se siembra y se sirve el build — porque estas pruebas
+  # miden la PÁGINA, y una página sin catálogo no tiene raíl que medir.
+  # ---------------------------------------------------------------------------
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: courvia_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # Solo Chromium: las tres carencias que este harness cierra —geometría,
+      # desbordamiento y árbol de accesibilidad— no dependen del motor, y tres
+      # navegadores triplicarían el tiempo a cambio de nada que hoy se afirme.
+      - name: Install Chromium
+        run: pnpm --filter @courvia/web exec playwright install --with-deps chromium
+
+      - name: Migrate CI database
+        run: pnpm --filter @courvia/web migrate
+
+      - name: Seed demo data
+        run: pnpm seed
+
+      # `playwright.config.ts` sirve el build con `next start`; sin build no
+      # hay nada que servir.
+      - name: Build
+        run: pnpm --filter @courvia/web build
+
+      - name: Browser suite
+        run: pnpm e2e
+
+      - name: Upload the report when something fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/test-results/
+          retention-days: 7

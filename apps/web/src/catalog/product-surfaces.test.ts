@@ -15,11 +15,19 @@
  * (turbo.json makes @courvia/web#test depend on @courvia/web#build), on a
  * port of its own, and a missing build FAILS instead of skipping.
  *
- * What this file CANNOT check, said out loud so nobody reads green as more
- * than it is: geometry. Sticky rails, grid tracks and horizontal overflow at
- * 320px are properties of a laid-out page, and this repo has no browser
- * harness (WP16). Those were measured by hand in Chromium; until the harness
- * exists, a CSS-only regression here still ships green.
+ * QUÉ NO COMPRUEBA ESTE FICHERO, Y QUIÉN LO COMPRUEBA AHORA. La geometría no
+ * se mide aquí y no puede medirse aquí: un raíl pegajoso, unas pistas de
+ * rejilla y el desbordamiento horizontal a 320px son propiedades de una
+ * página MAQUETADA, y esto lee bytes.
+ *
+ * Lo que ha cambiado es que ya no queda sin comprobar. Desde WP16 hay un
+ * harness de navegador (`apps/web/e2e/`, `playwright.config.ts`) y esas tres
+ * cosas viven ahí: `layout.spec.ts` mide el desbordamiento a 320 y 390 en
+ * estas mismas rutas —y su primera ejecución encontró 32px de más en las
+ * cuatro, en la cabecera— y `sticky-rail.spec.ts` mide el raíl.
+ *
+ * Este fichero sigue siendo el sitio correcto para lo que SÍ es sobre bytes:
+ * qué viene primero, qué envuelve a qué, y si un elemento existe.
  */
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
