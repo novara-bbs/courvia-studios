@@ -193,6 +193,7 @@ async function seed(): Promise<void> {
     lines: [line],
     totalAmount: 100_000,
     taxAmount: 0,
+    shippingAmount: 0,
     refundedAmount: 0,
     shippingAddress: {
       name: "Contrato",

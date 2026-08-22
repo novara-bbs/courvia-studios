@@ -12,7 +12,7 @@
  */
 import { createHmac } from "node:crypto";
 
-import { NotImplementedError, WebhookSignatureError, money } from "@courvia/commerce-domain";
+import { NotImplementedError, WebhookSignatureError, money, zero } from "@courvia/commerce-domain";
 import type { Order } from "@courvia/commerce-domain";
 import { describePaymentProviderContract } from "@courvia/commerce-domain/testing";
 import { describe, expect, it } from "vitest";
@@ -61,6 +61,7 @@ const ORDER: Order = {
   ],
   total: money(559_900, "AED"),
   taxTotal: money(26_662, "AED"),
+  shippingTotal: zero("AED"),
   refundedTotal: money(0, "AED"),
 };
 

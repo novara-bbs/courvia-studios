@@ -24,13 +24,13 @@
  */
 import { MARKET_DEFINITIONS, REGION_DEFINITIONS } from "@courvia/platform";
 import type { Currency, RegionId } from "@courvia/platform";
-import { multiply } from "@courvia/commerce-domain";
-import type { Cart, Money } from "@courvia/commerce-domain";
+import { add, amountToFreeShipping, multiply, quoteShipping } from "@courvia/commerce-domain";
+import type { Cart, Money, ShippingQuote } from "@courvia/commerce-domain";
 import { getPayload } from "payload";
 import config from "@payload-config";
 import type { Where } from "payload";
 
-import { CommerceRuntimeUnavailableError, commerce } from "../server/container";
+import { CommerceRuntimeUnavailableError, commerce, getShippingRates } from "../server/container";
 import { readCartSession } from "./session";
 
 /** Una línea, ya con lo que hace falta para pintarla. */
@@ -60,6 +60,26 @@ export interface CartView {
    * `code_complete` y fingir `launch_ready`.
    */
   readonly canCheckout: boolean;
+  /**
+   * Lo que costará el porte, **con la misma función que lo va a cobrar**.
+   *
+   * Un carrito que promete «envío gratis» y un cargo que suma 9,90 € es una
+   * reclamación, y la única forma de que eso no ocurra es que no existan dos
+   * cálculos: esto sale de `quoteShipping`, igual que el total de
+   * `createCheckout`.
+   *
+   * `null` cuando el carrito está vacío (no hay nada que enviar) o cuando el
+   * subtotal no se puede sumar — prometer un porte sobre un subtotal que
+   * miente sería peor que callar.
+   */
+  readonly shipping: ShippingQuote | null;
+  /**
+   * Cuánto falta para el envío gratis, o `null` si no aplica. Lo pinta la
+   * vista; lo decide la misma regla que el `shipping` de arriba.
+   */
+  readonly toFreeShipping: Money | null;
+  /** Subtotal + envío. `null` con el subtotal en `null`, por lo mismo. */
+  readonly total: Money | null;
 }
 
 export const EMPTY_CART: CartView = {
@@ -68,6 +88,9 @@ export const EMPTY_CART: CartView = {
   currency: "EUR",
   subtotal: null,
   canCheckout: false,
+  shipping: null,
+  toFreeShipping: null,
+  total: null,
 };
 
 function emptyFor(region: RegionId): CartView {
@@ -162,11 +185,34 @@ export async function readCart(region: RegionId): Promise<CartView> {
   });
   if (cart === null) return emptyFor(region);
 
+  const { market } = REGION_DEFINITIONS[region];
+  const subtotal = cart.subtotal;
+  // Un carrito vacío no paga porte, y un subtotal que no se puede sumar no
+  // permite prometer ninguno: en los dos casos se calla en vez de enseñar un
+  // número que luego no se parezca al cargo.
+  const rates = cart.lines.length === 0 || subtotal === null ? null : await getShippingRates();
+  const shipping =
+    rates === null || subtotal === null
+      ? null
+      : quoteShipping(market, subtotal, rates, cart.currency);
+
   return {
     lines: await decorate(cart, region),
     units: unitsOf(cart),
     currency: cart.currency,
-    subtotal: cart.subtotal,
+    subtotal,
     canCheckout: runtime.checkout !== null,
+    shipping,
+    toFreeShipping:
+      rates === null || subtotal === null
+        ? null
+        : amountToFreeShipping(market, subtotal, rates, cart.currency),
+    // `add` no: el subtotal ya es `Money` y el envío también, pero sumar aquí
+    // con el operador saltaría el lint que prohíbe tocar un importe fuera de
+    // `money.ts` — y con razón, porque la escala es de la moneda.
+    total:
+      subtotal === null || shipping === null
+        ? subtotal
+        : add(subtotal, shipping.amount),
   };
 }

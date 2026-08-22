@@ -225,6 +225,15 @@ export interface Order {
   /** Totals are always computed and validated server-side (§4). */
   total: Money;
   taxTotal: Money;
+  /**
+   * Porte cobrado, **ya incluido en `total`**.
+   *
+   * Aparte y no derivado: una devolución puede reembolsar la mercancía y no
+   * el porte, y entonces la cifra tiene que estar escrita en el pedido y no
+   * reconstruida restando. La calcula `quoteShipping` en servidor con la
+   * tarifa del mercado, la misma función que la enseña el carrito.
+   */
+  shippingTotal: Money;
   /** Running total of what has already been refunded. */
   refundedTotal: Money;
 }

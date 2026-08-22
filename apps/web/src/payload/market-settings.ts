@@ -2,6 +2,7 @@ import { MARKETS, PAYMENT_METHODS, PAYMENT_PROVIDERS } from "@courvia/platform";
 import type { GlobalConfig } from "payload";
 
 import { anyone, hiddenUnlessAdmin, isAdmin } from "./access";
+import { minorUnits } from "./commerce";
 
 /**
  * Per-market runtime configuration (ADR-014): which payment providers the
@@ -148,6 +149,48 @@ export const MarketSettings: GlobalConfig = {
               ar: "غير محدّد = لا يعرض إتمام الشراء هذا السوق.",
             },
           },
+        },
+        {
+          name: "shipping",
+          type: "group",
+          label: { es: "Envío", en: "Shipping", ar: "الشحن" },
+          admin: {
+            description: {
+              es: "Tarifa plana de este mercado, en unidades menores de SU moneda (990 = 9,90 €). La moneda no se elige: la manda el mercado y un precio no se convierte nunca (ADR-05). Sin rellenar, el checkout de este mercado se niega a cobrar en vez de regalar el porte.",
+              en: "This market’s flat rate, in minor units of ITS currency (990 = £9.90). The currency is not a choice: the market sets it and a price is never converted (ADR-05). Left empty, this market’s checkout refuses to charge rather than give the carriage away.",
+              ar: "التعرفة الثابتة لهذا السوق، بالوحدات الصغرى لعملته (990 = 9.90). العملة ليست خيارًا: يحدّدها السوق ولا يُحوَّل السعر أبدًا (ADR-05). إن تُرك فارغًا، يرفض هذا السوق إتمام الشراء بدل إهداء الشحن.",
+            },
+          },
+          fields: [
+            {
+              name: "flatAmount",
+              type: "number",
+              label: { es: "Tarifa", en: "Rate", ar: "التعرفة" },
+              min: 0,
+              validate: minorUnits,
+              admin: {
+                description: {
+                  es: "0 = este mercado no cobra envío nunca. Vacío = sin configurar, que NO es lo mismo.",
+                  en: "0 = this market never charges shipping. Empty = unconfigured, which is NOT the same thing.",
+                  ar: "0 = هذا السوق لا يفرض شحنًا أبدًا. فارغ = غير مُعَدّ، وليس الأمر نفسه.",
+                },
+              },
+            },
+            {
+              name: "freeOver",
+              type: "number",
+              label: { es: "Gratis a partir de", en: "Free from", ar: "مجاني ابتداءً من" },
+              min: 0,
+              validate: minorUnits,
+              admin: {
+                description: {
+                  es: "Subtotal a partir del cual el envío es gratis. El importe exacto ya cuenta. Vacío = sin umbral.",
+                  en: "Subtotal from which shipping is free. The exact amount already counts. Empty = no threshold.",
+                  ar: "المجموع الفرعي الذي يصبح الشحن مجانيًا عنده. المبلغ المطابق يُحتسب. فارغ = بلا عتبة.",
+                },
+              },
+            },
+          ],
         },
         {
           name: "paymentProviders",

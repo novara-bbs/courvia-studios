@@ -152,7 +152,7 @@
     "update": "Update",
     "remove": "Remove",
     "subtotal": "Subtotal",
-    "taxNote": "Tax and shipping are calculated at checkout.",
+    "taxNote": "Tax included. Shipping is set per market.",
     "checkout": "Check out",
     "checkoutUnavailable": "Payment is not open yet. Write to us and we will hold your unit.",
     "rejected": "That line is no longer available. Reload the page.",
@@ -161,6 +161,10 @@
     "added": "Added.",
     "viewCart": "View the cart",
     "badge": "Cart",
-    "badgeUnits": "Cart, {units} units"
+    "badgeUnits": "Cart, {units} units",
+    "shipping": "Shipping",
+    "shippingFree": "Free",
+    "shippingToFree": "{amount} more for free shipping.",
+    "total": "Total"
   }
 }

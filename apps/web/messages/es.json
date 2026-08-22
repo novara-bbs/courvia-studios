@@ -152,7 +152,7 @@
     "update": "Actualizar",
     "remove": "Quitar",
     "subtotal": "Subtotal",
-    "taxNote": "Impuestos y envío se calculan al pagar.",
+    "taxNote": "Impuestos incluidos. El envío se calcula por mercado.",
     "checkout": "Pagar",
     "checkoutUnavailable": "El pago todavía no está abierto. Escríbenos y reservamos tu unidad.",
     "rejected": "Esa línea ya no está disponible. Vuelve a cargar la página.",
@@ -161,6 +161,10 @@
     "added": "Añadido.",
     "viewCart": "Ver el carrito",
     "badge": "Carrito",
-    "badgeUnits": "Carrito, {units} unidades"
+    "badgeUnits": "Carrito, {units} unidades",
+    "shipping": "Envío",
+    "shippingFree": "Gratis",
+    "shippingToFree": "Te faltan {amount} para el envío gratis.",
+    "total": "Total"
   }
 }

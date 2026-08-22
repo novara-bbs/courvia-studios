@@ -99,6 +99,30 @@ export default async function CartPage({ params }: PageArgs) {
                   cuando falta el precio de una línea no se enseña ninguno. */}
               <strong>{cart.subtotal === null ? "—" : format(cart.subtotal, def.hreflang)}</strong>
             </p>
+            {cart.shipping === null ? null : (
+              <p className="cart-shipping">
+                <span>{t("shipping")}</span>
+                {/* «Gratis» se escribe con palabras y no con «0,00 €»: un
+                    cero formateado se lee como un importe pendiente de
+                    calcular, y esto ya está decidido. */}
+                <strong>
+                  {cart.shipping.reason === "flat"
+                    ? format(cart.shipping.amount, def.hreflang)
+                    : t("shippingFree")}
+                </strong>
+              </p>
+            )}
+            {cart.toFreeShipping === null ? null : (
+              <p className="cart-note cart-note--nudge">
+                {t("shippingToFree", { amount: format(cart.toFreeShipping, def.hreflang) })}
+              </p>
+            )}
+            {cart.total === null ? null : (
+              <p className="cart-total">
+                <span>{t("total")}</span>
+                <strong>{format(cart.total, def.hreflang)}</strong>
+              </p>
+            )}
             <p className="cart-note">{t("taxNote")}</p>
             {/* El botón de pagar aparece cuando el motor DECLARA que sabe
                 abrir un cobro. Hoy el nativo no lo declara —ninguna pasarela

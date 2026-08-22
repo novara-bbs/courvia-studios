@@ -194,7 +194,20 @@ describe("a build that can see test fixtures", () => {
     ];
     const created = new Set<string>();
     for (const suite of suites) {
-      const source = readFileSync(path.join(here, suite), "utf8");
+      const source = readFileSync(path.join(here, suite), "utf8")
+        /*
+         * Un GLOBAL no es una fixture de producto, y su slug no puede entrar
+         * en esta lista: `FIXTURE_SLUGS` es lo que el guardarraíl del build
+         * RECHAZA encontrar en el catálogo, y meter «market-settings» ahí
+         * haría que un build fallara al ver la configuración de mercados —
+         * que es justo lo que tiene que haber.
+         *
+         * Se quita el par `slug:` de las llamadas a globals y nada más: el
+         * slug va siempre primero en esas dos llamadas, así que el recorte es
+         * exacto y no se lleva por delante ningún `slug:` de producto que
+         * viniera después en el mismo objeto.
+         */
+        .replace(/(?:find|update)Global\(\{\s*slug:\s*"[a-z0-9-]+"/g, "");
       // `slug: "…"` next to a products create, and the const blocks that
       // hold one. Over-collects on purpose: a slug that is not a product's
       // only costs one more entry in the set.

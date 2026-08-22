@@ -1437,12 +1437,31 @@ a {
   padding-block-start: var(--cv-space-6);
 }
 
-.cart-subtotal {
+/* Subtotal y envío son la cuenta; el total es la conclusión. Se distinguen
+ * por peso y no por color: un importe en color de acento sobre otro sin él
+ * sugiere que uno es una oferta. */
+.cart-subtotal,
+.cart-shipping {
   display: flex;
   gap: var(--cv-space-3);
   align-items: baseline;
   margin: 0;
+  font-size: var(--cv-font-size-md);
+  color: var(--cv-color-text-muted);
+}
+
+.cart-total {
+  display: flex;
+  gap: var(--cv-space-3);
+  align-items: baseline;
+  margin: 0;
+  padding-block-start: var(--cv-space-2);
   font-size: var(--cv-font-size-lg);
+}
+
+/* El «te faltan X» empuja, así que se lee, pero no compite con el total. */
+.cart-note--nudge {
+  color: var(--cv-color-text);
 }
 
 .cart-note,

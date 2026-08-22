@@ -2679,6 +2679,10 @@ export interface Order {
   }[];
   totalAmount: number;
   /**
+   * Carriage charged, already inside the total. Stored separately because a return may refund the goods and not the carriage.
+   */
+  shippingAmount: number;
+  /**
    * 0 while prices are tax-inclusive; the tax engine arrives with the gateway.
    */
   taxAmount: number;
@@ -4372,6 +4376,7 @@ export interface OrdersSelect<T extends boolean = true> {
         id?: T;
       };
   totalAmount?: T;
+  shippingAmount?: T;
   taxAmount?: T;
   refundedAmount?: T;
   shippingAddress?:
@@ -4581,6 +4586,19 @@ export interface MarketSetting {
          */
         enabled?: boolean | null;
         /**
+         * This market’s flat rate, in minor units of ITS currency (990 = £9.90). The currency is not a choice: the market sets it and a price is never converted (ADR-05). Left empty, this market’s checkout refuses to charge rather than give the carriage away.
+         */
+        shipping?: {
+          /**
+           * 0 = this market never charges shipping. Empty = unconfigured, which is NOT the same thing.
+           */
+          flatAmount?: number | null;
+          /**
+           * Subtotal from which shipping is free. The exact amount already counts. Empty = no threshold.
+           */
+          freeOver?: number | null;
+        };
+        /**
          * Presentation order in the checkout; the customer chooses.
          */
         paymentProviders?:
@@ -4674,6 +4692,12 @@ export interface MarketSettingsSelect<T extends boolean = true> {
     | {
         market?: T;
         enabled?: T;
+        shipping?:
+          | T
+          | {
+              flatAmount?: T;
+              freeOver?: T;
+            };
         paymentProviders?:
           | T
           | {

@@ -301,7 +301,8 @@ están hechos.
 |---|---|
 | Bloqueo correcto (`5d3d351`) | ✅ hecho, con dos tests de concurrencia vistos en rojo |
 | Carrito (Fase 4, `1a7c9ca`) | ✅ hecho |
-| Totales con envío e impuestos | ⏳ pendiente |
+| Totales con **envío** | ✅ hecho: tarifa por mercado en `MarketSettings`, `quoteShipping` en el dominio, porte guardado aparte en el pedido |
+| Totales con **impuestos** | ⏳ pendiente, y a propósito: los precios son tax-inclusive en Fase 1 y el motor fiscal se COMPRA (Stripe Tax, §2 de CLAUDE.md). Un tipo escrito a mano sería una cifra sin respaldo |
 | Stripe en modo prueba | 🔒 **bloqueado**: necesita credenciales, y el agente no las pide ni las usa |
 | Handlers de outbox (1 de 15 registrados) | ⏳ pendiente; varios esperan copy escrito, no código |
 | Cadencia del cron | 🔒 **bloqueado**: `*/5` exige plan Pro en Vercel (tarea #47) |
@@ -450,3 +451,5 @@ secretos de pago.
 | 22 ago 2026 | Fase 4: carrito nativo, sesión por cookie y superficie de compra (`1a7c9ca`). |
 | 22 ago 2026 | CI en rojo por la Fase 3: Payload 3.88 no sabe escribir la tabla de versiones de un global con un select `hasMany` dentro de un array. Se retiran las versiones de `market-settings` y un test rechaza esa forma en cualquier versionado. |
 | 22 ago 2026 | Fase 5 arranca por donde debía: el bloqueo. Tres sitios con el mismo idioma roto, dos tests de concurrencia y `tx-sql.ts` (`5d3d351`). |
+| 22 ago 2026 | El bloqueo eran CINCO sitios, no tres: `expire-checkouts`, `requestReturn` y `orders-fulfilment` seguían con el idioma roto porque la versión correcta era privada (`df5e235`). |
+| 22 ago 2026 | El envío deja de no existir: tarifa por mercado, `quoteShipping` compartido entre el carrito que lo enseña y el checkout que lo cobra, y un mercado sin tarifa que se niega a cobrar en vez de regalar el porte. |

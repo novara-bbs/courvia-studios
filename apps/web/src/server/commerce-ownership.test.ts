@@ -183,6 +183,7 @@ async function seed(): Promise<void> {
     lines: [{ variant: variantId, sku: "RIG-OWN-P", quantity: 1, unitAmount: 1000 }],
     totalAmount: 1000,
     taxAmount: 0,
+    shippingAmount: 0,
     refundedAmount: 0,
     shippingAddress: {
       name: "Rig",

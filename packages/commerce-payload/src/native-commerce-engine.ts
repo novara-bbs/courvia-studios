@@ -150,6 +150,8 @@ interface OrderRow {
   status: OrderStatus;
   totalAmount: number;
   taxAmount: number;
+  // Opcional: los pedidos anteriores a la columna se crearon sin porte.
+  shippingAmount?: number | null;
   refundedAmount: number;
   lines: Array<{
     variant: number | string | { id: number | string };
@@ -183,6 +185,7 @@ function toOrder(doc: OrderRow): Order {
     })),
     total: money(doc.totalAmount, currency),
     taxTotal: money(doc.taxAmount, currency),
+    shippingTotal: money(doc.shippingAmount ?? 0, currency),
     refundedTotal: money(doc.refundedAmount, currency),
   };
 }

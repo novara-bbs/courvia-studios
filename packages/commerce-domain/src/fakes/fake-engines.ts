@@ -256,6 +256,7 @@ export class FakeNativeEngine
         })),
         total,
         taxTotal: zero(currency),
+        shippingTotal: zero(currency),
         refundedTotal: zero(currency),
       },
     });

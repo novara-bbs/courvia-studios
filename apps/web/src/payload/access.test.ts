@@ -306,6 +306,7 @@ if (hasDb && dbIsDisposable) {
           lines: [{ variant: variantId, sku: SKU, quantity: 1, unitAmount: 129_000 }],
           totalAmount: 129_000,
           taxAmount: 0,
+          shippingAmount: 0,
           refundedAmount: 0,
           shippingAddress: {
             name: "Prueba ACL",

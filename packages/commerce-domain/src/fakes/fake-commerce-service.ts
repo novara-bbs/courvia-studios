@@ -110,6 +110,7 @@ export class FakeCommerceService implements CommerceService {
       lines,
       total,
       taxTotal: zero(currency),
+      shippingTotal: zero(currency),
       refundedTotal: zero(currency),
     });
     return Promise.resolve({ orderId: id, provider: input.provider, url: `https://pay.example.test/${id}` });

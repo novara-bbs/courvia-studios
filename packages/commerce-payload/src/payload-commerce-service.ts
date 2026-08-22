@@ -18,9 +18,11 @@ import {
   CheckoutError,
   NotImplementedError,
   SPEC_EVIDENCE_LEVELS,
+  add,
   compare,
   money,
   multiply,
+  quoteShipping,
   sum,
   transition,
   zero,
@@ -42,6 +44,8 @@ import type {
   ProductSummary,
   ReturnInput,
   ReturnRequest,
+  ShippingRate,
+  ShippingRates,
   Spec,
   SpecEvidence,
   Variant,
@@ -51,6 +55,20 @@ import type { BasePayload, PayloadRequest, Where } from "payload";
 import { commitTransaction, initTransaction, killTransaction } from "payload";
 import { releaseCheckout } from "./expire-checkouts";
 import { int, lockOrderRow, qualified, transactionSql } from "./tx-sql";
+
+/**
+ * Una fila de `MarketSettings.markets`, tal y como la devuelve el Global.
+ *
+ * Los números son `number | null | undefined` porque Payload devuelve `null`
+ * para un campo numérico vacío, y esa diferencia es justo la que hay que
+ * conservar: `null` es «nadie lo ha configurado» y `0` es una decisión.
+ */
+interface MarketSettingsRow {
+  market: MarketId;
+  enabled?: boolean | null;
+  shipping?: { flatAmount?: number | null; freeOver?: number | null } | null;
+  paymentProviders?: Array<{ provider: PaymentProviderId; enabled?: boolean | null }> | null;
+}
 
 /** Gateways available to checkout, keyed by id. Injected by the composition
  *  root — this package never knows which adapters exist (ADR-13/17). */
@@ -440,24 +458,55 @@ export class PayloadCommerceService implements CommerceService {
   }
 
   /** True when MarketSettings enables this provider for this market. */
-  private async providerEnabledFor(
-    market: MarketId,
-    provider: PaymentProviderId,
-  ): Promise<boolean> {
+  private async marketRow(market: MarketId): Promise<MarketSettingsRow | undefined> {
     const settings = (await this.payload.findGlobal({
       slug: "market-settings",
       depth: 0,
       overrideAccess: true,
-    })) as {
-      markets?: Array<{
-        market: MarketId;
-        enabled?: boolean | null;
-        paymentProviders?: Array<{ provider: PaymentProviderId; enabled?: boolean | null }> | null;
-      }> | null;
-    };
-    const row = (settings.markets ?? []).find((m) => m.market === market);
+    })) as { markets?: MarketSettingsRow[] | null };
+    return (settings.markets ?? []).find((m) => m.market === market);
+  }
+
+  private async providerEnabledFor(
+    market: MarketId,
+    provider: PaymentProviderId,
+  ): Promise<boolean> {
+    const row = await this.marketRow(market);
     if (row === undefined || row.enabled !== true) return false;
     return (row.paymentProviders ?? []).some((p) => p.provider === provider && p.enabled === true);
+  }
+
+  /**
+   * Las tarifas de envío como las lee el dominio.
+   *
+   * Un mercado cuyo `flatAmount` no es un número **no entra en el mapa**: sin
+   * configurar y «gratis» tienen que seguir siendo respuestas distintas hasta
+   * el final. Payload devuelve `null` para un número vacío, y `?? 0` aquí
+   * sería regalar el porte de cada pedido de ese mercado hasta que alguien lo
+   * notara mirando la cuenta — la misma clase de cero que ya mintió en
+   * `Availability.available`.
+   *
+   * Devuelve el mapa entero y no solo el mercado pedido porque la vista del
+   * carrito lo quiere igual, y una segunda consulta con otra forma es la
+   * puerta a que las dos discrepen.
+   */
+  async getShippingRates(): Promise<ShippingRates> {
+    const settings = (await this.payload.findGlobal({
+      slug: "market-settings",
+      depth: 0,
+      overrideAccess: true,
+    })) as { markets?: MarketSettingsRow[] | null };
+    const rates: Record<string, ShippingRate> = {};
+    for (const row of settings.markets ?? []) {
+      const flat = row.shipping?.flatAmount;
+      if (typeof flat !== "number") continue;
+      const free = row.shipping?.freeOver;
+      rates[row.market] = {
+        flatAmount: flat,
+        ...(typeof free === "number" ? { freeOver: free } : {}),
+      };
+    }
+    return rates as ShippingRates;
   }
 
   /**
@@ -533,10 +582,30 @@ export class PayloadCommerceService implements CommerceService {
       return { variantDoc, quantity, unitAmount: money(unitMinor, currency) };
     });
 
-    const total = sum(
+    const subtotal = sum(
       lines.map((line) => multiply(line.unitAmount, line.quantity)),
       currency,
     );
+
+    /*
+     * El envío, calculado por la MISMA función que lo enseña el carrito.
+     *
+     * Un carrito que dice «envío gratis» y un cargo que suma 9,90 € es una
+     * reclamación, y la única forma de que eso no ocurra es que no existan
+     * dos cálculos. `quoteShipping` es puro y vive en el dominio; aquí solo
+     * se le da lo que sabe el servidor.
+     *
+     * Y un mercado SIN tarifa configurada no cobra: se niega. Regalar el
+     * porte de cada pedido de ese mercado hasta que alguien lo note mirando
+     * la cuenta es peor que un error que llega antes de cobrar, y el motivo
+     * viaja en el propio `ShippingQuote` justo para poder distinguirlo de un
+     * cero legítimo.
+     */
+    const shipping = quoteShipping(input.market, subtotal, await this.getShippingRates(), currency);
+    if (shipping.reason === "unconfigured") {
+      throw new CheckoutError("market_disabled", `sin tarifa de envío en ${input.market}`);
+    }
+    const total = add(subtotal, shipping.amount);
 
     const req: Partial<PayloadRequest> = { payload: this.payload };
     await initTransaction(req as Parameters<typeof initTransaction>[0]);
@@ -560,6 +629,10 @@ export class PayloadCommerceService implements CommerceService {
             unitAmount: line.unitAmount.amount,
           })),
           totalAmount: total.amount,
+          // Guardado aparte del total, y no derivado de él: el día que una
+          // devolución reembolse el producto y no el porte, o al revés, la
+          // cifra tiene que estar escrita y no reconstruida de memoria.
+          shippingAmount: shipping.amount.amount,
           // Prices are tax-inclusive in phase 1; the tax engine arrives with
           // the gateway integration (Stripe Tax) and fills this in.
           taxAmount: zero(currency).amount,
@@ -694,6 +767,11 @@ export class PayloadCommerceService implements CommerceService {
       status: OrderStatus;
       totalAmount: number;
       taxAmount: number;
+      // `?? 0` en la lectura y no en la escritura: los pedidos anteriores a
+      // esta columna se crearon sin porte y su cero es cierto. Lo que no
+      // puede colapsar a cero es la TARIFA sin configurar, y eso se decide
+      // antes, en `quoteShipping`.
+      shippingAmount?: number | null;
       refundedAmount: number;
       lines: Array<{ variant: number | { id: number }; sku: string; quantity: number; unitAmount: number }>;
     } | null;
@@ -712,6 +790,7 @@ export class PayloadCommerceService implements CommerceService {
       })),
       total: money(doc.totalAmount, currency),
       taxTotal: money(doc.taxAmount, currency),
+      shippingTotal: money(doc.shippingAmount ?? 0, currency),
       refundedTotal: money(doc.refundedAmount, currency),
     };
   }

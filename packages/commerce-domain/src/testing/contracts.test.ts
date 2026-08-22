@@ -11,7 +11,7 @@ import {
   describeCommerceServiceContract,
   describePaymentProviderContract,
 } from "./contracts";
-import { money } from "../money";
+import { money, zero } from "../money";
 import { FakeCommerceService, makeFakeCatalog } from "../fakes/fake-commerce-service";
 import { FakePaymentProvider, signFakePayload } from "../fakes/fake-payment-provider";
 import type { FakeProviderPayload } from "../fakes/fake-payment-provider";
@@ -55,6 +55,7 @@ const ORDER: Order = {
   ],
   total: money(129_000, "EUR"),
   taxTotal: money(22_388, "EUR"),
+  shippingTotal: zero("EUR"),
   refundedTotal: money(0, "EUR"),
 };
 

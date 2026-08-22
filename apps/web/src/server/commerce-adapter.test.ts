@@ -239,6 +239,82 @@ if (hasDb && dbIsDisposable) {
     },
   );
 
+  describe("el porte entra en lo que se cobra", () => {
+    it("suma el envío al total y lo guarda aparte", async () => {
+      /*
+       * El total tiene que ser el que el cliente va a pagar. Hasta ahora era
+       * la suma de las líneas y nada más: el porte no existía en el modelo,
+       * así que un pedido de 9,90 € de envío se cobraba como si el envío
+       * fuera gratis.
+       *
+       * `seed:markets` pone ES en 9,90 € con umbral de 100 €. Este banco
+       * vende a 1.290 €, que supera el umbral — así que para VER el cargo hay
+       * que mirar un carrito por debajo, y el que hay es este: se baja el
+       * umbral del mercado durante el test y se restaura.
+       */
+      const { getCommerce } = await loadContainer();
+      const payload = await loadPayload();
+      const before = await payload.findGlobal({ slug: "market-settings", depth: 0 });
+      const markets = (before.markets ?? []) as Array<Record<string, unknown>>;
+      await payload.updateGlobal({
+        slug: "market-settings",
+        data: {
+          markets: markets.map((row) =>
+            row.market === "es" ? { ...row, shipping: { flatAmount: 990, freeOver: null } } : row,
+          ),
+        } as never,
+      });
+      try {
+        const service = await getCommerce("es");
+        const checkout = await service.createCheckout({
+          ...CHECKOUT_INPUT,
+          email: "porte@courvia.test",
+        });
+        const order = await service.getOrder(checkout.orderId);
+        // 129.000 de producto + 990 de porte, calculado en servidor.
+        expect(order?.total).toEqual({ amount: 129_990, currency: "EUR" });
+        expect(order?.shippingTotal, "el porte no se guardó aparte").toEqual({
+          amount: 990,
+          currency: "EUR",
+        });
+      } finally {
+        await payload.updateGlobal({ slug: "market-settings", data: { markets } as never });
+      }
+    });
+
+    it("un mercado SIN tarifa configurada no cobra: se niega", async () => {
+      /*
+       * `null` es «nadie lo ha configurado» y `0` es «este mercado no cobra
+       * envío». Colapsar el primero en el segundo sería regalar el porte de
+       * cada pedido de ese mercado hasta que alguien mirase la cuenta — la
+       * misma clase de cero que ya mintió esta semana en
+       * `Availability.available`. Un error antes de cobrar es más barato.
+       */
+      const { getCommerce } = await loadContainer();
+      const payload = await loadPayload();
+      const before = await payload.findGlobal({ slug: "market-settings", depth: 0 });
+      const markets = (before.markets ?? []) as Array<Record<string, unknown>>;
+      await payload.updateGlobal({
+        slug: "market-settings",
+        data: {
+          markets: markets.map((row) =>
+            row.market === "es"
+              ? { ...row, shipping: { flatAmount: null, freeOver: null } }
+              : row,
+          ),
+        } as never,
+      });
+      try {
+        const service = await getCommerce("es");
+        await expect(
+          service.createCheckout({ ...CHECKOUT_INPUT, email: "sin-tarifa@courvia.test" }),
+        ).rejects.toMatchObject({ code: "market_disabled" });
+      } finally {
+        await payload.updateGlobal({ slug: "market-settings", data: { markets } as never });
+      }
+    });
+  });
+
   describe("una pasarela que no sabe cobrar no se queda con el stock", () => {
     it("suelta la reserva en el acto y responde provider_not_available", async () => {
       /*

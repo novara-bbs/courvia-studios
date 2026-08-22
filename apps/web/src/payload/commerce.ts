@@ -27,7 +27,16 @@ const MINOR_UNITS_ERROR = {
   ar: "عدد صحيح بالوحدات الصغرى.",
 };
 
-const minorUnits = (
+/**
+ * Un importe es un entero de unidades menores, y esto lo dice en el idioma
+ * del panel.
+ *
+ * Exportado porque `market-settings.ts` valida lo mismo en la tarifa de
+ * envío, y una regla que vive en un `const` sin `export` es una regla que el
+ * siguiente fichero reescribe con otro mensaje o sin mensaje (lo mismo que
+ * documenta `packages/commerce-payload/src/tx-sql.ts`, y allí costó dinero).
+ */
+export const minorUnits = (
   value: number | null | undefined,
   options: PanelLanguageSource,
 ): true | string =>
@@ -132,6 +141,21 @@ export const Orders: CollectionConfig = {
       ],
     },
     { name: "totalAmount", type: "number", required: true, min: 0, validate: minorUnits },
+    {
+      name: "shippingAmount",
+      type: "number",
+      required: true,
+      min: 0,
+      defaultValue: 0,
+      validate: minorUnits,
+      admin: {
+        description: {
+          es: "Porte cobrado, ya incluido en el total. Se guarda aparte porque una devolución puede reembolsar el producto y no el porte.",
+          en: "Carriage charged, already inside the total. Stored separately because a return may refund the goods and not the carriage.",
+          ar: "أجرة الشحن المحصّلة، وهي ضمن المجموع. تُحفظ منفصلة لأن الإرجاع قد يعيد ثمن البضاعة دون الشحن.",
+        },
+      },
+    },
     {
       name: "taxAmount",
       type: "number",

@@ -207,6 +207,20 @@ if (hasDb && dbIsDisposable) {
       expect(view.lines[0]?.productHref).toBe(`/es/robots/${SLUG}`);
       expect(view.lines[0]?.unitAmount).toEqual({ amount: PRICE_ES, currency: "EUR" });
       expect(view.subtotal).toEqual({ amount: PRICE_ES, currency: "EUR" });
+      /*
+       * El envío, con la MISMA función que lo va a cobrar. 249.900 supera el
+       * umbral de 100 € que `seed:markets` pone en ES, así que sale gratis —
+       * y sale como «gratis por umbral», no como «este mercado no cobra».
+       * La distinción importa: la vista dice «Gratis» en los dos casos, pero
+       * solo en uno tiene sentido enseñar «te faltan X».
+       */
+      expect(view.shipping?.reason).toBe("free_threshold");
+      expect(view.shipping?.amount).toEqual({ amount: 0, currency: "EUR" });
+      expect(view.toFreeShipping, "ya está cumplido: no hay nada que empujar").toBeNull();
+      expect(view.total, "con envío gratis el total es el subtotal").toEqual({
+        amount: PRICE_ES,
+        currency: "EUR",
+      });
       // Y lo que la Fase 4 NO promete: esta conexión todavía no sabe cobrar.
       expect(view.canCheckout).toBe(false);
 

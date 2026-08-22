@@ -210,3 +210,6 @@ export type {
   StartCheckoutInput,
   VariantOffering,
 } from "./capabilities";
+
+export { amountToFreeShipping, quoteShipping } from "./shipping";
+export type { ShippingQuote, ShippingRate, ShippingRates } from "./shipping";

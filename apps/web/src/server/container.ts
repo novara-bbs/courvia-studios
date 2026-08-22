@@ -27,6 +27,7 @@ import type {
   PaymentEvent,
   PaymentProvider,
   ReturnWrite,
+  ShippingRates,
   SiteKey,
 } from "@courvia/commerce-domain";
 import { FakePaymentProvider } from "@courvia/commerce-domain/fakes";
@@ -136,6 +137,26 @@ export function getPaymentProvider(id: PaymentProviderId): PaymentProvider | und
 export async function getCommerce(locale: LocaleId): Promise<CommerceService> {
   const payload = await getPayload({ config });
   return new PayloadCommerceService(payload, locale, getPaymentProviders());
+}
+
+/**
+ * Las tarifas de envío configuradas, para quien las ENSEÑA.
+ *
+ * No entra en `CommerceService` y esa es la decisión: el puerto describe lo
+ * que un cliente puede comprar, y CLAUDE.md §3.1 dice que no se abstraen más
+ * casos de uso de los que la tienda usa. Aquí el caso de uso es uno solo —el
+ * carrito quiere decir cuánto costará el porte antes de que exista un
+ * pedido— y la respuesta la calcula `quoteShipping`, que es del dominio y la
+ * comparte con `createCheckout`. Lo que hace falta pasar de un lado a otro
+ * son las tarifas, no un método nuevo del puerto.
+ *
+ * Vive aquí porque nombrar el adaptador es la razón de ser de este fichero;
+ * `apps/web/src/cart/read-cart.ts` no puede
+ * (`adapters-are-not-imported-by-routes`).
+ */
+export async function getShippingRates(): Promise<ShippingRates> {
+  const payload = await getPayload({ config });
+  return new PayloadCommerceService(payload, DEFAULT_LOCALE).getShippingRates();
 }
 
 /** Webhook orchestration entry: ledger insert → state machine → outbox, all

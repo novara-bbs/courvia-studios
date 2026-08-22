@@ -18,6 +18,7 @@ import * as migration_20260821_214924_commerce_ownership from './20260821_214924
 import * as migration_20260821_234246_fase3_templates_trash_versions from './20260821_234246_fase3_templates_trash_versions';
 import * as migration_20260821_235907_fase4_carrito from './20260821_235907_fase4_carrito';
 import * as migration_20260822_003001_fase4b_sin_versiones_en_mercados from './20260822_003001_fase4b_sin_versiones_en_mercados';
+import * as migration_20260822_072445_fase5_envio_por_mercado from './20260822_072445_fase5_envio_por_mercado';
 
 export const migrations = [
   {
@@ -118,6 +119,11 @@ export const migrations = [
   {
     up: migration_20260822_003001_fase4b_sin_versiones_en_mercados.up,
     down: migration_20260822_003001_fase4b_sin_versiones_en_mercados.down,
-    name: '20260822_003001_fase4b_sin_versiones_en_mercados'
+    name: '20260822_003001_fase4b_sin_versiones_en_mercados',
+  },
+  {
+    up: migration_20260822_072445_fase5_envio_por_mercado.up,
+    down: migration_20260822_072445_fase5_envio_por_mercado.down,
+    name: '20260822_072445_fase5_envio_por_mercado'
   },
 ];
