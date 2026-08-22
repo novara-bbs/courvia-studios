@@ -6,6 +6,13 @@
  * variable actually applies it — so a carbon page downloads carbon's three
  * families, not all nine faces. next/font's default display:swap covers the
  * brief unstyled interval. app.css maps the variables onto the tokens.
+ *
+ * «With preload off» tiene que valer para las NUEVE, y durante meses valió
+ * para siete: Bricolage Grotesque e Instrument Sans se lo dejaron y viajaban
+ * precargadas en toda ruta. La afirmación de arriba era exactamente el tipo
+ * de comentario que este repo persigue —declara la intención, no el efecto—,
+ * así que ahora hay dos guardianes: `fonts.test.ts` cuenta las nueve en el
+ * fuente, y `e2e/peso.spec.ts` mira lo que el navegador descarga.
  */
 import type { ThemeAlias } from "@courvia/design-tokens";
 import type { LocaleId } from "@courvia/platform";
@@ -41,12 +48,28 @@ const ibmPlexSans = IBM_Plex_Sans({
   weight: ["400", "500", "600"],
   variable: "--font-ibm-plex-sans",
 });
+/*
+ * `preload: false` en las dos, desde el 22 ago 2026, y no es cosmética.
+ *
+ * Eran las ÚNICAS dos de las nueve que se lo habían dejado, y el efecto no era
+ * local: `next/font` precarga por RUTA, no por tema, así que estas dos salían
+ * en el hint de precarga de TODAS las rutas de TODAS las regiones. Medido en
+ * el navegador antes de tocarlo: una portada `volt` —que clasea Anybody,
+ * Archivo e IBM Plex Mono y ninguna de estas— descargaba
+ * «Bricolage Grotesque (41536 B) · Instrument Sans (30204 B)».
+ *
+ * 71 KB con prioridad de precarga, o sea por delante de la imagen que decide
+ * el LCP, para un tema que no está activo. Lo vigila `e2e/peso.spec.ts`, que
+ * cruza las @font-face del CSS con lo que el navegador pidió de verdad.
+ */
 const bricolageGrotesque = Bricolage_Grotesque({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-bricolage-grotesque",
 });
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-instrument-sans",
 });
 const instrumentSerif = Instrument_Serif({

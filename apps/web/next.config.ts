@@ -208,7 +208,11 @@ export async function securityHeaders(): Promise<
       // the general rule, not before it, or every product photograph ships
       // `noindex` — the exact failure robots.ts exists to prevent, and a
       // header outranks robots.txt. Verified over HTTP, not by reading the
-      // array: see src/deploy/response-headers.test.ts.
+      // array: src/routing/http-status.test.ts asserts `x-robots-tag` and
+      // `content-security-policy` on a real asset response. (This pointer
+      // used to name src/deploy/response-headers.test.ts, a file that has
+      // never existed in this repository — the kind of dead reference that
+      // makes the next audit tick a box by opening nothing.)
       source: "/api/:path*",
       headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
     },

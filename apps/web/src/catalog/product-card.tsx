@@ -15,11 +15,40 @@ export async function ProductCard({
   robot,
   region,
   headingLevel = "h2",
+  eager = false,
 }: {
   robot: ProductSummary;
   region: RegionId;
   /** h2 on listing pages, h3 inside CMS sections that carry their own h2. */
   headingLevel?: "h2" | "h3";
+  /**
+   * `loading="eager"` para las tarjetas de la primera fila. NO `priority`.
+   *
+   * ---------------------------------------------------------------------
+   * POR QUÉ EAGER Y NO PRECARGA, MEDIDO
+   * ---------------------------------------------------------------------
+   *
+   * En `/{región}/robots` no hay imagen de cabecera, así que el LCP es una
+   * tarjeta. Lo primero que se probó fue `priority` en la PRIMERA, y el
+   * `PerformanceObserver` lo desmintió: el LCP seguía siendo la SEGUNDA.
+   *
+   * La causa está en `app.css:681-697`: `.catalog-card-media` es una caja
+   * `aspect-ratio: 4 / 3` con `object-fit: contain`, así que la foto que
+   * gana es la que ENCAJA en 4/3 —Rally Station, 1600×1200— y las verticales
+   * (1122×1402) quedan apaisadas dentro con aire arriba y abajo, pintando
+   * menos área. O sea: **qué tarjeta decide el LCP depende de la proporción
+   * de la foto, no de su posición**, y eso lo elige quien sube la imagen en
+   * el CMS.
+   *
+   * Precargar «la primera» era, literalmente, una moneda al aire. `eager` no
+   * gasta prioridad de precarga en una apuesta: hace que el parser descubra
+   * la fila entera durante el HTML en vez de después del layout, que es lo
+   * que penaliza un LCP diferido.
+   *
+   * En `/{región}/c/{categoría}` no se pasa: esa página SÍ tiene imagen de
+   * cabecera con `priority`, y ahí la apuesta no lo es.
+   */
+  eager?: boolean;
 }) {
   const def = REGION_DEFINITIONS[region];
   const t = await getTranslations({ locale: def.locale, namespace: "catalog" });
@@ -44,6 +73,7 @@ export async function ProductCard({
             width={robot.image.width ?? 860}
             height={robot.image.height ?? 645}
             sizes="(max-width: 680px) 100vw, 320px"
+            loading={eager ? "eager" : "lazy"}
           />
         </span>
       )}

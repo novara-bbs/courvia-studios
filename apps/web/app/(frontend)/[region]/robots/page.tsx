@@ -35,6 +35,22 @@ export async function generateMetadata({ params }: PageArgs): Promise<Metadata> 
   };
 }
 
+/**
+ * Cuántas tarjetas se descubren durante el parseo del HTML.
+ *
+ * Esta página no tiene imagen de cabecera: el LCP es una tarjeta, y CUÁL
+ * depende de la proporción de la foto, no de su posición (ver el comentario de
+ * `eager` en `ProductCard`). Así que no se apuesta por una: se deja de diferir
+ * la primera fila entera.
+ *
+ * Tres, y sale de la rejilla, no de un número redondo: `.catalog-grid` es
+ * `repeat(auto-fit, minmax(260px, 1fr))` dentro del contenedor de lectura, así
+ * que a los anchos que sirve este sitio caben como mucho cuatro pistas y hoy
+ * hay tres productos. Si el catálogo crece, este número NO crece con él: lo
+ * que va debajo del pliegue debe seguir difiriéndose.
+ */
+const EAGER_CARDS = 3;
+
 export default async function RobotsPage({ params }: PageArgs) {
   const { region } = await params;
   if (!isRegionId(region)) notFound();
@@ -58,9 +74,9 @@ export default async function RobotsPage({ params }: PageArgs) {
         <p className="catalog-empty">{t("empty")}</p>
       ) : (
         <ul className="catalog-grid">
-          {robots.map((robot) => (
+          {robots.map((robot, index) => (
             <li key={robot.id}>
-              <ProductCard robot={robot} region={region} />
+              <ProductCard robot={robot} region={region} eager={index < EAGER_CARDS} />
             </li>
           ))}
         </ul>
