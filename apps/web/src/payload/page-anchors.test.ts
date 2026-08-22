@@ -190,6 +190,25 @@ describe.skipIf(!hasDb || !dbIsDisposable)("a page index never publishes pointin
     expect(await storedStatus(id)).toBe("published");
   });
 
+  it("acepta el NOMBRE del bloque tal cual, sin pedirle al editor que slugifique", async () => {
+    /*
+     * El editor le puso «Specs QuickDock» al bloque; escribir eso mismo en el
+     * índice es lo primero que va a intentar, y hasta ahora se rechazaba: la
+     * validación comparaba el valor crudo contra un id ya slugificado, así
+     * que la ayuda del campo tenía que enseñarle qué hace un acento, qué hace
+     * un espacio y qué hace un punto medio.
+     *
+     * Ahora los dos lados pasan por `anchorId`, y las tres formas que una
+     * persona puede escribir son la misma ancla.
+     */
+    for (const written of ["Specs QuickDock", "specs quickdock", "specs-quickdock"]) {
+      await cleanUp();
+      const id = await saveDraft(pageWith(written, "Specs QuickDock"));
+      await publish(id);
+      expect(await storedStatus(id), `rechazó «${written}»`).toBe("published");
+    }
+  });
+
   it("derives the anchor exactly as the renderer does, accents and all", async () => {
     // The one thing that must never drift: the CMS and the markup have to
     // agree on what «Tecnología · QuickDock» becomes.

@@ -260,15 +260,24 @@ export const refuseDeadAnchorsOnPublish: CollectionBeforeValidateHook = ({
   const errors = blocks.flatMap((block, index) => {
     const type = (block as { blockType?: unknown }).blockType;
     if (typeof type !== "string" || !ANCHOR_SECTIONS.has(type)) return [];
-    return anchorEntries(block, `blocks.${String(index)}`)
-      // An empty anchor is `required`'s business. Answering "points at ''"
-      // on a row the editor has not filled in yet would be a worse error in
-      // the same place as a real one.
-      .filter((entry) => entry.anchor !== "" && !available.includes(entry.anchor))
-      .map((entry) => ({
-        message: anchorMessage(entry.anchor, available, req.i18n.language),
-        path: entry.path,
-      }));
+    return (
+      anchorEntries(block, `blocks.${String(index)}`)
+        // An empty anchor is `required`'s business. Answering "points at ''"
+        // on a row the editor has not filled in yet would be a worse error in
+        // the same place as a real one.
+        .filter((entry) => entry.anchor !== "")
+        // Se compara NORMALIZADO por el mismo `anchorId` que produce los ids
+        // y que ahora usa también el renderer de `anchorNav`. Antes se
+        // comparaba el valor crudo, y eso obligaba al editor a slugificar de
+        // cabeza para pasar: «Specs QuickDock» —el nombre que él mismo le
+        // puso al bloque— se rechazaba, y la ayuda del campo tenía que
+        // explicarle qué hace un acento. Los tres lados usan una función.
+        .filter((entry) => !available.includes(anchorId(entry.anchor) ?? entry.anchor))
+        .map((entry) => ({
+          message: anchorMessage(entry.anchor, available, req.i18n.language),
+          path: entry.path,
+        }))
+    );
   });
 
   if (errors.length > 0) throw new ValidationError({ collection: "pages", errors, req });

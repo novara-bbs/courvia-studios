@@ -121,6 +121,43 @@ describe("anchors come from the block name", () => {
     const html = render({ blockType: "quote", ...SECTIONS.quote?.fixture });
     expect(html).not.toContain(" id=");
   });
+
+  it("el índice apunta con el MISMO slug que produce el id, escriba el editor como escriba", () => {
+    /*
+     * Las dos mitades de un ancla tienen que salir de la misma función.
+     * `anchorNav` emitía `href={"#" + item.anchor}` sin tocar el valor, así
+     * que el enlace funcionaba solo si el editor slugificaba de cabeza:
+     * «Tecnología · QuickDock» daba `#Tecnología · QuickDock` contra un id
+     * que es `tecnologia-quickdock`. Un enlace publicado, verde en todos los
+     * tests, y muerto al pulsarlo.
+     */
+    const written = "Tecnología · QuickDock";
+    const target = render({ blockType: "quote", blockName: written, ...SECTIONS.quote?.fixture });
+    const index = render({
+      blockType: "anchorNav",
+      items: [
+        { text: "Tecnología", anchor: written },
+        { text: "Otra", anchor: "otra-cosa" },
+      ],
+    });
+    expect(target).toContain(`id="${anchorId(written) ?? ""}"`);
+    expect(index).toContain(`href="#${anchorId(written) ?? ""}"`);
+  });
+
+  it("un ancla que no produce nada no publica un enlace al principio de la página", () => {
+    // `href="#"` salta arriba del todo: parece que el enlace funciona y hace
+    // lo contrario de lo que promete. Sin id no hay enlace, solo el texto.
+    const html = render({
+      blockType: "anchorNav",
+      items: [
+        { text: "Rota", anchor: "···" },
+        { text: "Buena", anchor: "servicio" },
+      ],
+    });
+    expect(html).not.toContain('href="#"');
+    expect(html).toContain("Rota");
+    expect(html).toContain('href="#servicio"');
+  });
 });
 
 describe("linked sections degrade instead of crashing", () => {

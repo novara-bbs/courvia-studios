@@ -437,7 +437,7 @@ export interface Page {
             items: {
               text: string;
               /**
-               * Lowercase with hyphens, as listed when you publish: a block named “Specs QuickDock” gives specs-quickdock.
+               * The target block’s name, exactly as you typed it: “Specs QuickDock”. Case, accents and spaces do not matter.
                */
               anchor: string;
               id?: string | null;
@@ -1496,7 +1496,7 @@ export interface Template {
             items: {
               text: string;
               /**
-               * Lowercase with hyphens, as listed when you publish: a block named “Specs QuickDock” gives specs-quickdock.
+               * The target block’s name, exactly as you typed it: “Specs QuickDock”. Case, accents and spaces do not matter.
                */
               anchor: string;
               id?: string | null;

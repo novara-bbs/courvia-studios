@@ -1,4 +1,5 @@
 import { defineSection } from "../../dsl/define-section";
+import { anchorId } from "../../dsl/href";
 
 /**
  * In-page index for long landings — Elementor's table of contents.
@@ -61,21 +62,30 @@ export const anchorNav = defineSection({
           row: "item",
           label: { es: "Sección de destino", en: "Target section", ar: "القسم الهدف" },
           /**
-           * Este texto decía «el nombre del bloque, tal cual», y era una
-           * trampa: el renderer emite `href={"#" + item.anchor}` SIN
-           * slugificar, así que un editor que seguía la instrucción al pie
-           * de la letra escribía `Especificaciones` y obtenía `#Especificaciones`
-           * contra un id que es `especificaciones`. Un enlace roto, publicado,
-           * siguiendo la ayuda del propio campo.
+           * ESTE CAMPO YA NO PIDE SLUGIFICAR, y esa es la corrección.
            *
-           * Ahora dice lo que hay que escribir de verdad. Y al publicar, el
-           * `beforeValidate` de Pages rechaza un ancla que ningún bloque
-           * produce y enumera las disponibles, así que no hay que adivinarlo.
+           * La ayuda decía primero «el nombre del bloque, tal cual» mientras
+           * el renderer emitía `href={"#" + item.anchor}` SIN tocar: un
+           * editor que la seguía al pie de la letra escribía
+           * `Especificaciones`, obtenía `#Especificaciones` contra un id que
+           * es `especificaciones`, y publicaba un enlace roto siguiendo la
+           * ayuda del propio campo.
+           *
+           * El segundo intento fue enseñarle a slugificar —«en minúsculas y
+           * con guiones»—, que arregla el enlace y traslada el trabajo a la
+           * persona: hay que saber qué hace un acento, qué hace un espacio y
+           * qué hace un signo. Un CMS que pide eso no está resuelto.
+           *
+           * Ahora el `render` de abajo pasa el valor por `anchorId`, el mismo
+           * que produce el id, y la validación de `Pages` compara también
+           * normalizado. Así «Specs QuickDock», «specs quickdock» y
+           * «specs-quickdock» son la misma ancla, y el contenido ya guardado
+           * con mayúsculas empieza a funcionar sin migrarlo.
            */
           help: {
-            es: "En minúsculas y con guiones, como aparece en la lista al publicar: el nombre del bloque «Specs QuickDock» da specs-quickdock.",
-            en: "Lowercase with hyphens, as listed when you publish: a block named “Specs QuickDock” gives specs-quickdock.",
-            ar: "بأحرف صغيرة وشرطات، كما تظهر في القائمة عند النشر: كتلة اسمها «Specs QuickDock» تعطي specs-quickdock.",
+            es: "El nombre del bloque de destino, tal y como lo escribiste: «Specs QuickDock». Mayúsculas, acentos y espacios dan igual.",
+            en: "The target block’s name, exactly as you typed it: “Specs QuickDock”. Case, accents and spaces do not matter.",
+            ar: "اسم الكتلة الهدف كما كتبته: «Specs QuickDock». حالة الأحرف والتشكيل والمسافات لا تهم.",
           },
         },
       },
@@ -105,11 +115,19 @@ export const anchorNav = defineSection({
       <nav className="cv-anchor-nav" aria-label={label ?? undefined}>
         {label ? <p className="cv-anchor-nav-label">{label}</p> : null}
         <ul className="cv-anchor-nav-list">
-          {items.map((item) => (
-            <li key={item.anchor}>
-              <a href={`#${item.anchor}`}>{item.text}</a>
-            </li>
-          ))}
+          {items.map((item) => {
+            // `anchorId` y no el valor crudo: es la MISMA función con la que
+            // `render/index.tsx` deriva el id del bloque de destino, así que
+            // los dos lados no pueden desviarse. Un ancla que se queda en
+            // nada (sólo signos) no pinta un `href="#"` que salta al
+            // principio de la página: pinta el texto sin enlace.
+            const target = anchorId(item.anchor);
+            return (
+              <li key={item.anchor}>
+                {target === undefined ? item.text : <a href={`#${target}`}>{item.text}</a>}
+              </li>
+            );
+          })}
         </ul>
       </nav>
     );
