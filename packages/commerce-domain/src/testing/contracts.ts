@@ -386,6 +386,20 @@ export function describeCatalogContract(
       expect((await service.listProducts({ market: fixtures.market, limit: 1 })).length).toBe(1);
     });
 
+    it("honours an offset that is not a multiple of the limit", async () => {
+      // Un backend que pagina por página tiene que traducir el offset con
+      // exactitud: redondear a la página más cercana (offset=1, limit=2 →
+      // «página 1» otra vez) devuelve la ventana equivocada en silencio, y
+      // los adaptadores del mismo puerto divergen sin que nadie lo mida.
+      // La ventana correcta es la del slice, en los tres motores. Con un
+      // catálogo de un solo producto el caso degenera a «[]», que también
+      // es la respuesta del slice — sigue siendo la misma afirmación.
+      const service = await make();
+      const all = await service.listProducts({ market: fixtures.market });
+      const window = await service.listProducts({ market: fixtures.market, limit: 2, offset: 1 });
+      expect(window.map((p) => p.slug)).toEqual(all.slice(1, 3).map((p) => p.slug));
+    });
+
     it("prices differ by market, never converted at runtime (ADR-05)", async () => {
       const service = await make();
       const detail = await service.getProductDetail(fixtures.knownSlug, fixtures.market);

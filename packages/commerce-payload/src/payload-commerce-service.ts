@@ -369,23 +369,27 @@ export class PayloadCommerceService implements CommerceService {
     if (filter.slugs !== undefined) where.slug = { in: filter.slugs };
     if (filter.category !== undefined) where.category = { equals: Number(filter.category) };
 
-    // Payload paginates by page, not raw offset. Derive a page from the
-    // offset against the effective limit and floor it: a fractional page
-    // reaches Postgres as `OFFSET (page-1)*limit` and silently skips rows.
-    // Offset is honoured even when no explicit limit is passed.
+    // Payload paginates by page, not raw offset. An offset aligned to the
+    // limit maps to an exact page; a misaligned one cannot (flooring the
+    // division reached Postgres as `OFFSET (page-1)*limit` and returned the
+    // wrong window in silence), so it is fetched as one over-wide first page
+    // and cut locally — cost proportional to the offset, which a
+    // catalog-sized listing affords. The catalog contract pins the window.
     const limit = filter.limit ?? 50;
-    const page = filter.offset ? Math.floor(filter.offset / limit) + 1 : 1;
+    const offset = filter.offset ?? 0;
+    const aligned = offset % limit === 0;
     const result = await this.payload.find({
       collection: "products",
       where,
       locale: this.locale,
-      limit,
-      page,
+      limit: aligned ? limit : offset + limit,
+      page: aligned ? offset / limit + 1 : 1,
       depth: 0,
       overrideAccess: true,
       sort: "title",
     });
-    const docs = result.docs as unknown as ProductDoc[];
+    const pageDocs = aligned ? result.docs : result.docs.slice(offset);
+    const docs = pageDocs as unknown as ProductDoc[];
 
     let fromPriceByProduct = new Map<string, Money>();
     if (filter.market !== undefined && docs.length > 0) {

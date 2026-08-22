@@ -88,10 +88,13 @@ export class ShopifyCommerceService implements CommerceService {
 
   async listProducts(filter: ProductFilter): Promise<ProductSummary[]> {
     const market = filter.market ?? this.#availabilityMarket;
+    // The wire must carry offset + limit rows: asking for `limit` and then
+    // slicing locally would make the offset eat into the only rows fetched,
+    // returning a short window (the catalog contract pins the exact window).
     const { products } = await this.#fetch({
       query: PRODUCTS,
       variables: {
-        first: filter.limit ?? 50,
+        first: (filter.offset ?? 0) + (filter.limit ?? 50),
         ...(filter.sport === undefined ? {} : { query: `tag:sport:${filter.sport}` }),
       },
       context: marketContext(market),
