@@ -324,10 +324,10 @@ Pendiente, en orden (cada paquete = una sesión):
 | ~~8~~ | ~~`pages` + composición + versiones + live preview~~ **hecho 19-ago** | 7 | — |
 | ~~10/11~~ | ~~Catálogo + precios/inventario solo-servidor + RLS~~ **hecho 19-ago** (aprobación explícita del propietario) | 6 | — |
 | ~~12~~ | ~~`commerce-payload` contra las suites de contrato~~ **hecho 19-ago** (catálogo; checkout rechaza `NotImplementedError` hasta S2) | 10, 11 | — |
-| 13 | Plantillas (PDP editable como plantilla, secciones *binding*) + comparador | 8, 12 | parcial |
-| 14 | Resto de secciones (SpecsTable/LeadForm/etc. como bloques) | 7, 13 | parcial |
+| ~~13~~ | ~~Plantillas (PDP editable como plantilla, secciones *binding*) + comparador~~ **hecho 21-ago** (Fase 3 del plan dual-commerce, `9b1e199`: `pdp-surfaces.tsx` colocado por plantilla, secciones binding en `packages/sections`; comparador en `/{región}/comparar`) | 8, 12 | parcial |
+| ~~14~~ | ~~Resto de secciones (SpecsTable/LeadForm/etc. como bloques)~~ **hecho 21-ago** (`specTable`, `waitlist`, `productLead` en el registro — 24 bloques, techo ADR-028) | 7, 13 | parcial |
 | ~~15a~~ | ~~Fontanería de pagos: orders/payments/outbox/returns, checkout transaccional, webhook `/next/webhooks/{provider}`, registro multi-proveedor, Stripe verify+normalize~~ **hecho 19-ago** (circuito completo verde con el proveedor fake) | 12 | — |
 | 15b | Conectar Stripe: SDK + createSession/refund + credenciales | 15a | **no** + aprobación humana |
-| 16 | Playwright, axe, regresión visual, jobs de CI separados | 7, 14 | sí |
+| ~~16~~ | ~~Playwright, axe, jobs de CI separados~~ **hecho 22-ago** (job `e2e` con Chromium + Postgres real: layout, raíl, a11y AA en tres temas y RTL, recorrido del pedido) · queda la regresión visual (cero `toHaveScreenshot`) | 7, 14 | sí |
 
 **Los WP 6, 4/5, 10/11 y 15 son los caros de cambiar después.** El resto es aditivo.

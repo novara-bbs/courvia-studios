@@ -4,6 +4,16 @@
 > por cinco lentes independientes (dominio nativo, pagos, Shopify, CMS/catálogo,
 > documentación). Cada fila lleva `fichero:línea`.
 >
+> **Foto del 21-ago — leer con esa fecha delante.** La rama ha avanzado desde
+> `5637676` y esta matriz NO se re-audita fila a fila (una lista de pendientes
+> envejece igual que un comentario; la verdad viva está en
+> `docs/plan-dual-commerce.md`). Lo más grueso que ya no es cierto: de los seis
+> `launch_blocked`, los nº 2–4 (reserva de inventario, `adjustStock`,
+> `lockOrderRow`) están resueltos (`5d3d351`, `tx-sql.ts`), y el nº 1 dejó de
+> ser un checkout zombi: la reserva se libera en el acto cuando la pasarela no
+> sabe cobrar (`releaseCheckout`). Siguen bloqueados el nº 5 (handlers del
+> outbox, hoy 8/15) y el nº 6 (cadencia del cron, plan de Vercel).
+>
 > Escala de estado: `not_started` · `code_complete` · `sandbox_verified` · `launch_blocked`
 > · `launch_ready`. **Un adaptador que solo pasa tests contra fixtures nunca es
 > `sandbox_verified`.**
