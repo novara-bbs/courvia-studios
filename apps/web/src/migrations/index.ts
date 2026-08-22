@@ -21,6 +21,7 @@ import * as migration_20260822_003001_fase4b_sin_versiones_en_mercados from './2
 import * as migration_20260822_072445_fase5_envio_por_mercado from './20260822_072445_fase5_envio_por_mercado';
 import * as migration_20260822_102710_fase8_ventana_de_desistimiento from './20260822_102710_fase8_ventana_de_desistimiento';
 import * as migration_20260822_185435_fase8_vigilancia_del_cron from './20260822_185435_fase8_vigilancia_del_cron';
+import * as migration_20260822_192825_fase8_colector_de_csp from './20260822_192825_fase8_colector_de_csp';
 
 export const migrations = [
   {
@@ -136,6 +137,11 @@ export const migrations = [
   {
     up: migration_20260822_185435_fase8_vigilancia_del_cron.up,
     down: migration_20260822_185435_fase8_vigilancia_del_cron.down,
-    name: '20260822_185435_fase8_vigilancia_del_cron'
+    name: '20260822_185435_fase8_vigilancia_del_cron',
+  },
+  {
+    up: migration_20260822_192825_fase8_colector_de_csp.up,
+    down: migration_20260822_192825_fase8_colector_de_csp.down,
+    name: '20260822_192825_fase8_colector_de_csp'
   },
 ];

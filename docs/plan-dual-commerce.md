@@ -335,9 +335,42 @@ CMS, E2E contra development store.
 Native activo mientras se termina; Shopify tras conexión no activa; site piloto; preflight;
 cutover; draining; rollback probado.
 
-### Fase 8 — Internacional y hardening · `not_started`
-Más de diez países, monedas, zonas de envío, impuestos, DDP/duties, RTL, seguridad,
-observabilidad, rendimiento, Playwright, Axe, regresión visual, runbooks.
+### Fase 8 — Internacional y hardening · `in_progress`
+
+Dejó de ser `not_started` el 22 ago 2026 y se dice qué mitad está hecha, porque
+un `not_started` sobre trabajo entregado hace que la siguiente sesión lo
+replanifique desde cero.
+
+**Hecho y verificado en CI:**
+
+- **RTL** — árabe con propiedades lógicas, comprobado con el layout medido a
+  320/390 px y con axe en los tres temas (`e2e/layout.spec.ts`).
+- **Playwright y Axe** — el harness existe (`pnpm e2e`, 48 pruebas): geometría
+  del raíl pegajoso, desbordamiento horizontal, teclado, y el recorrido de un
+  pedido de `paid` a `delivered` por la misma API que usa una persona.
+- **Rendimiento** — presupuesto de bytes y de peticiones por página, medido en
+  navegador, más el elemento que decide el LCP (`e2e/peso.spec.ts`).
+- **Observabilidad** — una fila por tick en `ops-runs`, `GET /next/health` con
+  503 de verdad y un workflow diario que lo vigila. Es lo que hace detectable
+  el único fallo que no da error: que el cron deje de dispararse.
+- **Seguridad** — límite de tasa en `forgot-password` (el login se queda con el
+  bloqueo por cuenta, decisión escrita), colector de CSP con agregación para
+  que el rodaje de la política pueda terminar, censo de escritura pública
+  ampliado a los Route Handlers, y RLS afirmada desde el repo y no a mano.
+- **Runbooks** — salud, CSP, escotilla de desbloqueo del panel y los escapes
+  manuales, en `docs/operations.md`.
+
+**Pendiente, y por qué:**
+
+- **Más de diez países, monedas y zonas de envío · DDP/duties** — expansión, no
+  hardening. No bloquea nada de lo que hay.
+- **Impuestos** — se compran (Stripe Tax + asesor, §2 de CLAUDE.md). Bloqueado
+  por las credenciales, como las Fases 6 y 7.
+- **Regresión visual** — y no es pereza: `playwright.config.ts` fija
+  `executablePath` a un Chromium cuya build no coincide con la que Playwright
+  espera, así que una huella de píxeles sería inestable por construcción. Exige
+  o fijar la build en el harness o una cuenta de Chromatic; hasta entonces se
+  miden geometría y accesibilidad, que es lo que sí se puede afirmar.
 
 ### Fase 9 — Fuera de alcance ahora
 Multisite real en una base · multiwarehouse · split shipments · B2B · suscripciones ·

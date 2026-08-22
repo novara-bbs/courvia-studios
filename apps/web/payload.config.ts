@@ -17,6 +17,8 @@ import { emailAdapter } from "./src/email/adapter";
 import { withAdminPasswordReset } from "./src/email/admin-password-reset";
 import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
 import { Carts, Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
+import { withForgotPasswordLimit } from "./src/payload/auth-rate-limit";
+import { CspReports } from "./src/payload/csp-reports";
 import { OpsRuns } from "./src/payload/ops-runs";
 import {
   CommerceBindings,
@@ -213,9 +215,13 @@ export default buildConfig({
   },
 
   collections: [
-    // The reset email's copy lives with the rest of the copy, not in the
-    // collection that governs who may do what (src/email/admin-password-reset.ts).
-    withAdminPasswordReset(Users),
+    // El copy del correo de reset vive con el resto del copy, y el límite de
+    // tasa con el resto de los límites: `users.ts` dice quién puede hacer qué,
+    // no cómo se escribe un correo ni cuántas veces se puede pedir uno.
+    // El límite es de `forgot-password` y SOLO de él — el login ya tiene el
+    // bloqueo por cuenta de Payload, y ahí un límite por IP puede dejar fuera
+    // a quien tiene la contraseña bien (src/payload/auth-rate-limit.ts).
+    withForgotPasswordLimit(withAdminPasswordReset(Users)),
     Media,
     Pages,
     // Antes de Products: es la colección que su campo `template` referencia.
@@ -249,6 +255,7 @@ export default buildConfig({
     // para son los correos al cliente, la ventana legal de desistimiento y la
     // liberación de stock — y nada da error en ninguna parte.
     OpsRuns,
+    CspReports,
   ],
   globals: [ThemeSettings, MarketSettings, Navigation],
 

@@ -264,6 +264,33 @@ describe.skipIf(!hasDb || !dbIsDisposable)("what the server actually answers", (
     expect(csp).toContain("base-uri 'self'");
   });
 
+  it("still reports CSP violations somewhere, on a real response", async () => {
+    /*
+     * La política de recursos viaja en `Content-Security-Policy-Report-Only`,
+     * y su rodaje entero depende de que la cabecera diga ADÓNDE informar. Esto
+     * no se puede afirmar leyendo `securityHeaders()`: Next aplica la ÚLTIMA
+     * entrada que casa para una clave repetida —la avería que este mismo
+     * fichero documenta arriba con `X-Robots-Tag`—, así que una entrada nueva
+     * para `/:path*` dejaría la política sin destino con la suite unitaria en
+     * verde y sin que ningún navegador se quejara.
+     *
+     * Y las dos mitades tienen que llegar juntas: `report-to` nombra un grupo
+     * que solo existe si viene la cabecera `Reporting-Endpoints`. Sin ella
+     * Chrome no manda nada, y no avisa.
+     */
+    const page = await fetch(`${BASE}/es`);
+    const policy = page.headers.get("content-security-policy-report-only") ?? "";
+    expect(policy, "la política de informe desapareció de una respuesta real").not.toBe("");
+    expect(policy).toContain("report-uri /next/csp-report");
+    expect(policy).toContain("report-to csp");
+
+    const endpoints = page.headers.get("reporting-endpoints") ?? "";
+    expect(
+      endpoints,
+      "`report-to csp` nombra un grupo sin dirección: Chrome no manda los informes y no avisa",
+    ).toContain('csp="/next/csp-report"');
+  });
+
   it("serves the generated Open Graph card as a PNG", async () => {
     const page = await (await fetch(`${BASE}/es/privacidad`)).text();
     const src = /property="og:image" content="([^"]+)"/.exec(page)?.[1];

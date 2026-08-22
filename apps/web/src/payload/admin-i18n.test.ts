@@ -61,6 +61,7 @@ const LOCALIZED = {
     "commerce-bindings",
     "commerce-product-refs",
     "ops-runs",
+    "csp-reports",
   ],
   globals: ["theme-settings", "market-settings", "navigation"],
 };

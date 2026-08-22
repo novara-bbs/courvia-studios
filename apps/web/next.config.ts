@@ -26,6 +26,22 @@ export const EMBED_FRAME_ORIGINS = [
 const ANALYTICS_ORIGIN = "https://plausible.io";
 
 /**
+ * Where violation reports go, and why it is a RELATIVE path.
+ *
+ * An absolute URL built at build time would send every preview deployment's
+ * reports to production's table — one build is deployed to both, and only
+ * production's origin is known here. A relative path always resolves against
+ * the response that carried the header, so each deployment reports to itself.
+ * Both mechanisms resolve it the same way: `report-uri` against the document
+ * URL, and `Reporting-Endpoints` against the response URL.
+ *
+ * The name of the reporting group is arbitrary and only has to match between
+ * the header and the `report-to` directive below.
+ */
+const CSP_REPORT_PATH = "/next/csp-report";
+const CSP_REPORT_GROUP = "csp";
+
+/**
  * The origin uploads are served from, or "" when they are served by this app.
  *
  * src/payload/storage.ts makes the bucket pure configuration, so the CSP has
@@ -99,6 +115,26 @@ function contentSecurityPolicy(): string {
     ["object-src", "'none'"],
     ["base-uri", "'self'"],
     ["form-action", "'self'"],
+    /*
+     * Y adónde se cuenta lo que se habría bloqueado. Sin esto, la condición
+     * que el comentario de arriba pone para pasar a enforcing —«the console
+     * is the data we need»— es la consola del VISITANTE, o sea nadie: la
+     * política se queda en modo informe para siempre y acaba siendo una
+     * cabecera que da la sensación de proteger sin bloquear nada.
+     *
+     * Los DOS mecanismos, y no por indecisión. `report-uri` está obsoleto en
+     * la especificación pero es el único que entienden hoy Safari y Firefox;
+     * `report-to` es el que Chrome prefiere y el que sobrevivirá. Un
+     * navegador que entienda los dos usa `report-to` y descarta el otro, así
+     * que declararlos juntos no duplica informes.
+     *
+     * Solo en la política de INFORME. La enforcing de abajo cubre
+     * frame-ancestors, object-src y base-uri, que también aparecen aquí: si
+     * las dos reportaran, cada violación de esas tres llegaría por duplicado
+     * y el contador diría el doble de lo que pasó.
+     */
+    ["report-uri", CSP_REPORT_PATH],
+    ["report-to", CSP_REPORT_GROUP],
   ];
   return directives.map((parts) => parts.join(" ")).join("; ");
 }
@@ -184,6 +220,13 @@ export async function securityHeaders(): Promise<
         // would kill editing while blocking nothing an attacker can do.
         { key: "Content-Security-Policy", value: ENFORCED_POLICY },
         { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicy() },
+        // Lo que convierte `report-to csp` en una dirección. Sin esta cabecera
+        // la directiva nombra un grupo que no existe y Chrome no manda nada —
+        // sin avisar, que es lo que la haría fácil de perder en un refactor.
+        {
+          key: "Reporting-Endpoints",
+          value: `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`,
+        },
       ],
     },
     {

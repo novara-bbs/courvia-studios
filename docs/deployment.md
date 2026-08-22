@@ -108,7 +108,7 @@ enterrada como `[cause]`: dos ciclos completos para descubrir dos ausencias.
 
 ### Cron de mantenimiento: `GET /next/cron`
 
-Un único tick programado en `apps/web/vercel.json` hace **cuatro** trabajos:
+Un único tick programado en `apps/web/vercel.json` hace **cinco** cosas:
 
 1. **Despacha el outbox** — saca de la tabla los efectos que la máquina de
    estados encoló dentro de su transacción y los ejecuta fuera de ella
@@ -117,6 +117,20 @@ Un único tick programado en `apps/web/vercel.json` hace **cuatro** trabajos:
 2. **Caduca los checkouts abandonados** — los pedidos `pending_payment` de
    más de una hora pasan a `cancelled` y sueltan su reserva de stock, por la
    misma máquina de estados que cualquier evento de pago.
+3. **Borra los carritos vencidos** — `carts.expiresAt` no lo leía nadie y la
+   tabla crecía para siempre. Borrar un carrito no libera stock, porque un
+   carrito nunca reservó ninguno: es un `DELETE`, no una transición.
+4. **Poda los informes de CSP** — `csp-reports` la escribe un endpoint público
+   que llama el navegador; la ventana de retención es lo que impide que acabe
+   siendo la tabla que vino a vigilar.
+5. **Deja constancia de que corrió** en `ops-runs`, que es lo que hace que «el
+   cron dejó de dispararse» se pueda detectar. Ver el runbook de salud en
+   `docs/operations.md`.
+
+Los puntos 3 a 5 faltaban en esta lista. El 3 entró con la Fase 4 y este
+documento siguió diciendo «dos» durante meses; luego alguien corrigió el número
+a «cuatro» y **no añadió los elementos**, que es peor: una lista que se
+contradice a sí misma se lee entera y se cree la parte equivocada.
 
 | Cosa | Valor | Dónde |
 |---|---|---|

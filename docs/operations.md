@@ -44,18 +44,49 @@ producto es editable» solo lo es para quien sepa de antemano qué cinco
 secciones crear y en qué orden. Es idempotente en el único sentido que importa
 aquí: si ya hay una plantilla `product` por defecto, no la toca.
 
+### La escotilla: entrar cuando el panel te ha dejado fuera
+
+Payload bloquea una cuenta a los **cinco intentos fallidos** durante **diez
+minutos** (`maxLoginAttempts` y `lockTime`; este repo no los toca y no debe
+tocarlos). Correcto, salvo que hasta el 22 ago 2026 no había salida:
+`POST /api/users/unlock` **exige sesión** —su `access` hereda el default de
+Payload, que pide `req.user`— y `seed:admin` **se niega a correr** si ya existe
+algún usuario, para no ser una puerta trasera. La única salida era SQL a mano
+sobre `lock_until` y `login_attempts`, y no estaba escrita en ninguna parte.
+
+```bash
+ADMIN_EMAIL=tu@correo pnpm --filter @courvia/web unlock:admin
+```
+
+Pone a cero el contador de intentos de una cuenta que **ya existe**: no la crea,
+no cambia su contraseña y no le concede permisos. Si el correo no existe lo dice
+—`unlock` de la Local API devuelve un booleano y no distingue los dos casos, así
+que el script comprueba primero.
+
+**Este sí corre contra producción, y es la diferencia con las semillas.**
+`seed:e2e-operator` se niega a correr contra cualquier cosa que no sea la base
+desechable porque crea un usuario con contraseña fija; este no lleva ese
+guardarraíl **a propósito**, porque su razón de existir es justamente el momento
+en que nadie puede entrar al panel de producción. No abre ninguna puerta nueva:
+exige `DATABASE_URL`, y quien tiene esas credenciales ya puede hacer cualquier
+cosa con la base.
+
+Se descubrió el hueco al poner el límite de tasa a `forgot-password`: antes de
+tocar la autenticación conviene saber cómo se sale si algo va mal.
+
 ### El tick de mantenimiento, y cómo ejecutarlo a mano
 
 En un despliegue lo dispara Vercel Cron **una vez al día**, a las 04:00 UTC
 (`"schedule": "0 4 * * *"` en `apps/web/vercel.json`), sobre `GET /next/cron`
-(autenticado con `CRON_SECRET`; ver `docs/deployment.md`). Hace **cuatro**
+(autenticado con `CRON_SECRET`; ver `docs/deployment.md`). Hace **cinco**
 cosas: despachar el outbox, caducar los checkouts abandonados, **borrar los
-carritos vencidos** y **dejar constancia de que corrió** en `ops-runs`.
+carritos vencidos**, **podar los informes de CSP** y **dejar constancia de que
+corrió** en `ops-runs`.
 
-Las dos últimas no estaban aquí. La barrida de carritos entró con la Fase 4 y
+Las tres últimas no estaban aquí. La barrida de carritos entró con la Fase 4 y
 este documento —y `docs/deployment.md`— siguieron diciendo «dos» durante meses,
-en los dos únicos sitios donde un operador miraría. La constancia es del
-22 ago 2026 y es de lo que va la sección siguiente.
+en los dos únicos sitios donde un operador miraría. La constancia y la poda son
+del 22 ago 2026: la primera es de lo que va la sección siguiente.
 
 **La cadencia es diaria a propósito, y hay que saber lo que cuesta.** Vercel
 Hobby rechaza cualquier `schedule` más fino y hace fallar el despliegue al
@@ -146,6 +177,79 @@ pnpm --filter @courvia/web sweep:checkouts
 ```
 
 Ejecuta `expireStaleCheckouts` (`packages/commerce-payload`): los pedidos `pending_payment` con más de 1 hora pasan a `cancelled` por la misma maquinaria que cualquier evento de pago — transición pura, lock de fila, transacción — y se liberan sus reservas de stock. Un checkout que paga durante el sweep está a salvo: el lock serializa a ambos escritores.
+
+### La CSP: cómo termina su rodaje
+
+La política de recursos se sirve **en modo informe** (`Content-Security-Policy-Report-Only`)
+desde el primer día, y por una razón buena: aplicarla a ciegas rompería
+`/admin` —el panel es un paquete de terceros— y el payload RSC de Next llega
+como `<script>` en línea. El comentario de `next.config.ts` ponía la condición
+para pasar a enforcing: *«the console is the data we need»*.
+
+Esa consola es la **del visitante**. Sin colector, la condición no se cumple
+nunca y la cabecera se queda para siempre en una que da sensación de proteger
+sin bloquear nada.
+
+**Desde el 22 ago 2026 hay colector.** `POST /next/csp-report`, con las dos
+directivas puestas (`report-uri` para Safari y Firefox, `report-to` + la
+cabecera `Reporting-Endpoints` para Chrome) y una ruta relativa, para que cada
+despliegue informe a sí mismo en vez de mandarle los informes de preview a
+producción.
+
+**Lo que guarda es una agregación, no un registro.** Una fila por **(día,
+directiva, origen bloqueado)** con un contador: mil informes iguales son una
+fila. Las tres columnas están acotadas —el día avanza solo, la directiva se
+valida contra una lista cerrada, y el origen tiene techo diario con cubo de
+desbordamiento (`(otros)`)—, que es lo que hace que un endpoint público
+escribiendo en la base no sea un problema. Retención: 30 días, podados por el
+tick.
+
+**Responde 204 a todo**: informe válido, `Content-Type` equivocado, cuerpo
+enorme y cupo agotado. Distinguirlos le diría a quien prueba dónde está cada
+borde, y el navegador ni reintenta ni enseña el resultado a nadie.
+
+#### Cómo leerlo, y cuándo aplicar la política
+
+1. **Mira `Informes de CSP` en el panel**, ordenado por contador. Lo que
+   aparece son los recursos que la política de hoy bloquearía.
+2. **`inline` y `eval` son los que mandan.** Mientras `script-src` siga
+   informando `inline` en volumen, aplicar la política rompería el sitio: son
+   los que hoy obligan a `'unsafe-inline'`.
+3. **Un origen de terceros con contador alto** es o una integración que falta
+   declarar (se añade a la directiva) o una extensión del visitante (se
+   ignora: no podemos ni debemos permitirla).
+4. **La fila `(otros)`** significa que ese día se pasó del techo de orígenes
+   distintos. Es señal de ruido —una extensión, o alguien probando—, no de una
+   integración nuestra.
+5. **Aplicar** es mover la directiva ya limpia de `contentSecurityPolicy()` a
+   `ENFORCED_POLICY` en `next.config.ts`. De una en una, y `img-src` tiene una
+   condición adicional escrita en `mediaOrigin()`: hoy se resuelve en tiempo de
+   build y un mismo build va a preview y a producción.
+
+### El límite de `forgot-password`
+
+`POST /api/users/forgot-password` no tenía **ningún** límite: no incrementa
+`loginAttempts`, no mira `lockUntil`, y cada petición manda un correo desde
+nuestro dominio verificado. Bastaba con conocer el correo de un editor para
+llenarle el buzón.
+
+Desde el 22 ago 2026 hay dos cubos: **3 por dirección** (una ficha cada 5 min)
+y **3 por buzón** (una cada 15 min). El segundo es el que cierra el caso
+interesante: quien rota IPs esquiva el primero, pero no puede rotar a quién
+quiere inundar.
+
+**El login NO se limita por IP**, y es una decisión: Payload ya bloquea por
+cuenta a los cinco intentos durante diez minutos, y un límite por dirección
+encima de eso compra poco a cambio de poder dejar fuera del panel a quien tiene
+la contraseña bien. Si alguien se queda fuera igualmente, la salida es
+`unlock:admin` (arriba).
+
+Va como hook `beforeOperation` de la colección y no como envoltorio del route
+handler, porque `/api/graphql` expone `mutation forgotPasswordUser` que llama a
+la misma operación: un envoltorio dejaría esa puerta abierta dando sensación de
+estar cerrada.
+
+---
 
 ---
 

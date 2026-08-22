@@ -80,6 +80,24 @@ describe("de dónde sale el tema", () => {
     ).toContain('revalidateTag("theme"');
   });
 
+  it("y el 404 global lo lee del CMS, no de la constante compilada", () => {
+    /*
+     * Escribía `data-theme={DEFAULT_THEME}` mientras su propio comentario
+     * afirmaba que el documento sigue a la región. Publicar `carbon` revestía
+     * el sitio entero MENOS el 404 — la página a la que el proxy manda todo lo
+     * que no existe, o sea la que más veces es la primera que alguien ve.
+     *
+     * Se afirma sobre el fuente por lo mismo que las de arriba: `"use cache"`
+     * no es observable fuera de un build de Next.
+     */
+    const page = read("app", "global-not-found.tsx");
+    expect(
+      page,
+      "el 404 volvió a hornear el tema por defecto: publicar un tema no lo revestiría",
+    ).not.toContain("DEFAULT_THEME");
+    expect(page).toContain("getSiteTheme()");
+  });
+
   it("ninguna página del frontend se declara dinámica a mano", () => {
     /*
      * `export const dynamic = "force-dynamic"` o un `revalidate` suelto

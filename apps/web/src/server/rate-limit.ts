@@ -110,6 +110,49 @@ export const LEAD_DUPLICATE_RULE: RateLimitRule = { capacity: 1, refillMs: 600_0
 export const CART_CREATE_RULE: RateLimitRule = { capacity: 5, refillMs: 60_000 };
 
 /**
+ * `forgot-password`, por dirección de red.
+ *
+ * Tres seguidas cubren el fallo real —escribir mal el correo, no recibirlo y
+ * volver a intentarlo— y una ficha cada cinco minutos deja el sostenido en
+ * doce correos por hora y dirección. Es MÁS estricto que el del formulario de
+ * leads porque el destinatario no es una tabla nuestra: es el buzón de quien
+ * opera la tienda, y el remitente es nuestro dominio verificado en Resend.
+ *
+ * `forgotPasswordOperation` no tiene ninguna otra defensa: no incrementa
+ * `loginAttempts`, no mira `lockUntil`. Esto es lo único que hay.
+ */
+export const FORGOT_PASSWORD_PER_IP_RULE: RateLimitRule = { capacity: 3, refillMs: 300_000 };
+
+/**
+ * Y por BUZÓN, que es lo que cierra el caso interesante.
+ *
+ * Quien rota direcciones —una botnet, o simplemente una VPN— esquiva el límite
+ * por IP entero. Lo que no puede rotar es a quién quiere inundar: la clave va
+ * sobre el correo (hasheado, `contentKey`), así que llenar UN buzón cuesta lo
+ * mismo desde una dirección que desde mil.
+ *
+ * Un cuarto de hora entre fichas: nadie pide un reset de la misma cuenta cuatro
+ * veces en quince minutos, y quien lo intente ya tiene tres correos sin abrir.
+ */
+export const FORGOT_PASSWORD_PER_EMAIL_RULE: RateLimitRule = { capacity: 3, refillMs: 900_000 };
+
+/**
+ * El colector de informes de CSP, por dirección de red.
+ *
+ * Más holgado que los demás a propósito, porque aquí quien llama es un
+ * NAVEGADOR y no una persona: una sola carga de página con una extensión
+ * ruidosa puede disparar varias violaciones seguidas, y cortarlas convertiría
+ * el rodaje de la política en una muestra sesgada justo hacia las páginas
+ * limpias. Veinte por minuto cubren eso de sobra.
+ *
+ * Lo que este límite defiende no es la integridad del dato —la agregación ya
+ * la protege: mil informes iguales son una fila— sino el coste: cada informe
+ * atendido es una sentencia contra la base de datos, y el endpoint es público
+ * por obligación (quien informa es el navegador; no hay a quién autenticar).
+ */
+export const CSP_REPORT_RULE: RateLimitRule = { capacity: 20, refillMs: 60_000 };
+
+/**
  * Hard bound on the map. A limiter that OOMs the function is a worse denial
  * of service than the one it prevents, and the keyspace is attacker-chosen
  * (one entry per source address). 10k entries of a three-number bucket plus

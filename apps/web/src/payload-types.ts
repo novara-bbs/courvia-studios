@@ -90,6 +90,7 @@ export interface Config {
     carriers: Carrier;
     shipments: Shipment;
     'ops-runs': OpsRun;
+    'csp-reports': CspReport;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -124,6 +125,7 @@ export interface Config {
     carriers: CarriersSelect<false> | CarriersSelect<true>;
     shipments: ShipmentsSelect<false> | ShipmentsSelect<true>;
     'ops-runs': OpsRunsSelect<false> | OpsRunsSelect<true>;
+    'csp-reports': CspReportsSelect<false> | CspReportsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -2986,6 +2988,53 @@ export interface OpsRun {
   createdAt: string;
 }
 /**
+ * SERVER ONLY. One row per day, directive and blocked origin, with a counter. The resource policy ships report-only until this data says what enforcing would break; without it the burn-in never ends.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "csp-reports".
+ */
+export interface CspReport {
+  id: number;
+  /**
+   * The UTC day (YYYY-MM-DD). Text and not a date on purpose: the unique key groups by day, and a timestamp would group by millisecond.
+   */
+  day: string;
+  directive:
+    | 'default-src'
+    | 'script-src'
+    | 'script-src-elem'
+    | 'script-src-attr'
+    | 'style-src'
+    | 'style-src-elem'
+    | 'style-src-attr'
+    | 'img-src'
+    | 'font-src'
+    | 'media-src'
+    | 'frame-src'
+    | 'child-src'
+    | 'connect-src'
+    | 'worker-src'
+    | 'manifest-src'
+    | 'object-src'
+    | 'base-uri'
+    | 'form-action'
+    | 'frame-ancestors'
+    | 'prefetch-src';
+  /**
+   * The blocked ORIGIN, or the keyword the browser sent (inline, eval, data…). Never the path: paths carry tokens and ids, and would multiply cardinality by every URL on the site.
+   */
+  blockedUri: string;
+  count: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  /**
+   * One of the pages where it happened, without query or fragment. It is a SAMPLE (the latest), not the list: it says where to start looking.
+   */
+  samplePath?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -3100,6 +3149,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ops-runs';
         value: number | OpsRun;
+      } | null)
+    | ({
+        relationTo: 'csp-reports';
+        value: number | CspReport;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -4563,6 +4616,21 @@ export interface OpsRunsSelect<T extends boolean = true> {
   finishedAt?: T;
   status?: T;
   summary?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "csp-reports_select".
+ */
+export interface CspReportsSelect<T extends boolean = true> {
+  day?: T;
+  directive?: T;
+  blockedUri?: T;
+  count?: T;
+  firstSeenAt?: T;
+  lastSeenAt?: T;
+  samplePath?: T;
   updatedAt?: T;
   createdAt?: T;
 }
