@@ -16,6 +16,7 @@ import * as migration_20260820_215618_page_seo_and_redirects from './20260820_21
 import * as migration_20260820_224603_fulfilment_shipments from './20260820_224603_fulfilment_shipments';
 import * as migration_20260821_214924_commerce_ownership from './20260821_214924_commerce_ownership';
 import * as migration_20260821_234246_fase3_templates_trash_versions from './20260821_234246_fase3_templates_trash_versions';
+import * as migration_20260821_235907_fase4_carrito from './20260821_235907_fase4_carrito';
 
 export const migrations = [
   {
@@ -106,6 +107,11 @@ export const migrations = [
   {
     up: migration_20260821_234246_fase3_templates_trash_versions.up,
     down: migration_20260821_234246_fase3_templates_trash_versions.down,
-    name: '20260821_234246_fase3_templates_trash_versions'
+    name: '20260821_234246_fase3_templates_trash_versions',
+  },
+  {
+    up: migration_20260821_235907_fase4_carrito.up,
+    down: migration_20260821_235907_fase4_carrito.down,
+    name: '20260821_235907_fase4_carrito'
   },
 ];

@@ -218,7 +218,7 @@ async function seed(): Promise<void> {
   await payload.create({
     collection: "carts",
     overrideAccess: true,
-    data: { sessionId: RIG_SESSION_ACTIVE },
+    data: { sessionId: RIG_SESSION_ACTIVE, ...CART_FIXTURE_FIELDS },
   });
   await payload.create({
     collection: "carts",
@@ -229,9 +229,20 @@ async function seed(): Promise<void> {
       engine: "native",
       connectionKey: LEGACY_KEY,
       bindingRevision: LEGACY_REVISION,
+      ...CART_FIXTURE_FIELDS,
     },
   });
 }
+
+/**
+ * Lo que la Fase 4 hizo obligatorio en un carrito. Este banco de pruebas es
+ * sobre la PROPIEDAD, no sobre lo que se compra: el mercado y la caducidad
+ * están aquí solo para que la fila sea legal.
+ */
+const CART_FIXTURE_FIELDS = {
+  market: "es" as const,
+  expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+};
 
 async function cleanup(): Promise<void> {
   await query(

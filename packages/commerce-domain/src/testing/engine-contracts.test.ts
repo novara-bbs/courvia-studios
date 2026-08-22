@@ -117,7 +117,7 @@ describeAvailabilityContract("FakeNativeEngine", nativeEngine, {
 
 describeCartContract("FakeNativeEngine", nativeEngine, {
   market: "es",
-  variant: variantRef("native", NATIVE_OWNER.connectionKey),
+  variant: () => variantRef("native", NATIVE_OWNER.connectionKey),
   foreignVariant: variantRef("native", NATIVE_SIBLING),
   foreignCart: { kind: "cart", engine: "native", connectionKey: NATIVE_SIBLING, externalId: "cart_1" },
   unknownCart: {
@@ -214,7 +214,7 @@ describeAvailabilityContract("FakeHostedEngine", hostedEngine, {
 
 describeCartContract("FakeHostedEngine", hostedEngine, {
   market: "es",
-  variant: variantRef("shopify", HOSTED_OWNER.connectionKey),
+  variant: () => variantRef("shopify", HOSTED_OWNER.connectionKey),
   foreignVariant: variantRef("shopify", HOSTED_SIBLING),
   foreignCart: {
     kind: "cart",

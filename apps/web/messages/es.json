@@ -143,5 +143,24 @@
       "ignore": "Si no has sido tú, ignora este mensaje. La contraseña actual sigue siendo válida y nadie ha entrado.",
       "signature": "Equipo Courvia"
     }
+  },
+  "cart": {
+    "title": "Tu carrito",
+    "empty": "Todavía no has añadido nada.",
+    "emptyCta": "Ver los robots",
+    "quantity": "Cantidad",
+    "update": "Actualizar",
+    "remove": "Quitar",
+    "subtotal": "Subtotal",
+    "taxNote": "Impuestos y envío se calculan al pagar.",
+    "checkout": "Pagar",
+    "checkoutUnavailable": "El pago todavía no está abierto. Escríbenos y reservamos tu unidad.",
+    "rejected": "Esa línea ya no está disponible. Vuelve a cargar la página.",
+    "unavailable": "El carrito no está disponible ahora mismo.",
+    "add": "Añadir al carrito",
+    "added": "Añadido.",
+    "viewCart": "Ver el carrito",
+    "badge": "Carrito",
+    "badgeUnits": "Carrito, {units} unidades"
   }
 }

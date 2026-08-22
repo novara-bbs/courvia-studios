@@ -34,6 +34,7 @@ import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 
 import { ProductCard } from "./product-card";
+import { AddToCart } from "../cart/add-to-cart";
 import { LeadForm } from "../leads/lead-form";
 
 /**
@@ -98,7 +99,10 @@ export async function makeProductSurfaces({
   renderRichText: (value: unknown) => ReactNode;
 }): Promise<(surface: ProductSurface) => ReactNode> {
   const def = REGION_DEFINITIONS[region];
-  const t = await getTranslations({ locale: def.locale, namespace: "catalog" });
+  const [t, tCart] = await Promise.all([
+    getTranslations({ locale: def.locale, namespace: "catalog" }),
+    getTranslations({ locale: def.locale, namespace: "cart" }),
+  ]);
   const { product, variants } = detail;
   // waitlist = capturing interest, not selling: no price, no stock table.
   const status = product.launchStatus ?? "available";
@@ -171,6 +175,38 @@ export async function makeProductSurfaces({
       </section>
     );
 
+  /**
+   * Qué variante se puede comprar de verdad, y por qué el control no está en
+   * el raíl.
+   *
+   * El raíl tiene UNA acción por diseño (brand book §26) y esa acción sigue
+   * siendo la comercial: pedir demo, entrar en la lista, presupuestar. Meter
+   * ahí un «añadir al carrito» obligaría a elegir variante antes de haberla
+   * enseñado, y un selector encima del precio es la parte de la PDP que peor
+   * envejece.
+   *
+   * Así que el control vive en la fila de SU variante, dentro de la tabla que
+   * ya enseña precio y disponibilidad. Es un selector de variante sin
+   * componente de selector: cada fila compra lo suyo, funciona con teclado sin
+   * nada que gestionar y es legible en un lector de pantalla porque la
+   * cabecera de fila es el SKU.
+   *
+   * Y aparece solo cuando la variante es comprable de verdad: precio activo
+   * en ESTE mercado y stock. Sin precio no hay nada que cobrar; agotada, un
+   * botón que añade al carrito algo que el checkout va a rechazar es la clase
+   * de comercio fingido que ADR-029 prohíbe. Con el catálogo de hoy —todo en
+   * lista de espera y sin precios tras ADR-022— esta columna no se pinta ni
+   * una vez, que es exactamente lo que debe pasar.
+   */
+  const buyable = variants.some((offer) => offer.price !== null && offer.available > 0);
+  const addLabels = {
+    submit: tCart("add"),
+    added: tCart("added"),
+    rejected: tCart("rejected"),
+    unavailable: tCart("unavailable"),
+    viewCart: tCart("viewCart"),
+  };
+
   const variantsTable =
     status === "waitlist" ? null : (
       <section className="pdp-variants" aria-labelledby="pdp-variants-title">
@@ -184,6 +220,11 @@ export async function makeProductSurfaces({
                 <th scope="col">{t("variantSport")}</th>
                 <th scope="col">{t("variantPrice")}</th>
                 <th scope="col">{t("variantAvailability")}</th>
+                {buyable ? (
+                  <th scope="col">
+                    <span className="visually-hidden">{tCart("add")}</span>
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -203,6 +244,18 @@ export async function makeProductSurfaces({
                       <span className="stock stock--out">{t("outOfStock")}</span>
                     )}
                   </td>
+                  {buyable ? (
+                    <td>
+                      {offer.price === null || offer.available <= 0 ? null : (
+                        <AddToCart
+                          labels={addLabels}
+                          region={region}
+                          variantId={offer.id}
+                          cartHref={`/${region}/carrito`}
+                        />
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

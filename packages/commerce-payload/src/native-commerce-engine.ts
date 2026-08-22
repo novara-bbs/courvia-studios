@@ -16,9 +16,13 @@
  * existe como método**. Un método presente que lanza es la deformación que
  * ADR-024 diagnosticó y que ADR-029 no repite. De ahí las dos ausencias:
  *
- * 1. **`cart: false` — no hay carrito.** No existe ni la colección ni el
- *    concepto: el flujo de hoy va de la PDP a `createCheckout` con líneas
- *    sueltas. Declarar `cart_write` sería inventarse una capacidad.
+ * 1. **`cart: true` desde la Fase 4.** La colección `carts` guarda sesión,
+ *    mercado, líneas y caducidad, y el owner que le puso la Fase 2. Lo que
+ *    NO guarda es el precio: se lee vivo de `prices` al proyectar, y aun así
+ *    es informativo — el importe que se cobra lo calcula `createCheckout` en
+ *    servidor. Un carrito que guardase el precio enseñaría el de la semana
+ *    pasada; un carrito cuyo precio se creyera autoritativo dejaría que el
+ *    cliente eligiera cuánto paga.
  *
  * 2. **`checkout: []` — y esta es la decisión que hay que justificar.**
  *    `PayloadCommerceService.createCheckout` está escrito, probado y en uso:
@@ -68,9 +72,14 @@ import {
 import type {
   AvailabilityRead,
   CapabilityDeclaring,
+  Cart,
+  CartLineInput,
+  CartRef,
+  CartWrite,
   CatalogRead,
   CommerceOwner,
   CommerceService,
+  CreateCartInput,
   CustomerOrderRead,
   CustomerRef,
   EngineCapabilities,
@@ -92,6 +101,7 @@ import type {
   VariantRef,
 } from "@courvia/commerce-domain";
 import type { ProductFilter } from "@courvia/commerce-domain";
+import { randomUUID } from "node:crypto";
 import type { BasePayload, Where } from "payload";
 
 import { PayloadCommerceService, relationId } from "./payload-commerce-service";
@@ -105,6 +115,27 @@ interface InventoryRow {
   variant: number | string | { id: number | string };
   qtyOnHand: number;
   qtyCommitted: number;
+}
+
+interface PriceRow {
+  variant: number | string | { id: number | string };
+  market: MarketId;
+  amount: number;
+}
+
+interface CartLineRow {
+  variant: number | string | { id: number | string };
+  sku: string;
+  quantity: number;
+}
+
+interface CartRow {
+  id: number | string;
+  sessionId: string;
+  market: MarketId;
+  lines?: CartLineRow[] | null;
+  connectionKey: string;
+  engine: string;
 }
 
 interface OrderRow {
@@ -161,6 +192,62 @@ function baseVariant(offer: VariantOffer): Variant {
   return variant;
 }
 
+/**
+ * Cuánto vive un carrito abandonado.
+ *
+ * Catorce días es lo que tarda alguien en volver a un carrito de verdad, y no
+ * cuesta nada mantenerlo: el carrito **no reserva stock** —el compromiso solo
+ * ocurre tras `paid`, §4 de CLAUDE.md—, así que un carrito viejo no bloquea
+ * una unidad, solo ocupa una fila. Cada escritura lo renueva.
+ */
+const CART_TTL_DAYS = 14;
+
+function cartExpiry(): Date {
+  return new Date(Date.now() + CART_TTL_DAYS * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * El identificador de la sesión de compra, que es a la vez el `externalId`
+ * del `CartRef`.
+ *
+ * Es la misma forma que usa Shopify —el GID del carrito viaja en la cookie y
+ * ES la capacidad de leerlo—, y por eso la capacidad compartida funciona con
+ * los dos motores sin deformar a ninguno. La consecuencia, que hay que tener
+ * presente: **una referencia de carrito es un portador**. No va a un log, ni
+ * a una clave de caché pública, ni a una URL.
+ *
+ * 256 bits de `randomUUID` sin guiones, dos veces: no es adivinable ni
+ * enumerable, a diferencia del id de fila.
+ */
+function newCartSessionId(): string {
+  return `${randomUUID()}${randomUUID()}`.replace(/-/gu, "");
+}
+
+function rowLines(row: CartRow): CartLineRow[] {
+  return row.lines ?? [];
+}
+
+/**
+ * Las líneas listas para volver a escribirse.
+ *
+ * Una lectura puede traer `variant` como número, como cadena o como el
+ * documento poblado, según el `depth`; una escritura solo acepta el número.
+ * Normalizar aquí, una vez, evita que cada mutación tenga que acordarse.
+ */
+interface WritableCartLine {
+  variant: number;
+  sku: string;
+  quantity: number;
+}
+
+function writableLines(row: CartRow): WritableCartLine[] {
+  return rowLines(row).map((entry) => ({
+    variant: Number(relationId(entry.variant)),
+    sku: entry.sku,
+    quantity: entry.quantity,
+  }));
+}
+
 export interface NativeCommerceEngineOptions {
   readonly payload: BasePayload;
   readonly locale: LocaleId;
@@ -175,6 +262,7 @@ export class NativeCommerceEngine
     CapabilityDeclaring<"native">,
     CatalogRead<"native", "exact">,
     AvailabilityRead<"native", "exact">,
+    CartWrite<"native">,
     CustomerOrderRead<"native">,
     ReturnWrite<"native">
 {
@@ -197,8 +285,8 @@ export class NativeCommerceEngine
       catalogRead: true,
       // Cuenta unidades de verdad: `qty_on_hand - qty_committed`.
       availability: "exact",
-      // Ver la cabecera: no existe carrito y no hay pasarela que abra sesión.
-      cart: false,
+      cart: true,
+      // Ver la cabecera: no hay pasarela con credenciales que abra sesión.
       checkout: [],
       customerOrders: true,
       returns: true,
@@ -305,6 +393,97 @@ export class NativeCommerceEngine
     });
   }
 
+  /* --------------------------------------------------------------- carrito */
+
+  /**
+   * El carrito nuevo, con el owner ya puesto.
+   *
+   * Quien pone el owner NO es este método: es el hook `withCommerceOwner` de
+   * la colección, que lo resuelve del binding activo al crear. Aquí se
+   * comprueba después, y no por desconfianza: este motor se construye para
+   * UNA conexión, y si el binding activo hubiera cambiado entre que el
+   * composition root resolvió el owner y que la fila se escribió, el carrito
+   * nacería perteneciendo a otra. Que eso salga como error en vez de como
+   * fila silenciosa es el invariante 1 entero.
+   */
+  async createCart(input: CreateCartInput<"native">): Promise<Cart<"native">> {
+    const lines = await this.#resolveLines(input.lines ?? []);
+    const created = (await this.#payload.create({
+      collection: "carts",
+      data: {
+        sessionId: newCartSessionId(),
+        market: input.market,
+        expiresAt: cartExpiry().toISOString(),
+        lines: lines.map((line) => ({
+          variant: Number(line.variantId),
+          sku: line.sku,
+          quantity: line.quantity,
+        })),
+      },
+      depth: 0,
+      overrideAccess: true,
+    })) as unknown as CartRow;
+    this.#assertRowOwned(created);
+    return this.#project(created);
+  }
+
+  async getCart(ref: CartRef<"native">): Promise<Cart<"native"> | null> {
+    assertOwnsRef(this.owner, ref);
+    const row = await this.#findCart(ref);
+    return row === null ? null : this.#project(row);
+  }
+
+  /**
+   * Añade, o suma si la variante ya estaba.
+   *
+   * Dos líneas de la misma variante serían dos filas que dicen lo mismo y un
+   * total que hay que sumar dos veces; peor, la vista tendría que decidir
+   * cuál enseñar. Se fusionan.
+   */
+  async addLine(ref: CartRef<"native">, line: CartLineInput<"native">): Promise<Cart<"native">> {
+    assertOwnsRef(this.owner, ref);
+    assertOwnsRef(this.owner, line.variant);
+    if (!Number.isInteger(line.quantity) || line.quantity < 1) {
+      throw new Error(`cart_invalid_quantity: ${String(line.quantity)}`);
+    }
+    const row = await this.#requireCart(ref);
+    const [resolved] = await this.#resolveLines([line]);
+    if (resolved === undefined) throw new Error(`cart_unknown_variant: ${line.variant.externalId}`);
+
+    const existing = writableLines(row);
+    const found = existing.find((entry) => String(entry.variant) === resolved.variantId);
+    const next =
+      found === undefined
+        ? [
+            ...existing,
+            { variant: Number(resolved.variantId), sku: resolved.sku, quantity: resolved.quantity },
+          ]
+        : existing.map((entry) =>
+            entry === found ? { ...entry, quantity: entry.quantity + resolved.quantity } : entry,
+          );
+    return this.#write(row, next);
+  }
+
+  /** Cantidad 0 quita la línea; es el contrato de `CartWrite`. */
+  async setLineQuantity(
+    ref: CartRef<"native">,
+    variant: VariantRef<"native">,
+    quantity: number,
+  ): Promise<Cart<"native">> {
+    assertOwnsRef(this.owner, ref);
+    assertOwnsRef(this.owner, variant);
+    if (!Number.isInteger(quantity) || quantity < 0) {
+      throw new Error(`cart_invalid_quantity: ${String(quantity)}`);
+    }
+    const row = await this.#requireCart(ref);
+    const next = writableLines(row)
+      .map((entry) =>
+        String(entry.variant) === variant.externalId ? { ...entry, quantity } : entry,
+      )
+      .filter((entry) => entry.quantity > 0);
+    return this.#write(row, next);
+  }
+
   /* ------------------------------------------------------ pedidos y RMA */
 
   async getOrder(ref: OrderRef<"native">): Promise<NativeOrderView | null> {
@@ -354,6 +533,162 @@ export class NativeCommerceEngine
       orderRef: input.orderRef,
       status: request.status,
       ...(request.refundAmount === undefined ? {} : { refundAmount: request.refundAmount }),
+    };
+  }
+
+  /* ------------------------------------------------------- privado: carrito */
+
+  /**
+   * El carrito de ESTA conexión con esta sesión.
+   *
+   * La consulta filtra por `connectionKey` además de por sesión, y no es
+   * redundante con `assertOwnsRef`: aquella comprueba lo que dice quien
+   * llama, esta comprueba lo que dice la fila. Un carrito de otra conexión no
+   * se contesta `null` —eso escondería la violación— sino que se rechaza en
+   * `#assertRowOwned`.
+   */
+  async #findCart(ref: CartRef<"native">): Promise<CartRow | null> {
+    const result = await this.#payload.find({
+      collection: "carts",
+      where: { sessionId: { equals: ref.externalId } } as Where,
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    });
+    const row = (result.docs as unknown as CartRow[])[0];
+    if (row === undefined) return null;
+    this.#assertRowOwned(row);
+    return row;
+  }
+
+  /** Mutar un carrito que no existe no lo crea: falla. */
+  async #requireCart(ref: CartRef<"native">): Promise<CartRow> {
+    const row = await this.#findCart(ref);
+    if (row === null) throw new Error(`cart_not_found: ${ref.externalId}`);
+    return row;
+  }
+
+  #assertRowOwned(row: CartRow): void {
+    assertOwnsRef(this.owner, {
+      kind: "cart",
+      engine: row.engine as "native",
+      connectionKey: row.connectionKey,
+      externalId: row.sessionId,
+    });
+  }
+
+  /** Las líneas ya normalizadas: `variant` siempre número, nunca el objeto
+   *  poblado que devuelve una lectura con `depth`. */
+  async #write(row: CartRow, lines: WritableCartLine[]): Promise<Cart<"native">> {
+    const updated = (await this.#payload.update({
+      collection: "carts",
+      id: row.id,
+      data: { lines, expiresAt: cartExpiry().toISOString() },
+      depth: 0,
+      overrideAccess: true,
+    })) as unknown as CartRow;
+    return this.#project(updated);
+  }
+
+  /**
+   * Traduce las variantes que llegan a líneas guardables, y **rechaza lo que
+   * no existe o está retirado**.
+   *
+   * Un carrito con una variante inactiva es un carrito que llega al checkout
+   * a que se lo rechacen; decirlo aquí cuesta una consulta y ahorra un
+   * embudo roto.
+   */
+  async #resolveLines(
+    lines: readonly CartLineInput<"native">[],
+  ): Promise<{ variantId: string; sku: string; quantity: number }[]> {
+    if (lines.length === 0) return [];
+    for (const line of lines) assertOwnsRef(this.owner, line.variant);
+    const ids = [...new Set(lines.map((line) => line.variant.externalId))];
+    const result = await this.#payload.find({
+      collection: "variants",
+      where: { id: { in: ids.map(Number) }, active: { equals: true } } as Where,
+      limit: 200,
+      depth: 0,
+      overrideAccess: true,
+    });
+    const skuById = new Map(
+      (result.docs as unknown as VariantRow[]).map((row) => [String(row.id), row.sku]),
+    );
+    return lines.map((line) => {
+      const sku = skuById.get(line.variant.externalId);
+      if (sku === undefined) {
+        throw new Error(`cart_unknown_variant: ${line.variant.externalId}`);
+      }
+      return { variantId: line.variant.externalId, sku, quantity: line.quantity };
+    });
+  }
+
+  /**
+   * La fila, vista como carrito. El precio se lee AQUÍ, no se guarda: es lo
+   * que hace que un carrito de la semana pasada enseñe el precio de hoy.
+   *
+   * `unitAmount` es `null` cuando la variante no tiene precio activo en este
+   * mercado. No es un cero: un cero diría «gratis», y `Money` no tiene forma
+   * de decir «no lo sé». El subtotal se queda en `null` en cuanto una línea
+   * no se pueda sumar, porque un subtotal parcial presentado como total es
+   * peor que ningún subtotal.
+   */
+  async #project(row: CartRow): Promise<Cart<"native">> {
+    const currency = MARKET_DEFINITIONS[row.market].currency;
+    const lines = rowLines(row);
+    const ref: CartRef<"native"> = {
+      kind: "cart",
+      engine: "native",
+      connectionKey: this.owner.connectionKey,
+      externalId: row.sessionId,
+    };
+    if (lines.length === 0) {
+      return {
+        ref,
+        owner: this.owner,
+        market: row.market,
+        currency,
+        lines: [],
+        subtotal: money(0, currency),
+      };
+    }
+
+    const priceResult = await this.#payload.find({
+      collection: "prices",
+      where: {
+        variant: { in: lines.map((line) => Number(relationId(line.variant))) },
+        market: { equals: row.market },
+        active: { equals: true },
+      } as Where,
+      limit: 500,
+      depth: 0,
+      overrideAccess: true,
+    });
+    const amountByVariant = new Map(
+      (priceResult.docs as unknown as PriceRow[]).map((doc) => [relationId(doc.variant), doc.amount]),
+    );
+
+    let subtotal: number | null = 0;
+    const projected = lines.map((line) => {
+      const variantId = relationId(line.variant);
+      const amount = amountByVariant.get(variantId);
+      if (amount === undefined) subtotal = null;
+      else if (subtotal !== null) subtotal += amount * line.quantity;
+      return {
+        variant: this.#ref("variant", variantId),
+        sku: line.sku,
+        quantity: line.quantity,
+        unitAmount: amount === undefined ? null : money(amount, currency),
+      };
+    });
+
+    return {
+      ref,
+      owner: this.owner,
+      market: row.market,
+      currency,
+      lines: projected,
+      subtotal: subtotal === null ? null : money(subtotal, currency),
     };
   }
 

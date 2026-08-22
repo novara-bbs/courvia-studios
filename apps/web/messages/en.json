@@ -143,5 +143,24 @@
       "ignore": "If this was not you, ignore this message. The current password still works and nobody got in.",
       "signature": "The Courvia team"
     }
+  },
+  "cart": {
+    "title": "Your cart",
+    "empty": "You have not added anything yet.",
+    "emptyCta": "See the robots",
+    "quantity": "Quantity",
+    "update": "Update",
+    "remove": "Remove",
+    "subtotal": "Subtotal",
+    "taxNote": "Tax and shipping are calculated at checkout.",
+    "checkout": "Check out",
+    "checkoutUnavailable": "Payment is not open yet. Write to us and we will hold your unit.",
+    "rejected": "That line is no longer available. Reload the page.",
+    "unavailable": "The cart is not available right now.",
+    "add": "Add to cart",
+    "added": "Added.",
+    "viewCart": "View the cart",
+    "badge": "Cart",
+    "badgeUnits": "Cart, {units} units"
   }
 }

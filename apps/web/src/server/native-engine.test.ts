@@ -23,9 +23,10 @@ import {
   exactQuantity,
   stockSignal,
 } from "@courvia/commerce-domain";
-import type { CommerceOwner, CustomerRef, OrderRef } from "@courvia/commerce-domain";
+import type { CartRef, CommerceOwner, CustomerRef, OrderRef, VariantRef } from "@courvia/commerce-domain";
 import {
   describeAvailabilityContract,
+  describeCartContract,
   describeCatalogReadContract,
   describeCustomerOrderContract,
   describeEngineCapabilitiesContract,
@@ -57,6 +58,22 @@ const CUSTOMER_EMAIL = "engine-contract@courvia.test";
 const ON_HAND = 7;
 const COMMITTED = 2;
 const RETIRED_ON_HAND = 9;
+
+/** Carrito de otra conexión: ni se lee ni se toca. */
+const FOREIGN_CART: CartRef = {
+  kind: "cart",
+  engine: "shopify",
+  connectionKey: "some-shop",
+  externalId: "gid://shopify/Cart/1",
+};
+
+/** Variante de otra conexión: no entra en un carrito nativo. */
+const FOREIGN_VARIANT: VariantRef = {
+  kind: "variant",
+  engine: "shopify",
+  connectionKey: "some-shop",
+  externalId: "gid://shopify/ProductVariant/1",
+};
 
 /** Referencia de otra conexión: ni se lee ni se toca. */
 const FOREIGN_ORDER: OrderRef = {
@@ -193,6 +210,14 @@ async function seed(): Promise<void> {
 
 async function cleanup(): Promise<void> {
   const payload = await loadPayload();
+  // Los carritos que crearon las suites de contrato. Se borran por conexión
+  // y no por sesión: cada `createCart` genera una sesión nueva y ninguna se
+  // guarda aquí.
+  await payload.delete({
+    collection: "carts",
+    where: { connectionKey: { equals: OWNER.connectionKey } },
+    overrideAccess: true,
+  });
   const orderIds = [readOrderId, returnOrderId].filter((id) => typeof id === "number");
   if (orderIds.length > 0) {
     await payload.delete({
@@ -266,6 +291,28 @@ if (hasDb && dbIsDisposable) {
     unknownSku: "NOPE-ENG",
   });
 
+  describeCartContract("NativeCommerceEngine", make, {
+    market: "es",
+    // La variante contada, que además tiene precio en `es`: así el contrato
+    // ejercita la proyección con precio y no solo la de `unitAmount: null`.
+    variant: (): VariantRef => ({
+      kind: "variant",
+      engine: "native",
+      connectionKey: OWNER.connectionKey,
+      externalId: String(variantIdBySku.get(COUNTED_SKU) ?? 0),
+    }),
+    foreignVariant: FOREIGN_VARIANT,
+    foreignCart: FOREIGN_CART,
+    unknownCart: {
+      kind: "cart",
+      engine: "native",
+      connectionKey: OWNER.connectionKey,
+      // Una sesión con la forma correcta que no existe: el contrato exige
+      // `null` al leerla y un fallo al mutarla.
+      externalId: "00000000000000000000000000000000ffffffffffffffffffffffffffffffff",
+    },
+  });
+
   describeCustomerOrderContract("NativeCommerceEngine", make, {
     existing: () => Promise.resolve(orderRef(readOrderId)),
     unknown: orderRef(987_654_321),
@@ -289,11 +336,72 @@ if (hasDb && dbIsDisposable) {
   /* ------------------------------- lo que declara, y lo que no declara */
 
   describe("declaración de capacidades del nativo", () => {
-    it("no declara carrito, porque no hay carrito", () => {
-      expect(engine.capabilities.cart).toBe(false);
-      // El contrato ya exige que un no-declarado no exista; esto nombra el
-      // método para que el motivo se lea en el diff del día que aparezca.
-      expect("createCart" in engine).toBe(false);
+    it("declara carrito, y el precio del carrito NO es autoritativo", async () => {
+      expect(engine.capabilities.cart).toBe(true);
+      const variantId = variantIdBySku.get(COUNTED_SKU);
+      if (variantId === undefined) throw new Error("la fixture no creó la variante contada");
+      const variant: VariantRef<"native"> = {
+        kind: "variant",
+        engine: "native",
+        connectionKey: OWNER.connectionKey,
+        externalId: String(variantId),
+      };
+      const cart = await engine.createCart({ market: "es", lines: [{ variant, quantity: 3 }] });
+      // El precio se lee vivo de `prices`, no se copia a la fila: la única
+      // forma de comprobar que es así es que el carrito lo traiga sin que
+      // nadie se lo haya guardado.
+      expect(cart.lines[0]?.unitAmount).toEqual({ amount: 100_000, currency: "EUR" });
+      expect(cart.subtotal).toEqual({ amount: 300_000, currency: "EUR" });
+      const stored = await (await loadPayload()).find({
+        collection: "carts",
+        where: { sessionId: { equals: cart.ref.externalId } },
+        depth: 0,
+        overrideAccess: true,
+      });
+      const line = (stored.docs[0] as unknown as { lines: Record<string, unknown>[] }).lines[0];
+      expect(Object.keys(line ?? {})).not.toContain("unitAmount");
+    });
+
+    it("el mercado decide la moneda del carrito, y no se convierte", async () => {
+      // ADR-05: precios fijos por moneda. El mismo carrito en `uk` vale 90.000
+      // GBP porque hay una fila de precio en GBP, no porque se convierta.
+      const variantId = variantIdBySku.get(COUNTED_SKU);
+      if (variantId === undefined) throw new Error("la fixture no creó la variante contada");
+      const cart = await engine.createCart({
+        market: "uk",
+        lines: [
+          {
+            variant: {
+              kind: "variant",
+              engine: "native",
+              connectionKey: OWNER.connectionKey,
+              externalId: String(variantId),
+            },
+            quantity: 1,
+          },
+        ],
+      });
+      expect(cart.currency).toBe("GBP");
+      expect(cart.subtotal).toEqual({ amount: 90_000, currency: "GBP" });
+    });
+
+    it("una variante retirada no entra en el carrito", async () => {
+      // Dejarla entrar sería llevar al cliente a un checkout que la rechaza.
+      const retiredId = variantIdBySku.get(RETIRED_SKU);
+      if (retiredId === undefined) throw new Error("la fixture no creó la variante retirada");
+      const cart = await engine.createCart({ market: "es" });
+      const error = await rejection(() =>
+        engine.addLine(cart.ref, {
+          variant: {
+            kind: "variant",
+            engine: "native",
+            connectionKey: OWNER.connectionKey,
+            externalId: String(retiredId),
+          },
+          quantity: 1,
+        }),
+      );
+      expect(String(error)).toContain("cart_unknown_variant");
     });
 
     it("no declara checkout mientras ninguna pasarela abra sesión", () => {
@@ -429,8 +537,8 @@ if (hasDb && dbIsDisposable) {
       expect(runtime.availability).not.toBeNull();
       expect(runtime.customerOrders).not.toBeNull();
       expect(runtime.returns).not.toBeNull();
+      expect(runtime.cart).not.toBeNull();
       // Y las ranuras de lo que no declara son null, no un objeto que lanza.
-      expect(runtime.cart).toBeNull();
       expect(runtime.checkout).toBeNull();
       expect(runtime.catalogAdmin).toBeNull();
       expect(runtime.events).toBeNull();

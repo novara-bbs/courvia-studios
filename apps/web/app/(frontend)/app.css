@@ -1315,3 +1315,163 @@ a {
     outline-offset: calc(var(--cv-space-1) * -1);
   }
 }
+
+/* ==========================================================================
+ * El carrito
+ *
+ * Tres superficies y ninguna ventana flotante. Un cajón lateral («drawer»)
+ * costaría gestionar foco atrapado, `inert` sobre el resto de la página, el
+ * cierre con Escape y la restauración del foco al abrir — y todo eso para
+ * enseñar, hoy, un carrito que ninguna variante del catálogo real puede
+ * llenar. La página del carrito es una URL, se comparte, funciona con el
+ * botón de atrás y no atrapa a nadie. El cajón, si hace falta, se añade
+ * encima de esto y no en su lugar.
+ * ========================================================================== */
+
+/* El contador de la cabecera. El superíndice no empuja al texto —position:
+ * absolute sobre un ancla relativa— porque aparece DESPUÉS de hidratar, y un
+ * número que reorganizara la cabecera al llegar sería un salto de maqueta
+ * medible en CLS. */
+.cart-badge {
+  position: relative;
+  flex: 0 0 auto;
+  font-size: var(--cv-font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--cv-color-text);
+  white-space: nowrap;
+  padding-inline-end: var(--cv-space-3);
+}
+
+.cart-badge-count {
+  position: absolute;
+  inset-block-start: calc(var(--cv-space-2) * -1);
+  inset-inline-end: 0;
+  min-inline-size: var(--cv-space-4);
+  padding-inline: var(--cv-space-1);
+  border-radius: var(--cv-radius-pill);
+  background: var(--cv-color-fill-accent);
+  color: var(--cv-color-on-fill-accent);
+  font-size: var(--cv-font-size-xs);
+  line-height: var(--cv-space-4);
+  text-align: center;
+}
+
+/* El control de compra de la tabla de variantes. */
+.cart-add {
+  display: grid;
+  gap: var(--cv-space-1);
+  justify-items: start;
+}
+
+.cart-add-status {
+  margin: 0;
+  font-size: var(--cv-font-size-xs);
+  color: var(--cv-color-text-muted);
+  /* Reserva sitio para el mensaje que llega tras enviar: sin esto, la fila
+   * de la tabla crece al confirmar y empuja las de abajo. */
+  min-block-size: var(--cv-space-4);
+}
+
+/* La página. */
+.cart-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--cv-space-4);
+}
+
+.cart-line {
+  display: grid;
+  gap: var(--cv-space-2);
+  padding-block: var(--cv-space-4);
+  border-block-end: 1px solid var(--cv-color-border);
+}
+
+.cart-line-title {
+  display: grid;
+  gap: var(--cv-space-1);
+  font-weight: 600;
+}
+
+.cart-line-sku {
+  font-family: var(--cv-font-data, monospace);
+  font-size: var(--cv-font-size-xs);
+  text-transform: uppercase;
+  color: var(--cv-color-text-muted);
+}
+
+.cart-line-price,
+.cart-line-total {
+  margin: 0;
+}
+
+.cart-line-total {
+  font-weight: 600;
+}
+
+.cart-line-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cv-space-2);
+}
+
+.cart-line-update {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+}
+
+.cart-line-error {
+  margin: 0;
+  font-size: var(--cv-font-size-sm);
+  color: var(--cv-color-text);
+}
+
+.cart-summary {
+  display: grid;
+  gap: var(--cv-space-2);
+  justify-items: start;
+  padding-block-start: var(--cv-space-6);
+}
+
+.cart-subtotal {
+  display: flex;
+  gap: var(--cv-space-3);
+  align-items: baseline;
+  margin: 0;
+  font-size: var(--cv-font-size-lg);
+}
+
+.cart-note,
+.cart-blocked {
+  margin: 0;
+  font-size: var(--cv-font-size-sm);
+  color: var(--cv-color-text-muted);
+}
+
+.cart-empty {
+  display: grid;
+  gap: var(--cv-space-4);
+  justify-items: start;
+}
+
+/* Por encima de la medida de un móvil, la línea se lee como una fila: qué
+ * es, a cuánto, cuántos, y cuánto suma. */
+@media (min-width: 680px) {
+  .cart-line {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--cv-space-4);
+  }
+
+  .cart-line-total {
+    text-align: end;
+  }
+
+  .cart-line-error {
+    grid-column: 1 / -1;
+  }
+}

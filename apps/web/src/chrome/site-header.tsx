@@ -3,14 +3,16 @@ import { REGION_DEFINITIONS } from "@courvia/platform";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { CartBadge } from "../cart/cart-badge";
 import { getNavigation } from "./get-navigation";
 import { MobileMenu } from "./mobile-menu";
 
 export async function SiteHeader({ region }: { region: RegionId }) {
   const def = REGION_DEFINITIONS[region];
-  const [nav, t] = await Promise.all([
+  const [nav, t, tCart] = await Promise.all([
     getNavigation(def.locale),
     getTranslations({ locale: def.locale, namespace: "nav" }),
+    getTranslations({ locale: def.locale, namespace: "cart" }),
   ]);
   // One list of hrefs for both renderings of the nav: the bar below
   // --cv-breakpoint-md and the disclosure above it show the same links, and
@@ -45,6 +47,15 @@ export async function SiteHeader({ region }: { region: RegionId }) {
             {nav.headerCta.label}
           </Link>
         )}
+        {/* El contador se pinta en cliente desde una cookie legible. Leer la
+            sesión aquí volvería dinámicas TODAS las rutas de `/[region]`
+            —la cabecera está en su layout— y un contador no vale una caché.
+            El porqué completo está en `src/cart/session.ts`. */}
+        <CartBadge
+          href={`/${region}/carrito`}
+          label={tCart("badge")}
+          unitsLabel={tCart("badgeUnits")}
+        />
         {links.length === 0 ? null : (
           <MobileMenu
             links={links}

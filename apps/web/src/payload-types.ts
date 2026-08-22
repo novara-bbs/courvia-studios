@@ -2809,7 +2809,7 @@ export interface Carrier {
   createdAt: string;
 }
 /**
- * SERVER ONLY. Phase 2: ownership only (which connection governs this cart). Lines and the flow arrive in Phase 4.
+ * SERVER ONLY. Which connection governs this cart and what is in it. The price is not stored: it is read live, and the amount charged is computed by checkout.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "carts".
@@ -2820,6 +2820,25 @@ export interface Cart {
    * An opaque id for the shopping session. Neither a user id nor an email address.
    */
   sessionId: string;
+  /**
+   * The market it was born with. The currency derives from this, not from a separate column (ADR-05).
+   */
+  market: 'es' | 'uk' | 'ae';
+  lines?:
+    | {
+        variant: number | Variant;
+        /**
+         * Copied from the variant when the line is added, so reconciliation survives a rename.
+         */
+        sku: string;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * An abandoned cart is not an eternal one. The sweep deletes it; it reserves no stock, so expiring frees nothing.
+   */
+  expiresAt: string;
   /**
    * Storefront del que salió. Se fija al crear.
    */
@@ -4391,6 +4410,16 @@ export interface OrdersSelect<T extends boolean = true> {
  */
 export interface CartsSelect<T extends boolean = true> {
   sessionId?: T;
+  market?: T;
+  lines?:
+    | T
+    | {
+        variant?: T;
+        sku?: T;
+        quantity?: T;
+        id?: T;
+      };
+  expiresAt?: T;
   siteKey?: T;
   engine?: T;
   connectionKey?: T;

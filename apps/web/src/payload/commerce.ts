@@ -328,21 +328,34 @@ export const Returns: CollectionConfig = {
 };
 
 /**
- * El carrito, y solo su esqueleto de propiedad.
+ * El carrito.
  *
- * **Esto NO es el carrito.** No tiene líneas, ni totales, ni caducidad, ni
- * casos de uso: eso es la Fase 4 del plan. Lo que existe aquí es la fila
- * donde vive el dueño, y existe ahora por un motivo concreto: ADR-029 dice
- * que el owner se fija **al crear el carrito** y viaja con él hasta el final
- * de su vida. Un carrito que naciera sin esas columnas obligaría a añadirlas
- * después a filas que ya existen, y «después» es donde se cuelan los
- * carritos huérfanos que la Fase 4 tendría que adivinar a quién pertenecen.
+ * La Fase 2 dejó aquí solo el esqueleto de propiedad, y por un motivo que
+ * sigue mandando: ADR-029 dice que el owner se fija **al crear el carrito** y
+ * viaja con él hasta el final de su vida. `withCommerceOwner`
+ * (src/payload/commerce-connections.ts) añade siteKey, engine, connectionKey
+ * y bindingRevision y los rellena desde el binding activo al crear. La
+ * inmutabilidad no la da esta declaración: la da un trigger en Postgres,
+ * porque `overrideAccess: true` —que es como escribe todo el dominio— se
+ * salta el acceso por campo por diseño.
  *
- * `withCommerceOwner` (src/payload/commerce-connections.ts) añade siteKey,
- * engine, connectionKey y bindingRevision, y los rellena desde el binding
- * activo al crear. La inmutabilidad no la da esta declaración: la da un
- * trigger en Postgres, porque `overrideAccess: true` —que es como escribe
- * todo el dominio— se salta el acceso por campo por diseño.
+ * La Fase 4 le pone dentro lo que se compra. Tres decisiones que no son
+ * obvias y que conviene leer antes de añadir una columna:
+ *
+ * 1. **El precio NO se guarda.** El pedido sí copia `unitAmount` al nacer
+ *    —ahí es un contrato, y ADR-05 quiere que un pedido de hace un mes siga
+ *    diciendo lo que costó—, pero un carrito guardando el precio es un
+ *    carrito que enseña un precio viejo la semana que viene. Se lee vivo de
+ *    `prices` al proyectar el carrito, y aun así es informativo: el total que
+ *    se cobra lo calcula el servidor en `createCheckout` (§4 de CLAUDE.md).
+ *
+ * 2. **La moneda tampoco.** Sale del mercado por `MARKET_DEFINITIONS`
+ *    (ADR-05: solo se guarda uno de los dos, así que no pueden discrepar).
+ *
+ * 3. **`market` es inmutable de hecho, no de derecho.** Cambiarlo con líneas
+ *    dentro dejaría un carrito con precios de otra moneda; los casos de uso
+ *    crean un carrito nuevo en vez de mover el que hay. No lleva trigger
+ *    porque, a diferencia del owner, no decide quién manda sobre el dinero.
  */
 export const Carts: CollectionConfig = {
   slug: "carts",
@@ -353,11 +366,11 @@ export const Carts: CollectionConfig = {
   admin: {
     useAsTitle: "sessionId",
     group: COMMERCE_GROUP,
-    defaultColumns: ["sessionId", "engine", "connectionKey", "createdAt"],
+    defaultColumns: ["sessionId", "market", "engine", "connectionKey", "updatedAt"],
     description: {
-      es: "SOLO SERVIDOR. Fase 2: únicamente la propiedad (qué conexión manda sobre este carrito). Las líneas y el flujo llegan en la Fase 4.",
-      en: "SERVER ONLY. Phase 2: ownership only (which connection governs this cart). Lines and the flow arrive in Phase 4.",
-      ar: "من الخادم فقط. المرحلة الثانية: الملكية فقط (أي اتصال يحكم هذه السلة). تصل البنود والتدفّق في المرحلة الرابعة.",
+      es: "SOLO SERVIDOR. Qué conexión manda sobre este carrito y qué lleva dentro. El precio no se guarda: se lee vivo, y el importe que se cobra lo calcula el checkout.",
+      en: "SERVER ONLY. Which connection governs this cart and what is in it. The price is not stored: it is read live, and the amount charged is computed by checkout.",
+      ar: "من الخادم فقط. أي اتصال يحكم هذه السلة وما بداخلها. السعر غير مخزَّن: يُقرأ حيًّا، والمبلغ المحصَّل يحسبه الدفع.",
     },
   },
   access: serverOnly,
@@ -373,6 +386,53 @@ export const Carts: CollectionConfig = {
           es: "Identificador opaco de la sesión de compra. Ni un id de usuario ni un email.",
           en: "An opaque id for the shopping session. Neither a user id nor an email address.",
           ar: "معرّف مبهم لجلسة الشراء. ليس معرّف مستخدم ولا بريدًا إلكترونيًا.",
+        },
+      },
+    },
+    {
+      name: "market",
+      type: "select",
+      required: true,
+      index: true,
+      options: [...MARKETS],
+      admin: {
+        description: {
+          es: "El mercado con el que nació. La moneda sale de aquí, no de una columna aparte (ADR-05).",
+          en: "The market it was born with. The currency derives from this, not from a separate column (ADR-05).",
+          ar: "السوق الذي وُلدت به. تُشتق العملة من هنا لا من عمود منفصل (ADR-05).",
+        },
+      },
+    },
+    {
+      name: "lines",
+      type: "array",
+      fields: [
+        { name: "variant", type: "relationship", relationTo: "variants", required: true },
+        {
+          name: "sku",
+          type: "text",
+          required: true,
+          admin: {
+            description: {
+              es: "Copiado de la variante al añadir la línea, para poder conciliar aunque la variante se renombre.",
+              en: "Copied from the variant when the line is added, so reconciliation survives a rename.",
+              ar: "منسوخ من المتغيّر عند إضافة البند، لتبقى المطابقة ممكنة بعد إعادة التسمية.",
+            },
+          },
+        },
+        { name: "quantity", type: "number", required: true, min: 1, validate: minorUnits },
+      ],
+    },
+    {
+      name: "expiresAt",
+      type: "date",
+      required: true,
+      index: true,
+      admin: {
+        description: {
+          es: "Un carrito abandonado no es un carrito eterno. La barrida lo borra; no reserva stock, así que caducar no libera nada.",
+          en: "An abandoned cart is not an eternal one. The sweep deletes it; it reserves no stock, so expiring frees nothing.",
+          ar: "السلة المهجورة ليست أبدية. يحذفها المسح؛ وهي لا تحجز مخزونًا، فانتهاؤها لا يحرّر شيئًا.",
         },
       },
     },

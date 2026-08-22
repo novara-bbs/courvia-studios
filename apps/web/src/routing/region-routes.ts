@@ -93,6 +93,7 @@ export const RESERVED_ROUTES: Record<string, ReservedRoute> = {
   c: { index: false, child: "categories" },
   comparar: { index: true, child: null },
   gracias: { index: true, child: null },
+  carrito: { index: true, child: null },
 };
 
 export type RouteDecision =

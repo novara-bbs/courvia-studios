@@ -286,8 +286,16 @@ export function describeAvailabilityContract(
 
 export interface CartFixtures {
   market: MarketId;
-  /** Variante de ESTA conexión. */
-  variant: VariantRef;
+  /**
+   * Variante de ESTA conexión.
+   *
+   * Es una función y no un valor por la misma razón que `CustomerOrderFixtures.existing`:
+   * un adaptador de verdad crea su fixture en `beforeAll`, y un valor se
+   * evalúa al recoger la suite —antes de que la fila exista— así que el
+   * contrato correría contra un id inventado y pasaría por el motivo
+   * equivocado. Un fake puede devolver una constante; un adaptador real, no.
+   */
+  variant: () => VariantRef;
   /** Variante de otra conexión: no puede entrar. */
   foreignVariant: VariantRef;
   /** Carrito de otra conexión: no se puede ni leer ni tocar. */
@@ -314,9 +322,9 @@ export function describeCartContract(
       const engine = await make();
       const created = await engine.createCart({
         market: fixtures.market,
-        lines: [{ variant: fixtures.variant, quantity: 1 }],
+        lines: [{ variant: fixtures.variant(), quantity: 1 }],
       });
-      const cart = await engine.addLine(created.ref, { variant: fixtures.variant, quantity: 1 });
+      const cart = await engine.addLine(created.ref, { variant: fixtures.variant(), quantity: 1 });
       expect(cart.lines.length).toBeGreaterThan(0);
       for (const line of cart.lines) {
         expect(ownsRef(cart.owner, line.variant)).toBe(true);
@@ -344,7 +352,7 @@ export function describeCartContract(
       );
       await rejectsWithoutSyncThrow(
         "addLine",
-        () => engine.addLine(fixtures.foreignCart, { variant: fixtures.variant, quantity: 1 }),
+        () => engine.addLine(fixtures.foreignCart, { variant: fixtures.variant(), quantity: 1 }),
         CommerceOwnerMismatchError,
       );
     });
@@ -355,7 +363,7 @@ export function describeCartContract(
       let created: unknown = null;
       try {
         created = await engine.addLine(fixtures.unknownCart, {
-          variant: fixtures.variant,
+          variant: fixtures.variant(),
           quantity: 1,
         });
       } catch {
@@ -368,10 +376,10 @@ export function describeCartContract(
       const engine = await make();
       const created = await engine.createCart({
         market: fixtures.market,
-        lines: [{ variant: fixtures.variant, quantity: 2 }],
+        lines: [{ variant: fixtures.variant(), quantity: 2 }],
       });
-      const emptied = await engine.setLineQuantity(created.ref, fixtures.variant, 0);
-      expect(emptied.lines.some((l) => l.variant.externalId === fixtures.variant.externalId)).toBe(
+      const emptied = await engine.setLineQuantity(created.ref, fixtures.variant(), 0);
+      expect(emptied.lines.some((l) => l.variant.externalId === fixtures.variant().externalId)).toBe(
         false,
       );
     });
