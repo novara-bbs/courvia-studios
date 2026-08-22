@@ -4,7 +4,8 @@
  * `describeCatalogContract` is the SAME suite `commerce-payload` runs. If it
  * passes here, "the frontend consumes only the port" stops being a sentence
  * in CLAUDE.md §3.1 and becomes a fact a second, wholly unrelated backend
- * satisfies. The checkout half is asserted to throw, because the contract
+ * satisfies. The checkout half is asserted to REJECT — through the promise,
+ * never synchronously, so a caller's .catch() sees it — because the contract
  * explicitly prefers a loud NotImplementedError to a convincing lie.
  */
 import { NotImplementedError, money } from "@courvia/commerce-domain";
@@ -43,22 +44,26 @@ describe("the half Shopify keeps for itself", () => {
     provider: "stripe",
   };
 
-  it("throws NotImplementedError for createCheckout instead of inventing an order", () => {
-    expect(() => make().createCheckout(CHECKOUT)).toThrow(NotImplementedError);
+  // Calling first and awaiting after is the point: if the method threw
+  // synchronously the call expression itself would fail the test, which is
+  // the same guarantee the domain's `rejectsWithoutSyncThrow` encodes.
+  it("rejects createCheckout with NotImplementedError instead of inventing an order", async () => {
+    const promise = make().createCheckout(CHECKOUT);
+    await expect(promise).rejects.toBeInstanceOf(NotImplementedError);
   });
 
-  it("throws NotImplementedError for getOrder", () => {
-    expect(() => make().getOrder("gid://shopify/Order/1")).toThrow(NotImplementedError);
+  it("rejects getOrder with NotImplementedError", async () => {
+    const promise = make().getOrder("gid://shopify/Order/1");
+    await expect(promise).rejects.toBeInstanceOf(NotImplementedError);
   });
 
-  it("throws NotImplementedError for requestReturn", () => {
-    expect(() =>
-      make().requestReturn({
-        orderId: "gid://shopify/Order/1",
-        lines: CHECKOUT.lines,
-        reason: "damaged",
-      }),
-    ).toThrow(NotImplementedError);
+  it("rejects requestReturn with NotImplementedError", async () => {
+    const promise = make().requestReturn({
+      orderId: "gid://shopify/Order/1",
+      lines: CHECKOUT.lines,
+      reason: "damaged",
+    });
+    await expect(promise).rejects.toBeInstanceOf(NotImplementedError);
   });
 });
 

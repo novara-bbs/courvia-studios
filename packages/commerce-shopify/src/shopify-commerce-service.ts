@@ -8,11 +8,14 @@
  * its own checkout and issues its own orders, so `createCheckout`,
  * `getOrder` and `requestReturn` cannot be honoured on this API at all.
  *
- * They therefore THROW. The domain's own contract comment authorises exactly
- * this ("the adapter must THROW NotImplementedError, never pretend"), and
- * pretending would be worse than failing: a `createCheckout` that quietly
- * returned a fabricated order id would put a row into the state machine that
- * no payment webhook will ever advance.
+ * They therefore REJECT — through the promise they declare, so a caller's
+ * `.catch()` always sees the failure (the domain's `rejectsWithoutSyncThrow`
+ * forbids the sync-throw shape on every other port). The domain's contract
+ * comment authorises exactly this ("the adapter must THROW
+ * NotImplementedError, never pretend"), and pretending would be worse than
+ * failing: a `createCheckout` that quietly returned a fabricated order id
+ * would put a row into the state machine that no payment webhook will ever
+ * advance.
  *
  * Read ADR-024 before wiring this to a real shop. It is a study, not a
  * migration: the leaks it surfaces (integer stock, runtime currency
@@ -166,9 +169,13 @@ export class ShopifyCommerceService implements CommerceService {
    * we own — so this method has nothing truthful to return.
    */
   createCheckout(_input: CheckoutInput): Promise<Checkout> {
-    throw new NotImplementedError(
-      "createCheckout",
-      "shopify: the cart redirects to cart.checkoutUrl and Shopify creates the order (ADR-024 §4)",
+    // Promise.reject, not async+throw: `require-await` bans an async body
+    // with nothing to await, and a sync throw would bypass the caller's catch.
+    return Promise.reject(
+      new NotImplementedError(
+        "createCheckout",
+        "shopify: the cart redirects to cart.checkoutUrl and Shopify creates the order (ADR-024 §4)",
+      ),
     );
   }
 
@@ -179,16 +186,20 @@ export class ShopifyCommerceService implements CommerceService {
    * the Admin API must never be reachable from a storefront.
    */
   getOrder(_id: string): Promise<Order | null> {
-    throw new NotImplementedError(
-      "getOrder",
-      "shopify: needs the Customer Account API (OAuth 2.0) or the Admin API, neither of which belongs in a storefront (ADR-024 §4)",
+    return Promise.reject(
+      new NotImplementedError(
+        "getOrder",
+        "shopify: needs the Customer Account API (OAuth 2.0) or the Admin API, neither of which belongs in a storefront (ADR-024 §4)",
+      ),
     );
   }
 
   requestReturn(_input: ReturnInput): Promise<ReturnRequest> {
-    throw new NotImplementedError(
-      "requestReturn",
-      "shopify: an Admin API operation against a Shopify-owned order (ADR-024 §4)",
+    return Promise.reject(
+      new NotImplementedError(
+        "requestReturn",
+        "shopify: an Admin API operation against a Shopify-owned order (ADR-024 §4)",
+      ),
     );
   }
 
