@@ -13,10 +13,12 @@
  */
 import { LAUNCH_STATUSES, SPEC_EVIDENCE_LEVELS } from "@courvia/commerce-domain";
 import { MARKETS, SPORTS } from "@courvia/platform";
-import type { CollectionConfig, Field } from "payload";
+import { APIError } from "payload";
+import type { CollectionBeforeDeleteHook, CollectionConfig, Field } from "payload";
 
 import { anyone, hiddenUnlessAdmin, isAdmin, isAuthenticated } from "./access";
-import { PANEL_GROUPS } from "./admin-copy";
+import { PANEL_GROUPS, panelText } from "./admin-copy";
+import type { LocalizedText } from "./admin-copy";
 import { catalogHooks, revalidateCatalog } from "./catalog-revalidation";
 import { editorialKeyField } from "./commerce-connections";
 import { previewRegion, previewUrl } from "./preview";
@@ -29,6 +31,104 @@ function affectsPublished(doc: { _status?: unknown }, previousDoc?: { _status?: 
 }
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Borrar con dependientes se RECHAZA, con nombre y en el idioma del panel.
+ *
+ * El esquema no protege este caso: `variants.product_id` — y
+ * `prices/inventory/orders_lines.variant_id` — son NOT NULL con FK
+ * `ON DELETE SET NULL`, así que borrar el padre no desengancha nada:
+ * revienta con un 23502 crudo delante del editor. Y una línea de pedido es
+ * una tabla financiera: la variante que vendió no puede evaporarse nunca,
+ * borrarla deja el pedido sin saber qué vendió. Products y variants tampoco
+ * pasan por la papelera (`trash.ts` cubre pages/redirects), de modo que el
+ * botón del panel es un hard delete.
+ *
+ * Estos hooks convierten el 23502 en una negativa que dice qué depende y
+ * qué hacer en su lugar. El `ON DELETE RESTRICT` a nivel de esquema — que
+ * la base diga lo mismo — queda para una migración propia.
+ */
+const DELETE_COPY = {
+  productHasVariants: {
+    es: "No se puede borrar: {count} variante(s) dependen de este producto ({skus}). Borra o reasigna las variantes primero.",
+    en: "Cannot delete: {count} variant(s) depend on this product ({skus}). Delete or reassign the variants first.",
+    ar: "لا يمكن الحذف: يعتمد {count} من المتغيّرات على هذا المنتج ({skus}). احذف المتغيّرات أو أعد إسنادها أولًا.",
+  },
+  variantHasDependents: {
+    es: "No se puede borrar el SKU {sku}: lo referencian {prices} precio(s), {inventory} fila(s) de inventario y {orders} pedido(s). Desactívalo («active») en su lugar.",
+    en: "Cannot delete SKU {sku}: {prices} price(s), {inventory} inventory row(s) and {orders} order(s) reference it. Deactivate it (“active”) instead.",
+    ar: "لا يمكن حذف رمز التخزين {sku}: يشير إليه {prices} من الأسعار و{inventory} من صفوف المخزون و{orders} من الطلبات. عطّله («active») بدلًا من ذلك.",
+  },
+} satisfies Record<string, LocalizedText>;
+
+/** Una negativa en el idioma del panel, con los huecos sustituidos tras
+ *  resolver — nunca concatenados antes: el árabe reordena. */
+function refusal(
+  copy: LocalizedText,
+  req: { i18n?: { language?: string } },
+  values: Record<string, string>,
+): APIError {
+  let text = panelText(copy, req.i18n?.language);
+  for (const [key, value] of Object.entries(values)) text = text.replace(`{${key}}`, value);
+  return new APIError(text, 400);
+}
+
+const refuseProductDeleteWithVariants: CollectionBeforeDeleteHook = async ({ req, id }) => {
+  // `req` dentro de la consulta: la comprobación corre en la transacción
+  // del propio borrado, no en una foto anterior.
+  const dependents = await req.payload.find({
+    collection: "variants",
+    where: { product: { equals: id } },
+    limit: 3,
+    depth: 0,
+    overrideAccess: true,
+    req,
+  });
+  if (dependents.totalDocs === 0) return;
+  const listed = dependents.docs.map((variant) => variant.sku).join(", ");
+  const skus = dependents.totalDocs > dependents.docs.length ? `${listed}, …` : listed;
+  throw refusal(DELETE_COPY.productHasVariants, req, {
+    count: String(dependents.totalDocs),
+    skus,
+  });
+};
+
+const refuseVariantDeleteWithDependents: CollectionBeforeDeleteHook = async ({ req, id }) => {
+  const variant = await req.payload.findByID({
+    collection: "variants",
+    id,
+    depth: 0,
+    overrideAccess: true,
+    req,
+  });
+  // En secuencia, no en Promise.all: las tres comparten la sesión de la
+  // transacción del borrado, que es una sola conexión.
+  const prices = await req.payload.count({
+    collection: "prices",
+    where: { variant: { equals: id } },
+    overrideAccess: true,
+    req,
+  });
+  const inventory = await req.payload.count({
+    collection: "inventory",
+    where: { variant: { equals: id } },
+    overrideAccess: true,
+    req,
+  });
+  const orders = await req.payload.count({
+    collection: "orders",
+    where: { "lines.variant": { equals: id } },
+    overrideAccess: true,
+    req,
+  });
+  if (prices.totalDocs + inventory.totalDocs + orders.totalDocs === 0) return;
+  throw refusal(DELETE_COPY.variantHasDependents, req, {
+    sku: variant.sku,
+    prices: String(prices.totalDocs),
+    inventory: String(inventory.totalDocs),
+    orders: String(orders.totalDocs),
+  });
+};
 
 /**
  * The SKU a price or a stock row is about, borrowed from its variant.
@@ -217,6 +317,7 @@ export const Products: CollectionConfig = {
         if (previousDoc?.slug && previousDoc.slug !== doc.slug) revalidateCatalog(previousDoc.slug);
       },
     ],
+    beforeDelete: [refuseProductDeleteWithVariants],
     afterDelete: [({ doc }) => revalidateCatalog(doc.slug)],
   },
   fields: [
@@ -420,7 +521,7 @@ export const Variants: CollectionConfig = {
   // sellable configuration. An editor writes the product page; the SKU that
   // page sells is not editorial.
   access: { read: isAuthenticated, create: isAdmin, update: isAdmin, delete: isAdmin },
-  hooks: catalogHooks("product"),
+  hooks: { ...catalogHooks("product"), beforeDelete: [refuseVariantDeleteWithDependents] },
   fields: [
     { name: "product", type: "relationship", relationTo: "products", required: true, index: true },
     {
