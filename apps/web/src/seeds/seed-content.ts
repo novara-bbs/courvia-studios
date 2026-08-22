@@ -1421,6 +1421,143 @@ await seedComposedPage(
   ],
 );
 
+/* --- landing de deporte: pádel (roadmap S1 · tarea 14) ------------------- */
+// Hero + bento, como pide el plan: la puerta por deporte. El copy reutiliza
+// afirmaciones que ya viven en home y tecnología — la cifra «≤90 s» de
+// tecnología es un objetivo declarado y por eso aquí no hay números: un
+// bento no tiene campo de estado de evidencia, y sin estado no se afirma.
+
+await seedComposedPage(
+  "padel",
+  { es: "Pádel", en: "Padel" },
+  [
+    {
+      blockType: "stage",
+      level: "h1",
+      eyebrow: "Pádel",
+      heading: "La bola vuelve de la pared. Tú ya estás colocado.",
+      lead: "Tempo R1 abre la gama en pádel: secuencias calibradas por bola, pista y unidad — globo, bandeja, víbora y salida de pared. Sin cuenta, sin nube y sin teléfono.",
+      ctas: [
+        { label: "Conoce Tempo R1", href: "/robots/tempo-r1" },
+        { label: "Compara la gama", href: "/comparar" },
+      ],
+      note: "Lista de lanzamiento abierta · sin pago ni compromiso",
+      ...(mediaIds.has("tempo-r1-hero-a002.webp")
+        ? { media: mediaIds.get("tempo-r1-hero-a002.webp") }
+        : {}),
+      appearance: {
+        width: "full",
+        height: "tall",
+        overlay: "strong",
+        spaceBlockStart: "none",
+        spaceBlockEnd: "md",
+      },
+    },
+    {
+      blockType: "bento",
+      blockName: "Pádel nativo",
+      heading: "Hecho para la bola de pádel",
+      items: [
+        {
+          span: "lg",
+          ...bentoImage(mediaIds.get("tempo-r1-schematic.webp")),
+          eyebrow: "Calibración",
+          title: "La bola de pádel manda",
+          body: "Bota más baja y pesa distinto. Cada secuencia lleva su curva de presión y de par, no un adaptador de tenis.",
+        },
+        {
+          span: "md",
+          eyebrow: "Guion",
+          title: "La pared está en el guion",
+          body: "Las secuencias cuentan con la salida de pared: la bola que vuelve también se entrena, no se improvisa.",
+        },
+        {
+          span: "md",
+          eyebrow: "Control",
+          title: "Sin cuenta, sin nube, sin teléfono",
+          body: "El mando manda. Eliges globo, bandeja, víbora o pared con su ritmo, y juegas.",
+        },
+        {
+          span: "md",
+          eyebrow: "Transporte",
+          title: "De maletero a primera bola",
+          body: "Una base con asa y ruedas y una tolva de dos pestillos. El montaje es parte del producto: si cuesta, se entrena menos.",
+        },
+        {
+          span: "md",
+          eyebrow: "Energía",
+          title: "Batería extraíble",
+          body: "Se carga fuera de la máquina y se sustituye cuando envejece. Una celda cansada no jubila un robot.",
+        },
+      ],
+      appearance: { background: "surface", divider: "hairline", reveal: "rise" },
+    },
+  ],
+  [
+    {
+      blockType: "stage",
+      level: "h1",
+      eyebrow: "Padel",
+      heading: "The ball comes off the wall. You are already set.",
+      lead: "Tempo R1 opens the range in padel: sequences calibrated per ball, court and unit — lob, bandeja, víbora and wall play. No account, no cloud, no phone.",
+      ctas: [
+        { label: "Meet Tempo R1", href: "/robots/tempo-r1" },
+        { label: "Compare the range", href: "/comparar" },
+      ],
+      note: "Launch list open · no payment, no commitment",
+      ...(mediaIds.has("tempo-r1-hero-a002.webp")
+        ? { media: mediaIds.get("tempo-r1-hero-a002.webp") }
+        : {}),
+      appearance: {
+        width: "full",
+        height: "tall",
+        overlay: "strong",
+        spaceBlockStart: "none",
+        spaceBlockEnd: "md",
+      },
+    },
+    {
+      blockType: "bento",
+      blockName: "Native padel",
+      heading: "Built for the padel ball",
+      items: [
+        {
+          span: "lg",
+          ...bentoImage(mediaIds.get("tempo-r1-schematic.webp")),
+          eyebrow: "Calibration",
+          title: "The padel ball rules",
+          body: "It bounces lower and weighs differently. Each sequence carries its own pressure and torque curve, not a tennis adapter.",
+        },
+        {
+          span: "md",
+          eyebrow: "Scripts",
+          title: "The wall is in the script",
+          body: "Sequences account for the ball coming back off the glass: the rebound is trained, not improvised.",
+        },
+        {
+          span: "md",
+          eyebrow: "Control",
+          title: "No account, no cloud, no phone",
+          body: "The remote rules. Pick lob, bandeja, víbora or wall play at your pace, and play.",
+        },
+        {
+          span: "md",
+          eyebrow: "Transport",
+          title: "From the boot to the first ball",
+          body: "A base with a handle and wheels, a hopper with two latches. Setup is part of the product: if it costs effort, you train less.",
+        },
+        {
+          span: "md",
+          eyebrow: "Energy",
+          title: "Removable battery",
+          body: "It charges outside the machine and gets replaced when it ages. A tired cell does not retire a robot.",
+        },
+      ],
+      appearance: { background: "surface", divider: "hairline", reveal: "rise" },
+    },
+  ],
+);
+
 /* --- plantillas duplicables --------------------------------------------- */
 // El escalón de productividad de marketing en su versión barata y real: tres
 // páginas EN BORRADOR con la composición ya montada, para que el editor use

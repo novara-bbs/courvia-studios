@@ -19,9 +19,10 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-/** Las cuatro superficies con maquetación propia. Una landing del CMS, una
- *  ficha, el carrito y el comparador — que es la más ancha que existe. */
-const ROUTES = ["/es", "/es/robots/tempo-r1", "/es/carrito", "/es/comparar"];
+/** Las superficies con maquetación propia. Dos landings del CMS (la home y
+ *  la de deporte), una ficha, el carrito y el comparador — que es la más
+ *  ancha que existe. */
+const ROUTES = ["/es", "/es/padel", "/es/robots/tempo-r1", "/es/carrito", "/es/comparar"];
 
 const WIDTHS = [320, 390];
 
