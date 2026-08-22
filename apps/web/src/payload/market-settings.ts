@@ -14,67 +14,91 @@ export const MarketSettings: GlobalConfig = {
   slug: "market-settings",
   label: { es: "Mercados", en: "Markets", ar: "الأسواق" },
   /**
-   * ---------------------------------------------------------------------
-   * `dbName`, and it is not cosmetic: without it this global cannot HAVE
-   * versions at all.
-   * ---------------------------------------------------------------------
+   * -----------------------------------------------------------------------
+   * `dbName`, y por qué sigue aquí cuando lo que lo justificaba ya no está
+   * -----------------------------------------------------------------------
    *
-   * Payload names a global's version table `_<name>_v` and prefixes every
-   * nested table from there with `version_`
-   * (@payloadcms/drizzle createTableName + buildVersionGlobalFields). The
-   * deepest table under this global is the `methods` select inside
-   * `paymentProviders` inside `markets`, which today is
-   * `market_settings_markets_payment_providers_methods` — 49 characters.
-   * Versioned, that becomes
-   * `_market_settings_v_version_markets_payment_providers_methods` (60),
-   * still legal — but the ENUMS underneath it are not. A select's enum is
-   * `enum_<table>_<field>`, so `provider` comes out at 66 and `methods` at
-   * 65, and `validateIdentifierLength` throws at boot rather than at query
-   * time. Measured, not guessed: removing the line below fails every test in
-   * `admin-schema.test.ts` with
-   * `Invalid name: enum__market_settings_v_version_markets_payment_providers_provider`.
+   * Este global se llamaba `market_settings` en la base. La Fase 3 le puso
+   * `versions` y el nombre largo dejó de caber: Payload nombra la tabla de
+   * versiones `_<name>_v` y prefija cada tabla anidada con `version_`, así
+   * que el enum del select `methods` —dentro de `paymentProviders`, dentro
+   * de `markets`— llegaba a 65 caracteres y `validateIdentifierLength`
+   * impedía arrancar. `markets` (7 en vez de 15) bajaba todo el subárbol y
+   * dejaba el índice más largo en 63 exactos.
    *
-   * `dbName` is the documented answer, and it shortens the whole subtree at
-   * once: `markets` (7 chars instead of 15) takes the deepest version table
-   * to `_markets_v_version_markets_payment_providers_methods` (52), its enums
-   * to 57 and 58, and its longest index to
-   * `_markets_v_version_markets_payment_providers_methods_parent_idx` — 63,
-   * inside the limit with the shape intact and no margin at all. Payload does
-   * not check index names, so `admin-schema.test.ts` measures every
-   * identifier the adapter builds: the next field added under
-   * `paymentProviders` fails a test instead of silently colliding with a
-   * truncated index name.
-   *
-   * COST, stated plainly: this RENAMES four existing tables
-   * (`market_settings*` → `markets*`) and three enums. It is a rename, not a
-   * drop — the phase migration must say `ALTER TABLE … RENAME TO …`, because
-   * the drop-and-create that a schema diff produces on its own would take
-   * the configured payment providers of all three markets with it.
+   * Las versiones se retiraron después, por el motivo que explica el bloque
+   * de abajo. El nombre corto se queda: revertirlo sería un segundo
+   * renombrado de cuatro tablas y tres enums de configuración de pagos, con
+   * el riesgo que eso tiene, a cambio de nada. Lo que cambia es su estatus:
+   * era obligatorio y ahora es solo un nombre mejor. `admin-schema.test.ts`
+   * sigue midiendo cada identificador que construye el adaptador, y ahí
+   * sigue teniendo valor: la lista de renombrados de
+   * `20260821_234246_fase3_templates_trash_versions` es lo que se deshace si
+   * alguien quita esta línea.
    */
   dbName: "markets",
-  /**
-   * History, not drafts — the same call as `theme-settings.ts`, and here it
-   * carries an extra reason. This global decides which gateway the checkout
-   * offers in which market; a draft/publish split on it would create a
-   * second state a paying customer could be served from. A version log gives
-   * the undo without ever adding that second state.
+  /*
+   * -----------------------------------------------------------------------
+   * SIN `versions`, y no por preferencia: Payload 3.88 no puede escribirlas
+   * para la forma que tiene este global
+   * -----------------------------------------------------------------------
+   *
+   * La Fase 3 le puso `versions: { drafts: false, max: 30 }` y CI se puso en
+   * rojo al sembrar. El error, literal:
+   *
+   *   invalid input syntax for type integer: "6a88e504bd72b60cf48e763c"
+   *   insert into "_markets_v_version_markets_payment_providers_methods"
+   *
+   * La causa, leída en `@payloadcms/drizzle/dist/upsertRow/index.js:243-250`:
+   * al escribir una fila, las tablas de un `select` con `hasMany` reciben
+   * `parent` SOLO si viene sin definir —`if (typeof row.parent ===
+   * 'undefined')`— y `transformForWrite` ya se lo ha puesto: el id de la
+   * fila de array tal y como viene del documento. En las tablas vivas ese id
+   * es el bueno, porque la fila de array se guarda con el id del documento.
+   * En una tabla de VERSIONES no: ahí los ids de array son `serial`, la fila
+   * nace con uno nuevo, y el `parent` del select se queda apuntando al
+   * viejo. Un varchar de 24 hex contra una columna integer.
+   *
+   * Reproducido en local guardando el global con `methods` no vacío, que es
+   * justo lo que hace `seed:markets` y lo que ninguna prueba anterior hacía
+   * —el global se había guardado siempre con `methods` vacío, y por eso el
+   * fallo esperó a CI.
+   *
+   * Las dos salidas que quedaban:
+   *
+   *  1. Convertir `methods` en un array de selects de un valor. Los arrays
+   *     sí enhebran bien sus ids en las versiones (`_navigation_v` lo
+   *     demuestra: array dentro de array dentro de array, y escribe). Pero
+   *     cambia el modelo de datos de la configuración de pagos y sustituye
+   *     un multiselect —el control correcto para «qué métodos»— por «añadir
+   *     fila, elegir, añadir fila».
+   *  2. Quitar las versiones de ESTE global.
+   *
+   * Se elige la segunda. Este global es `hiddenUnlessAdmin`: ningún editor
+   * lo ve, así que el «deshacer» que se pierde no es el que pedía el
+   * encargo. `navigation` y `theme-settings` —los dos que un editor sí
+   * toca— conservan el suyo, y sus formas no tienen un select `hasMany`
+   * dentro de un array. Que no lo tengan deja de ser suerte:
+   * `admin-schema.test.ts` lo comprueba para todos.
+   *
+   * Qué lo cambia: una versión de Payload donde `upsertRow` reasigne el
+   * `parent` de un select al id realmente insertado. Entonces esto vuelve a
+   * ser una línea y una migración.
    */
-  versions: { drafts: false, max: 30 },
   admin: {
     // Read by anyone (the checkout needs it) but only an admin may save it,
     // so an editor was being offered a form that refuses to save. Hidden
     // rather than read-only: a control you cannot use is not information.
     hidden: hiddenUnlessAdmin,
     description: {
-      es: "Qué pasarelas ofrece cada mercado y en qué orden. La moneda y el incoterm NO están aquí: son código (@courvia/platform). Cada guardado deja una versión restaurable.",
-      en: "Which gateways each market offers, and in what order. Currency and incoterm are NOT here: they are code (@courvia/platform). Every save leaves a version you can restore.",
-      ar: "ما البوابات التي يوفّرها كل سوق وبأي ترتيب. العملة وشرط التسليم ليسا هنا: هما في الشيفرة (@courvia/platform). كل حفظ يترك نسخة قابلة للاستعادة.",
+      es: "Qué pasarelas ofrece cada mercado y en qué orden. La moneda y el incoterm NO están aquí: son código (@courvia/platform).",
+      en: "Which gateways each market offers, and in what order. Currency and incoterm are NOT here: they are code (@courvia/platform).",
+      ar: "ما البوابات التي يوفّرها كل سوق وبأي ترتيب. العملة وشرط التسليم ليسا هنا: هما في الشيفرة (@courvia/platform).",
     },
   },
   access: {
     read: anyone,
     update: isAdmin,
-    readVersions: isAdmin,
   },
   fields: [
     {

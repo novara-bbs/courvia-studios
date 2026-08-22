@@ -233,8 +233,10 @@ Entregado en `9b1e199`, en una sola migración
 - **Papelera** en `pages`, `media` y `redirects`, con los dos índices únicos
   parciales que Payload no sabe declarar. Sin ellos, tirar una página a la
   papelera dejaba su dirección ocupada por un documento que el editor no ve.
-- **Versiones en los tres globals**: cambiar el menú o las pasarelas ya tiene
-  deshacer.
+- **Versiones en los globals que un editor toca** (`navigation` y
+  `theme-settings`): cambiar el menú o el tema ya tiene deshacer.
+  `market-settings` se quedó sin ellas, y no por preferencia — ver la bitácora
+  del 22 ago.
 
 Y el riesgo de la fase, resuelto en vez de esquivado: `market-settings` recibe
 `dbName: "markets"` porque sin ese nombre corto su tabla de versiones genera
@@ -251,11 +253,43 @@ después de migrar (es:1 uk:1 ae:3); guardar el global crea una versión en
 volver a migrar termina con el esquema idéntico contra una base construida
 desde cero; RLS 273/273 y cero políticas en las dos bases.
 
-### Fase 4 — Carrito compartido · **siguiente**
+### Fase 4 — Carrito compartido · `code_complete`
 Casos de uso de carrito, cookie/sesión, drawer y badge, página de carrito, buybox y
 selector de variante, purchase actions, tests móviles y de accesibilidad.
 
-### Fase 5 — Nativo production-capable · `not_started`
+Entregado en `1a7c9ca`. El motor nativo declara `cart_write` y pasa la suite de
+contrato del dominio contra Postgres. Lo que quedó sujeto por un test:
+
+- **El precio no se guarda en el carrito.** Se lee vivo de `prices` al
+  proyectar, y aun así es informativo: el importe que se cobra lo calcula el
+  servidor. El test lo comprueba leyendo la fila y exigiendo que NO tenga
+  columna de importe.
+- **Dos cookies.** La sesión es `httpOnly` porque es un portador; el contador
+  no lo es porque es un número. Leer la sesión en la cabecera volvería
+  dinámicas todas las rutas de `/[region]` —la cabecera vive en su layout— y
+  un contador no vale la caché del sitio entero.
+- **El botón de comprar solo sale si la variante es comprable**: precio activo
+  en este mercado y stock. Con el catálogo de hoy no se pinta ni una vez.
+- **El botón de pagar se enciende cuando el motor DECLARA `checkout_start`.**
+  Hoy no lo declara ninguno, así que la página lo dice en voz alta.
+
+Lo que NO se hizo, y por qué: el cajón lateral («drawer»). Costaría foco
+atrapado, `inert`, cierre con Escape y restauración del foco, y todo eso para
+enseñar un carrito que ninguna variante del catálogo real puede llenar. La
+página del carrito es una URL, se comparte y funciona con el botón de atrás.
+El cajón se añade encima de esto, no en su lugar.
+
+**Un contratiempo que se llevó por delante el CI de la Fase 3**, y que está
+aquí porque es lo que costó cerrar esta: `market-settings` había recibido
+`versions`, y Payload 3.88 no sabe escribirlas cuando hay un select `hasMany`
+dentro de un array —el `parent` del select se queda con el id de la fila viva
+y la tabla de versiones lo espera `serial`. El fallo solo aparece al guardar
+con la lista NO vacía, así que ninguna prueba anterior lo vio: lo vio CI al
+sembrar. Se retiran las versiones de ese global y
+`apps/web/src/payload/admin-schema.test.ts` rechaza esa forma en cualquier
+colección o global con versiones.
+
+### Fase 5 — Nativo production-capable · **siguiente**
 Quote, shipping/tax, Stripe real en test mode, checkout, webhooks, pedidos, emails,
 fulfillment, devoluciones, reembolsos, outbox, reconciliación, E2E en sandbox.
 
@@ -371,3 +405,5 @@ secretos de pago.
 | 21 ago 2026 | TCO con fuente y fecha en cada cifra (`2add6b6`). Fase 0 cerrada del todo. |
 | 21 ago 2026 | Fase 2: la propiedad baja a Postgres con disparador de congelación y CHECK anti-secreto (`3cb4dec`). |
 | 21 ago 2026 | Fase 3: plantillas de PDP, papelera, versiones y el renombrado de `market_settings` sin perder las pasarelas (`9b1e199`). |
+| 22 ago 2026 | Fase 4: carrito nativo, sesión por cookie y superficie de compra (`1a7c9ca`). |
+| 22 ago 2026 | CI en rojo por la Fase 3: Payload 3.88 no sabe escribir la tabla de versiones de un global con un select `hasMany` dentro de un array. Se retiran las versiones de `market-settings` y un test rechaza esa forma en cualquier versionado. |

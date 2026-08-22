@@ -4563,7 +4563,7 @@ export interface ThemeSetting {
   createdAt?: string | null;
 }
 /**
- * Which gateways each market offers, and in what order. Currency and incoterm are NOT here: they are code (@courvia/platform). Every save leaves a version you can restore.
+ * Which gateways each market offers, and in what order. Currency and incoterm are NOT here: they are code (@courvia/platform).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "market-settings".

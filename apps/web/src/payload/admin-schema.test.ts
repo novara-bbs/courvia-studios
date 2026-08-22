@@ -20,14 +20,16 @@
  * the offending name in it instead of a database that looks fine.
  *
  * ---------------------------------------------------------------------------
- * 2. The three globals have version tables, and `market-settings` has the
- *    short `dbName` that makes its own possible.
+ * 2. Quién tiene versiones, quién no, y la forma que Payload no sabe
+ *    versionar.
  * ---------------------------------------------------------------------------
  *
- * Without `dbName: "markets"` the enum under `paymentProviders.methods`
- * reaches 65 characters inside the version table and Payload refuses to boot
- * at all. So the rename is not a preference: asserting it here is asserting
- * that versions on this global are reachable.
+ * `navigation` y `theme-settings` las tienen. `market-settings` NO, y no por
+ * gusto: Payload 3.88 no sabe escribir su tabla de versiones cuando hay un
+ * select `hasMany` dentro de un array (el porqué exacto está en
+ * `market-settings.ts`). Costó un CI en rojo, así que aquí hay dos
+ * comprobaciones: que la tabla no ha vuelto, y que ningún otro versionado
+ * tiene esa forma.
  *
  * Needs a database only because `getPayload` connects before the adapter
  * exposes the schema it built; nothing here writes a row.
@@ -73,16 +75,93 @@ describe.skipIf(!hasDb)("el esquema que declaran las colecciones", () => {
     expect([...new Set(tooLong)]).toEqual([]);
   });
 
-  it("da tabla de versiones a los tres globals", () => {
-    for (const table of ["_theme_settings_v", "_navigation_v", "_markets_v"]) {
+  it("da tabla de versiones a los dos globals que un editor toca", () => {
+    for (const table of ["_theme_settings_v", "_navigation_v"]) {
       expect(Object.keys(rawTables), `falta ${table}`).toContain(table);
     }
+    // Y NO a market-settings. La razón está en `market-settings.ts` y no es
+    // una preferencia: Payload 3.88 no sabe escribir su tabla de versiones.
+    // El test de abajo comprueba la forma que lo provoca; este comprueba que
+    // la tabla no ha vuelto.
+    expect(Object.keys(rawTables)).not.toContain("_markets_v");
   });
 
-  it("acorta market-settings con dbName, que es lo que hace posible su versión", () => {
+  /**
+   * La forma que Payload 3.88 no sabe versionar, y que costó un CI en rojo.
+   *
+   * Un `select` con `hasMany` guarda sus valores en una tabla aparte cuyo
+   * `parent` apunta a la fila que lo contiene. Al escribir, `upsertRow` solo
+   * rellena ese `parent` si viene sin definir, y `transformForWrite` ya se lo
+   * ha puesto: el id que trae el documento. En las tablas vivas ese id es el
+   * bueno; en una tabla de VERSIONES los ids de array son `serial`, la fila
+   * nace con otro, y el insert acaba metiendo un varchar de 24 hex en una
+   * columna integer.
+   *
+   * El fallo no aparece hasta que alguien guarda con el select NO vacío, así
+   * que no lo ve un test de arranque ni un `pnpm build`: lo vio CI al
+   * sembrar. Esto lo adelanta a `pnpm verify`, y lo hace para TODAS las
+   * colecciones y globals con versiones en vez de para el que falló.
+   */
+  it("ningún versionado anida un select hasMany dentro de un array", () => {
+    interface AnyField {
+      type: string;
+      name?: string;
+      hasMany?: boolean;
+      fields?: AnyField[];
+      tabs?: { fields?: AnyField[] }[];
+      blocks?: { fields?: AnyField[] }[];
+    }
+
+    /** Los selects `hasMany` que cuelgan de un array, con su camino. */
+    function offenders(fields: AnyField[], path: string, insideArray: boolean): string[] {
+      const found: string[] = [];
+      for (const field of fields) {
+        const here = field.name === undefined ? path : `${path}.${field.name}`;
+        if (field.type === "select" && field.hasMany === true && insideArray) {
+          found.push(here);
+        }
+        const nested = [
+          ...(field.fields ?? []),
+          ...(field.tabs ?? []).flatMap((tab) => tab.fields ?? []),
+          ...(field.blocks ?? []).flatMap((block) => block.fields ?? []),
+        ];
+        if (nested.length > 0) {
+          found.push(...offenders(nested, here, insideArray || field.type === "array"));
+        }
+      }
+      return found;
+    }
+
+    const versioned: { label: string; fields: AnyField[] }[] = [
+      // Payload normaliza `versions` a un objeto o a `undefined` tras
+      // sanear la config: `!== false` compilaba y no comparaba nada.
+      ...payload.config.collections
+        .filter((collection) => collection.versions !== undefined)
+        .map((collection) => ({
+          label: `collection ${collection.slug}`,
+          fields: collection.fields as unknown as AnyField[],
+        })),
+      ...payload.config.globals
+        .filter((global) => global.versions !== undefined)
+        .map((global) => ({
+          label: `global ${global.slug}`,
+          fields: global.fields as unknown as AnyField[],
+        })),
+    ];
+    // Sin esto, un cambio en cómo Payload normaliza `versions` convertiría
+    // la comprobación en una afirmación sobre la lista vacía.
+    expect(versioned.length).toBeGreaterThan(2);
+
+    const broken = versioned.flatMap(({ label, fields }) =>
+      offenders(fields, label, false).map((path) => path),
+    );
+    expect(broken, broken.join("\n")).toEqual([]);
+  });
+
+  it("acorta market-settings con dbName", () => {
     expect(Object.keys(rawTables)).toContain("markets");
-    // The old names must be gone, or the rename never happened and the enum
-    // that used to throw at boot is one field away from coming back.
+    // Los nombres viejos tienen que haber desaparecido: si no, el renombrado
+    // de la Fase 3 no ocurrió y la migración que lo hace está mintiendo.
     const oldNames = Object.keys(rawTables).filter((table) => table.startsWith("market_settings"));
     expect(oldNames).toEqual([]);
   });

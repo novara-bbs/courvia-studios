@@ -976,6 +976,29 @@ function dockPoints(locale: "es" | "en"): SeedBlock[] {
   return DOCK_POINTS.map((p) => ({ col: p.col, row: p.row, ...p[locale] }));
 }
 
+/**
+ * La entrada del índice que corresponde al bloque de abajo.
+ *
+ * Va emparejada con `hotspotsBlock` a propósito. Aquel se omite entero si su
+ * render no está en la mediateca —`image` es obligatorio— y un índice que
+ * siguiera nombrando su ancla apuntaría a un bloque que no existe: la
+ * validación cruzada de `Pages` rechaza la página entera y la siembra muere
+ * diciendo «El índice apunta a «quickdock» y ningún bloque de esta página
+ * produce esa ancla».
+ *
+ * Medido: pasa en cualquier máquina cuyo `apps/web/media/` ya tenga el
+ * fichero de una siembra anterior, porque entonces Payload guarda el nuevo
+ * como `…-2.webp` y la clave que busca este módulo deja de existir. En CI no
+ * pasaba porque ese directorio está en `.gitignore` y llega vacío — que es
+ * justo la clase de fallo que solo aparece en el portátil de alguien.
+ */
+function quickdockNav(): { text: string; anchor: string }[] {
+  // «QuickDock» es un nombre de producto: no se traduce, así que esta función
+  // no necesita saber el idioma.
+  if (quickdockId === undefined) return [];
+  return [{ text: "QuickDock", anchor: "quickdock" }];
+}
+
 /** El bloque de imagen anotada solo existe si su render está en la mediateca;
  *  `image` es obligatorio, así que una base sin medios lo omite entero. */
 function hotspotsBlock(locale: "es" | "en"): SeedBlock[] {
@@ -1013,7 +1036,7 @@ await seedComposedPage(
       label: "En esta página",
       items: [
         { text: "Arquitectura", anchor: "arquitectura" },
-        { text: "QuickDock", anchor: "quickdock" },
+        ...quickdockNav(),
         { text: "De maletero a primera bola", anchor: "primera-bola" },
         { text: "Lo que se mide", anchor: "lo-que-se-mide" },
         { text: "Servicio", anchor: "servicio" },
@@ -1114,7 +1137,7 @@ await seedComposedPage(
       label: "On this page",
       items: [
         { text: "Architecture", anchor: "arquitectura" },
-        { text: "QuickDock", anchor: "quickdock" },
+        ...quickdockNav(),
         { text: "Boot to first ball", anchor: "primera-bola" },
         { text: "What we measure", anchor: "lo-que-se-mide" },
         { text: "Service", anchor: "servicio" },
