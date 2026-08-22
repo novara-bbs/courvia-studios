@@ -10,6 +10,8 @@ import { transition } from "@courvia/commerce-domain";
 import type { BasePayload, PayloadRequest, Where } from "payload";
 import { commitTransaction, initTransaction, killTransaction } from "payload";
 
+import { lockOrderRow, moveStock } from "./tx-sql";
+
 type Req = Partial<PayloadRequest>;
 type TxArg = Parameters<typeof initTransaction>[0];
 
@@ -59,9 +61,27 @@ export async function expireStaleCheckouts(
     const req: Req = { payload };
     await initTransaction(req as TxArg);
     try {
-      // Lock, then re-read: a webhook that paid this order after the scan
-      // above committed a status the trigger below must see.
-      await payload.update({ collection: "orders", id: orderId, data: {}, overrideAccess: true, req });
+      /*
+       * Lock, y luego releer.
+       *
+       * Este barrido escanea fuera de transacción y decide dentro, así que
+       * entre las dos cosas cabe un webhook que pague el pedido. Lo que hay
+       * que ver es el estado que ese webhook confirmó.
+       *
+       * Hasta ahora el lock era `payload.update` con payload vacío, y con eso
+       * el barrido REESCRIBÍA el estado viejo que había cargado antes del
+       * lock: cancelaba un pedido pagado y le devolvía el stock al almacén.
+       * El porqué está medido en `tx-sql.ts`; aquí solo se usa la versión
+       * correcta, que es de lo que se trataba.
+       *
+       * Una fila que se evaporó entre el escaneo y ahora no es un error: se
+       * cuenta como saltada, igual que una que ya no admite la transición.
+       */
+      if (!(await lockOrderRow(payload, req, orderId))) {
+        await killTransaction(req as TxArg);
+        skipped += 1;
+        continue;
+      }
       const order = (await payload.findByID({
         collection: "orders",
         id: orderId,
@@ -79,34 +99,12 @@ export async function expireStaleCheckouts(
         continue;
       }
 
-      // release_reservation, deterministic order (same as the applier).
+      // release_reservation, en orden determinista (igual que el aplicador) y
+      // con una sentencia por línea: sin lectura previa no hay actualización
+      // que perder entre la lectura y la escritura.
       const sorted = [...order.lines].sort((a, b) => variantIdOf(a) - variantIdOf(b));
       for (const line of sorted) {
-        const found = await payload.find({
-          collection: "inventory",
-          where: { variant: { equals: variantIdOf(line) } } as Where,
-          limit: 1,
-          depth: 0,
-          overrideAccess: true,
-          req,
-        });
-        const row = found.docs[0] as { id: number } | undefined;
-        if (row === undefined) continue;
-        await payload.update({ collection: "inventory", id: row.id, data: {}, overrideAccess: true, req });
-        const fresh = (await payload.findByID({
-          collection: "inventory",
-          id: row.id,
-          depth: 0,
-          overrideAccess: true,
-          req,
-        })) as unknown as { qtyCommitted: number };
-        await payload.update({
-          collection: "inventory",
-          id: row.id,
-          data: { qtyCommitted: Math.max(0, fresh.qtyCommitted - line.quantity) },
-          overrideAccess: true,
-          req,
-        });
+        await moveStock(payload, req, variantIdOf(line), line.quantity, "release");
       }
 
       await payload.update({

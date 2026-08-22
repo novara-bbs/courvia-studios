@@ -116,6 +116,7 @@ describe("architectural rules can actually fail", () => {
         "no-deep-package-imports",
         "no-orphans",
         "no-persistence-to-gateway",
+        "payload-config-uses-only-tx-primitives",
         "platform-is-a-leaf",
         "sections-are-pure",
         "testing-entry-is-test-only",

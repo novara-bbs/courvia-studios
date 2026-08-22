@@ -151,16 +151,50 @@ module.exports = {
           "^apps/web/src/server/container\\.ts$",
           // Each maintenance script is its own entry point: it has no request
           // path to lock in, and the operational helpers it calls
-          // (expireStaleCheckouts) are adapter functions, not port methods —
-          // widening the port for one cron job would be the worse trade.
+          // (expireStaleCheckouts, expireStaleCarts) are adapter functions,
+          // not port methods — widening the port for one cron job would be
+          // the worse trade.
           "^apps/web/src/scripts/",
           // A contract test that did not name the real adapter would be
           // testing nothing. This is the proof of the boundary, not a breach.
           "\\.(test|spec)\\.[tj]sx?$",
+          // The Payload configuration is covered by the NEXT rule, which is
+          // strictly narrower: it may name the persistence adapter's
+          // transaction primitives and nothing else. Excluded here only so
+          // one import is not reported by two rules.
+          "^apps/web/src/payload/",
         ],
       },
       to: {
         path: workspace("payments-[a-z-]+", "commerce-(?!domain($|/))[a-z-]+"),
+      },
+    },
+    {
+      name: "payload-config-uses-only-tx-primitives",
+      severity: "error",
+      comment:
+        "`apps/web/src/payload/**` is not a route: it is the SCHEMA of the persistence " +
+        "adapter, split from `packages/commerce-payload` only because Payload 3 embeds " +
+        "in the Next app. So a collection hook there may reach for that adapter's " +
+        "transaction primitives — `@courvia/commerce-payload/tx`, the module that owns " +
+        "`SELECT … FOR UPDATE` and the atomic stock UPDATE — because the alternative is " +
+        "the measured failure tx-sql.ts exists to close: every file that cannot import " +
+        "the correct lock re-implements the broken one. It may reach for NOTHING else. " +
+        "The barrel would bring NativeCommerceEngine with it, and a hook that picks an " +
+        "engine is exactly the ADR-029 breach the previous rule is about. Written as " +
+        "`to.pathNot` on the resolved module: `/tx` resolves to src/tx-sql.ts and the " +
+        "bare specifier to src/index.ts, so the two are told apart by where they land, " +
+        "not by how they were spelled.",
+      from: {
+        path: "^apps/web/src/payload/",
+        pathNot: ["\\.(test|spec)\\.[tj]sx?$"],
+      },
+      to: {
+        path: workspace("payments-[a-z-]+", "commerce-(?!domain($|/))[a-z-]+"),
+        pathNot: [
+          "^@courvia/commerce-payload/tx$",
+          "^packages/commerce-payload/src/tx-sql\\.ts$",
+        ],
       },
     },
     {

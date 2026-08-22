@@ -26,7 +26,7 @@ import {
 import type { PaymentEvent, SideEffect } from "@courvia/commerce-domain";
 import type { BasePayload, PayloadRequest } from "payload";
 
-import { int, qualified, transactionSql } from "./tx-sql";
+import { lockOrderRow, moveStock } from "./tx-sql";
 import { commitTransaction, initTransaction, killTransaction } from "payload";
 
 import { resolveRefundTotal } from "./refund-delta";
@@ -102,23 +102,6 @@ type TxArg = Parameters<typeof initTransaction>[0];
  * roto.
  */
 
-/**
- * Serializa a los que apliquen eventos sobre el mismo pedido.
- *
- * `SELECT … FOR UPDATE` y no un `UPDATE`: lo que hace falta es el lock, no
- * escribir. Escribir es justo lo que rompía esto (ver `tx-sql.ts`).
- *
- * Devuelve `false` si no hay tal pedido, que es la forma barata de contestar
- * `order_not_found` antes de tocar el libro mayor.
- */
-async function lockOrderRow(payload: BasePayload, req: Req, orderId: number): Promise<boolean> {
-  const run = transactionSql(payload, req);
-  const result = await run(
-    `select id from ${qualified(payload, "orders")} where id = ${int(orderId, "orderId")} for update`,
-  );
-  return (result.rowCount ?? result.rows.length) > 0;
-}
-
 function variantIdOf(line: OrderLineRow): number {
   return typeof line.variant === "object" ? line.variant.id : line.variant;
 }
@@ -147,22 +130,16 @@ async function adjustStock(
   lines: OrderLineRow[],
   effect: "commit_stock" | "release_reservation",
 ): Promise<void> {
-  if (lines.length === 0) return;
-  const run = transactionSql(payload, req);
-  const table = qualified(payload, "inventory");
   // Orden determinista: dos transacciones que tocan las mismas variantes en
   // el mismo orden no se abrazan.
   const sorted = [...lines].sort((a, b) => variantIdOf(a) - variantIdOf(b));
   for (const line of sorted) {
-    const variantId = int(variantIdOf(line), "variantId");
-    const quantity = int(line.quantity, "quantity");
-    const columns =
-      effect === "release_reservation"
-        ? `qty_committed = greatest(0, qty_committed - ${quantity})`
-        : `qty_on_hand = greatest(0, qty_on_hand - ${quantity}), ` +
-          `qty_committed = greatest(0, qty_committed - ${quantity})`;
-    await run(
-      `update ${table} set ${columns}, updated_at = now() where variant_id = ${variantId}`,
+    await moveStock(
+      payload,
+      req,
+      variantIdOf(line),
+      line.quantity,
+      effect === "release_reservation" ? "release" : "commit",
     );
   }
 }

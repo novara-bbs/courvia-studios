@@ -50,3 +50,26 @@ export interface CreateCartInput<E extends EngineKind = EngineKind> {
   readonly market: MarketId;
   readonly lines?: readonly CartLineInput<E>[];
 }
+
+/**
+ * El máximo de unidades por línea, y por qué vive en el dominio.
+ *
+ * Lo validaba el zod de la acción de servidor, pero por PETICIÓN: el
+ * formulario manda «1» y `addLine` sumaba sin techo, así que veintiún clics
+ * dejaban la línea en 21. Entonces el selector de la página del carrito
+ * —que genera opciones 1..20— recibía un `defaultValue` que no existe, el
+ * navegador seleccionaba «1», y quien pulsara «Actualizar» sin tocar nada se
+ * dejaba veinte unidades por el camino.
+ *
+ * Así que el tope tiene que estar donde se GUARDA y no donde se pide. Pero
+ * «donde se guarda» son N motores: el nativo hoy, el alojado mañana. Un
+ * carrito de Shopify con 500 unidades en una línea rompe exactamente la
+ * misma vista. Ponerlo en el motor nativo lo dejaba, además, fuera del
+ * alcance de la app: `apps/**` no puede nombrar un adaptador
+ * (`adapters-are-not-imported-by-routes`), y la acción de servidor y el
+ * selector lo necesitan los dos.
+ *
+ * No es una regla de negocio: es cordura sobre lo que una línea puede
+ * contener. El stock lo comprueba el checkout, no esto.
+ */
+export const MAX_CART_LINE_QUANTITY = 20;

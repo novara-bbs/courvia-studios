@@ -64,6 +64,7 @@
 import { MARKET_DEFINITIONS } from "@courvia/platform";
 import type { LocaleId, MarketId } from "@courvia/platform";
 import {
+  MAX_CART_LINE_QUANTITY,
   UNKNOWN_AVAILABILITY,
   assertOwnsRef,
   exactAvailability,
@@ -102,9 +103,14 @@ import type {
 } from "@courvia/commerce-domain";
 import type { ProductFilter } from "@courvia/commerce-domain";
 import { randomUUID } from "node:crypto";
-import type { BasePayload, Where } from "payload";
+import { commitTransaction, initTransaction, killTransaction } from "payload";
+import type { BasePayload, PayloadRequest, Where } from "payload";
 
 import { PayloadCommerceService, relationId } from "./payload-commerce-service";
+import { lockCartRow } from "./tx-sql";
+
+/** Lo mínimo de una petición de Payload: la transacción viaja en ella. */
+type Req = Partial<PayloadRequest>;
 
 interface VariantRow {
   id: number | string;
@@ -446,25 +452,34 @@ export class NativeCommerceEngine
     if (!Number.isInteger(line.quantity) || line.quantity < 1) {
       throw new Error(`cart_invalid_quantity: ${String(line.quantity)}`);
     }
-    const row = await this.#requireCart(ref);
     const [resolved] = await this.#resolveLines([line]);
     if (resolved === undefined) throw new Error(`cart_unknown_variant: ${line.variant.externalId}`);
 
-    const existing = writableLines(row);
-    const found = existing.find((entry) => String(entry.variant) === resolved.variantId);
-    const next =
-      found === undefined
-        ? [
-            ...existing,
-            { variant: Number(resolved.variantId), sku: resolved.sku, quantity: resolved.quantity },
-          ]
-        : existing.map((entry) =>
-            entry === found ? { ...entry, quantity: entry.quantity + resolved.quantity } : entry,
-          );
-    return this.#write(row, next);
+    return this.#mutate(ref, (existing) => {
+      const found = existing.find((entry) => String(entry.variant) === resolved.variantId);
+      const quantity = (found?.quantity ?? 0) + resolved.quantity;
+      if (quantity > MAX_CART_LINE_QUANTITY) {
+        throw new Error(`cart_invalid_quantity: ${String(quantity)}`);
+      }
+      return found === undefined
+        ? [...existing, { variant: Number(resolved.variantId), sku: resolved.sku, quantity }]
+        : existing.map((entry) => (entry === found ? { ...entry, quantity } : entry));
+    });
   }
 
-  /** Cantidad 0 quita la línea; es el contrato de `CartWrite`. */
+  /**
+   * Cantidad 0 quita la línea; es el contrato de `CartWrite`.
+   *
+   * Dos cosas que antes no hacía y eran mentiras distintas:
+   *
+   *  - Una variante que NO está en el carrito devolvía «ok» sin haber hecho
+   *    nada. La vista pintaba éxito sobre una operación que no ocurrió.
+   *  - Subir la cantidad de una línea cuya variante se había retirado del
+   *    catálogo se aceptaba, porque solo `addLine` pasaba por
+   *    `#resolveLines`. Se comprueba también aquí, y solo al SUBIR: bajar o
+   *    quitar una línea de algo retirado es exactamente lo que hay que
+   *    dejar hacer.
+   */
   async setLineQuantity(
     ref: CartRef<"native">,
     variant: VariantRef<"native">,
@@ -472,16 +487,23 @@ export class NativeCommerceEngine
   ): Promise<Cart<"native">> {
     assertOwnsRef(this.owner, ref);
     assertOwnsRef(this.owner, variant);
-    if (!Number.isInteger(quantity) || quantity < 0) {
+    if (!Number.isInteger(quantity) || quantity < 0 || quantity > MAX_CART_LINE_QUANTITY) {
       throw new Error(`cart_invalid_quantity: ${String(quantity)}`);
     }
-    const row = await this.#requireCart(ref);
-    const next = writableLines(row)
-      .map((entry) =>
-        String(entry.variant) === variant.externalId ? { ...entry, quantity } : entry,
-      )
-      .filter((entry) => entry.quantity > 0);
-    return this.#write(row, next);
+
+    return this.#mutate(ref, async (existing) => {
+      const found = existing.find((entry) => String(entry.variant) === variant.externalId);
+      if (found === undefined) {
+        throw new Error(`cart_line_not_found: ${variant.externalId}`);
+      }
+      if (quantity > found.quantity) {
+        // Lanza `cart_unknown_variant` si ya no es vendible.
+        await this.#resolveLines([{ variant, quantity: 1 }]);
+      }
+      return existing
+        .map((entry) => (entry === found ? { ...entry, quantity } : entry))
+        .filter((entry) => entry.quantity > 0);
+    });
   }
 
   /* ------------------------------------------------------ pedidos y RMA */
@@ -539,21 +561,34 @@ export class NativeCommerceEngine
   /* ------------------------------------------------------- privado: carrito */
 
   /**
-   * El carrito de ESTA conexión con esta sesión.
+   * El carrito de ESTA conexión con esta sesión, y solo si no ha caducado.
    *
-   * La consulta filtra por `connectionKey` además de por sesión, y no es
+   * La consulta filtra por `connectionKey` **y** por sesión, y eso no es
    * redundante con `assertOwnsRef`: aquella comprueba lo que dice quien
-   * llama, esta comprueba lo que dice la fila. Un carrito de otra conexión no
-   * se contesta `null` —eso escondería la violación— sino que se rechaza en
-   * `#assertRowOwned`.
+   * llama, esta comprueba lo que dice la fila. Un carrito de otra conexión
+   * no se contesta `null` —eso escondería la violación— sino que se rechaza
+   * en `#assertRowOwned`, que sigue detrás como segunda barrera.
+   *
+   * (El comentario anterior AFIRMABA ese filtro y la consulta no lo llevaba.
+   * En un repositorio donde los comentarios son la fuente de verdad, eso es
+   * peor que no tenerlo.)
+   *
+   * Y filtra por caducidad: un carrito pasado de fecha se comporta como
+   * inexistente aunque su fila siga ahí hasta que la barrida la borre. Si no,
+   * la caducidad sería una promesa que solo cumple el barrendero.
    */
-  async #findCart(ref: CartRef<"native">): Promise<CartRow | null> {
+  async #findCart(ref: CartRef<"native">, req?: Req): Promise<CartRow | null> {
     const result = await this.#payload.find({
       collection: "carts",
-      where: { sessionId: { equals: ref.externalId } } as Where,
+      where: {
+        sessionId: { equals: ref.externalId },
+        connectionKey: { equals: this.owner.connectionKey },
+        expiresAt: { greater_than: new Date().toISOString() },
+      } as Where,
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      ...(req === undefined ? {} : { req }),
     });
     const row = (result.docs as unknown as CartRow[])[0];
     if (row === undefined) return null;
@@ -561,11 +596,48 @@ export class NativeCommerceEngine
     return row;
   }
 
-  /** Mutar un carrito que no existe no lo crea: falla. */
-  async #requireCart(ref: CartRef<"native">): Promise<CartRow> {
-    const row = await this.#findCart(ref);
-    if (row === null) throw new Error(`cart_not_found: ${ref.externalId}`);
-    return row;
+  /**
+   * Lee, transforma y escribe un carrito **bajo el lock de su fila**.
+   *
+   * Sin esto, dos «añadir al carrito» casi simultáneos leían los dos el mismo
+   * array de líneas, cada uno le añadía lo suyo en JS y el segundo en escribir
+   * borraba la línea del primero. La PDP pinta un botón por variante, así que
+   * no hacía falta ni ser rápido: dos pestañas bastan.
+   *
+   * El lock va por el id de fila —un entero— y no por la sesión, que es una
+   * cadena portadora que no debe viajar en una consulta interpolada. Se busca
+   * primero, se bloquea después, y se RELEE bajo el lock: lo que el perdedor
+   * transforma es lo que el ganador confirmó, no lo que había antes.
+   */
+  async #mutate(
+    ref: CartRef<"native">,
+    transform: (lines: WritableCartLine[]) => WritableCartLine[] | Promise<WritableCartLine[]>,
+  ): Promise<Cart<"native">> {
+    const req: Req = { payload: this.#payload };
+    await initTransaction(req as Parameters<typeof initTransaction>[0]);
+    try {
+      const found = await this.#findCart(ref, req);
+      if (found === null) throw new Error(`cart_not_found: ${ref.externalId}`);
+      await lockCartRow(this.#payload, req, Number(found.id));
+      const fresh = await this.#findCart(ref, req);
+      if (fresh === null) throw new Error(`cart_not_found: ${ref.externalId}`);
+
+      const next = await transform(writableLines(fresh));
+      const updated = (await this.#payload.update({
+        collection: "carts",
+        id: fresh.id,
+        data: { lines: next, expiresAt: cartExpiry().toISOString() },
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })) as unknown as CartRow;
+      const projected = await this.#project(updated, req);
+      await commitTransaction(req as Parameters<typeof commitTransaction>[0]);
+      return projected;
+    } catch (error) {
+      await killTransaction(req as Parameters<typeof killTransaction>[0]);
+      throw error;
+    }
   }
 
   #assertRowOwned(row: CartRow): void {
@@ -575,19 +647,6 @@ export class NativeCommerceEngine
       connectionKey: row.connectionKey,
       externalId: row.sessionId,
     });
-  }
-
-  /** Las líneas ya normalizadas: `variant` siempre número, nunca el objeto
-   *  poblado que devuelve una lectura con `depth`. */
-  async #write(row: CartRow, lines: WritableCartLine[]): Promise<Cart<"native">> {
-    const updated = (await this.#payload.update({
-      collection: "carts",
-      id: row.id,
-      data: { lines, expiresAt: cartExpiry().toISOString() },
-      depth: 0,
-      overrideAccess: true,
-    })) as unknown as CartRow;
-    return this.#project(updated);
   }
 
   /**
@@ -633,7 +692,7 @@ export class NativeCommerceEngine
    * no se pueda sumar, porque un subtotal parcial presentado como total es
    * peor que ningún subtotal.
    */
-  async #project(row: CartRow): Promise<Cart<"native">> {
+  async #project(row: CartRow, req?: Req): Promise<Cart<"native">> {
     const currency = MARKET_DEFINITIONS[row.market].currency;
     const lines = rowLines(row);
     const ref: CartRef<"native"> = {
@@ -663,6 +722,7 @@ export class NativeCommerceEngine
       limit: 500,
       depth: 0,
       overrideAccess: true,
+      ...(req === undefined ? {} : { req }),
     });
     const amountByVariant = new Map(
       (priceResult.docs as unknown as PriceRow[]).map((doc) => [relationId(doc.variant), doc.amount]),

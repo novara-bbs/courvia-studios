@@ -644,6 +644,58 @@ if (hasDb && dbIsDisposable) {
       );
     });
 
+    it("el barrido y un pago a la vez: gana el pago, y el stock se queda comprometido", async () => {
+      // ESTE es el que costaba dinero. El barrido escanea fuera de
+      // transacción y decide dentro, así que entre las dos cosas cabe un
+      // webhook. Con el `payload.update` vacío que tomaba el lock, el barrido
+      // reescribía el estado que había cargado ANTES del lock: cancelaba un
+      // pedido ya pagado y le devolvía al almacén un stock cobrado. Y los dos
+      // trabajos corren en el MISMO tick de cron (`next/cron/route.ts`), así
+      // que la carrera no es hipotética.
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const { expireStaleCheckouts } = await import("@courvia/commerce-payload");
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+
+      const checkout = await service.createCheckout({
+        ...CHECKOUT_INPUT,
+        email: "carrera@courvia.test",
+      });
+
+      const paid: PaymentEvent = {
+        type: "paid",
+        provider: "stripe",
+        providerEventId: `evt_sweep_${checkout.orderId}`,
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount: 129_000, currency: "EUR" },
+        occurredAt: "2026-08-22T00:00:00.000Z",
+      };
+
+      // A LA VEZ. El reloj adelantado hace que el pedido recién creado entre
+      // en el barrido sin tocar `createdAt`.
+      const [applied] = await Promise.all([
+        applyPaymentEvent(paid),
+        expireStaleCheckouts(payload, {
+          olderThanMinutes: 60,
+          now: () => Date.now() + 61 * 60_000,
+        }),
+      ]);
+
+      // Uno de los dos gana, y el orden lo decide el planificador. Lo que NO
+      // puede pasar es que el barrido deshaga un `paid`: si el pago llegó
+      // primero, el pedido se queda pagado; si llegó después, el barrido lo
+      // canceló antes y el pago se rechaza como inválido — nunca «pagado y
+      // luego cancelado».
+      const order = await service.getOrder(checkout.orderId);
+      if (applied.outcome === "applied") {
+        expect(order?.status, "el barrido deshizo un pago confirmado").toBe("paid");
+      } else {
+        expect(order?.status).toBe("cancelled");
+        expect(applied.outcome).toBe("invalid");
+      }
+    });
+
     it("dos eventos «paid» del MISMO pedido a la vez: uno aplica, el otro no", async () => {
       const { getCommerce, applyPaymentEvent } = await loadContainer();
       const payload = await loadPayload();

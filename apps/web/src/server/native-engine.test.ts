@@ -20,6 +20,7 @@
  */
 import {
   CommerceOwnerMismatchError,
+  MAX_CART_LINE_QUANTITY,
   exactQuantity,
   stockSignal,
 } from "@courvia/commerce-domain";
@@ -424,6 +425,137 @@ if (hasDb && dbIsDisposable) {
         catalogAdmin: false,
         eventIngest: false,
       });
+    });
+  });
+
+  /* ------------------------------------ lo que solo se ve concurriendo */
+
+  describe("el carrito bajo dos manos a la vez", () => {
+    /** Una referencia de variante de ESTA conexión, por SKU de la fixture. */
+    function variantOf(sku: string): VariantRef<"native"> {
+      const id = variantIdBySku.get(sku);
+      if (id === undefined) throw new Error(`la fixture no creó ${sku}`);
+      return {
+        kind: "variant",
+        engine: "native",
+        connectionKey: OWNER.connectionKey,
+        externalId: String(id),
+      };
+    }
+
+    it("dos «añadir» simultáneos suman dos, no uno", async () => {
+      // ESTE es el fallo que el lock cierra, y no es teórico: `addLine` leía
+      // las líneas, calculaba la suma y escribía el array entero. Dos
+      // peticiones que leen «0» a la vez escriben las dos «1», y la segunda
+      // pisa a la primera: el visitante pulsa dos veces y se lleva una
+      // unidad. Con el `SELECT … FOR UPDATE` de `#mutate`, la segunda espera
+      // y relee el 1 que la primera confirmó.
+      const variant = variantOf(COUNTED_SKU);
+      const cart = await engine.createCart({ market: "es" });
+      await Promise.all([
+        engine.addLine(cart.ref, { variant, quantity: 1 }),
+        engine.addLine(cart.ref, { variant, quantity: 1 }),
+      ]);
+      const after = await engine.getCart(cart.ref);
+      expect(after?.lines).toHaveLength(1);
+      expect(after?.lines[0]?.quantity, "una de las dos escrituras se perdió").toBe(2);
+    });
+
+    it("el clic veintiuno se rechaza, y deja la línea en veinte", async () => {
+      // El tope tiene que vivir donde se GUARDA: el zod de la acción validaba
+      // por PETICIÓN y el formulario manda siempre «1», así que veintiún
+      // clics dejaban la línea en 21 — y entonces el selector de la página
+      // (opciones 1..20) recibía un valor que no existe, el navegador elegía
+      // «1» y quien pulsara «Actualizar» perdía veinte unidades.
+      const variant = variantOf(COUNTED_SKU);
+      const cart = await engine.createCart({ market: "es" });
+      for (let click = 0; click < MAX_CART_LINE_QUANTITY; click += 1) {
+        await engine.addLine(cart.ref, { variant, quantity: 1 });
+      }
+      const error = await rejection(() => engine.addLine(cart.ref, { variant, quantity: 1 }));
+      expect(String(error)).toContain("cart_invalid_quantity");
+      const after = await engine.getCart(cart.ref);
+      expect(after?.lines[0]?.quantity).toBe(MAX_CART_LINE_QUANTITY);
+    });
+
+    it("cambiar la cantidad de una línea que no está es un error, no un «ok»", async () => {
+      // Antes contestaba el carrito sin haber hecho nada, y la vista pintaba
+      // éxito sobre una operación que no ocurrió.
+      const cart = await engine.createCart({ market: "es" });
+      const error = await rejection(() =>
+        engine.setLineQuantity(cart.ref, variantOf(COUNTED_SKU), 2),
+      );
+      expect(String(error)).toContain("cart_line_not_found");
+    });
+
+    it("subir la cantidad de una variante retirada se rechaza; bajarla o quitarla, no", async () => {
+      // La variante se retira DESPUÉS de que la línea exista, que es el caso
+      // real: nadie deja de vender algo antes de que nadie lo tenga en el
+      // carrito. Bajar y quitar tienen que seguir funcionando — es justo lo
+      // que hay que dejar hacer con algo que ya no se vende.
+      const payload = await loadPayload();
+      const variant = variantOf(UNTRACKED_SKU);
+      const cart = await engine.createCart({ market: "es", lines: [{ variant, quantity: 2 }] });
+      await payload.update({
+        collection: "variants",
+        id: Number(variant.externalId),
+        data: { active: false },
+        overrideAccess: true,
+      });
+      try {
+        const error = await rejection(() => engine.setLineQuantity(cart.ref, variant, 3));
+        expect(String(error)).toContain("cart_unknown_variant");
+        const lowered = await engine.setLineQuantity(cart.ref, variant, 1);
+        expect(lowered.lines[0]?.quantity).toBe(1);
+        const emptied = await engine.setLineQuantity(cart.ref, variant, 0);
+        expect(emptied.lines).toHaveLength(0);
+      } finally {
+        await payload.update({
+          collection: "variants",
+          id: Number(variant.externalId),
+          data: { active: true },
+          overrideAccess: true,
+        });
+      }
+    });
+
+    it("un carrito caducado se comporta como inexistente antes de que pase el barrendero", async () => {
+      // Las dos mitades de `expire-carts.ts`: el motor filtra por fecha, así
+      // que la caducidad vale desde el segundo en que ocurre y no desde el
+      // siguiente tick — que con cadencia diaria son hasta 24 h de diferencia
+      // entre lo que dice el campo y lo que hace el carrito.
+      const payload = await loadPayload();
+      const cart = await engine.createCart({
+        market: "es",
+        lines: [{ variant: variantOf(COUNTED_SKU), quantity: 1 }],
+      });
+      const row = await payload.find({
+        collection: "carts",
+        where: { sessionId: { equals: cart.ref.externalId } },
+        depth: 0,
+        overrideAccess: true,
+      });
+      const rowId = row.docs[0]?.id;
+      expect(rowId, "el carrito no llegó a la tabla").toBeDefined();
+      await payload.update({
+        collection: "carts",
+        id: rowId as number,
+        data: { expiresAt: new Date(Date.now() - 60_000).toISOString() },
+        overrideAccess: true,
+      });
+
+      expect(await engine.getCart(cart.ref), "un carrito caducado sigue leyéndose").toBeNull();
+
+      const { sweepStaleCarts } = await import("../scripts/sweep-carts");
+      const swept = await sweepStaleCarts(payload);
+      expect(swept.deleted).toBeGreaterThanOrEqual(1);
+      const gone = await payload.find({
+        collection: "carts",
+        where: { id: { equals: rowId } },
+        depth: 0,
+        overrideAccess: true,
+      });
+      expect(gone.docs, "el barrendero no borró la fila").toHaveLength(0);
     });
   });
 

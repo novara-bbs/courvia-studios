@@ -31,6 +31,7 @@
  */
 import { REGIONS, REGION_DEFINITIONS } from "@courvia/platform";
 import type { MarketId, RegionId } from "@courvia/platform";
+import { MAX_CART_LINE_QUANTITY } from "@courvia/commerce-domain";
 import { CommerceOwnerMismatchError } from "@courvia/commerce-domain";
 import type { CartRef, VariantRef } from "@courvia/commerce-domain";
 import { revalidatePath } from "next/cache";
@@ -64,18 +65,27 @@ export interface CartActionState {
   readonly units: number;
 }
 
+/*
+ * El tope viene del dominio, no de aquí.
+ *
+ * Estos esquemas validaban por PETICIÓN, y el formulario manda «1»: veintiún
+ * clics dejaban la línea en 21 sin que ninguno de los dos `max` se enterara.
+ * El techo real lo comprueba `addLine` sobre la SUMA, en el motor; la
+ * constante es del dominio (`MAX_CART_LINE_QUANTITY`) porque el motor no es
+ * el único que puede guardar un carrito y porque `apps/**` no puede nombrar
+ * un adaptador. Estos esquemas rechazan lo absurdo antes de llegar al motor
+ * y usan esa misma constante para no poder discrepar.
+ */
 const addSchema = z.object({
   variantId: z.coerce.number().int().positive(),
-  // Un carrito de robots no tiene «99 unidades». El tope es una cordura, no
-  // una regla de negocio: el stock lo comprueba el checkout, no esto.
-  quantity: z.coerce.number().int().min(1).max(20),
+  quantity: z.coerce.number().int().min(1).max(MAX_CART_LINE_QUANTITY),
   region: z.enum(REGIONS),
 });
 
 const quantitySchema = z.object({
   variantId: z.coerce.number().int().positive(),
   // Cero es válido: es como se quita una línea (contrato de `CartWrite`).
-  quantity: z.coerce.number().int().min(0).max(20),
+  quantity: z.coerce.number().int().min(0).max(MAX_CART_LINE_QUANTITY),
   region: z.enum(REGIONS),
 });
 

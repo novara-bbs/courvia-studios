@@ -13,6 +13,7 @@
  * flechas dispara un envío por cada una. El botón es explícito.
  */
 import { useActionState } from "react";
+import { MAX_CART_LINE_QUANTITY } from "@courvia/commerce-domain";
 import { Button } from "@courvia/ui";
 
 import { setCartQuantity, type CartActionState } from "./actions";
@@ -37,8 +38,7 @@ export interface CartLineData {
 
 const initialState: CartActionState = { status: "ok", units: 0 };
 
-/** El tope del `<select>`: el mismo `max` que valida la acción. */
-const MAX_QUANTITY = 20;
+
 
 function CartLine({
   line,
@@ -58,7 +58,10 @@ function CartLine({
   const [removeState, remove, removing] = useActionState(setCartQuantity, initialState);
   const state = updateState.status === "ok" ? removeState : updateState;
   const busy = updating || removing;
-  const options = Array.from({ length: MAX_QUANTITY }, (_, index) => index + 1);
+  // Del motor, que es quien impone el techo al guardar. Un selector que
+  // ofreciera menos opciones de las que la línea puede tener enseñaría «1»
+  // sobre una línea de 21 — que es exactamente lo que pasaba.
+  const options = Array.from({ length: MAX_CART_LINE_QUANTITY }, (_, index) => index + 1);
   const quantityId = `cart-qty-${line.variantId}`;
 
   return (

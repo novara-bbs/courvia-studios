@@ -1,7 +1,7 @@
 /**
  * The maintenance tick: GET /next/cron.
  *
- * Two jobs share one schedule because they share one shape — bounded,
+ * Three jobs share one schedule because they share one shape — bounded,
  * idempotent, and pointless to run from a browser:
  *
  *   1. **Dispatch the outbox.** The state machine queues external effects
@@ -10,12 +10,15 @@
  *   2. **Expire abandoned checkouts.** `pending_payment` orders older than
  *      an hour are cancelled and their stock reservations released, through
  *      the same state machine as any payment event.
+ *   3. **Delete expired carts.** `carts.expiresAt` had nobody reading it, so
+ *      the table grew forever. Deleting a cart frees no stock — a cart never
+ *      reserved any — so this one is a `DELETE`, not a transition.
  *
- * They are in one route rather than two because a Vercel Hobby project is
+ * They are in one route rather than three because a Vercel Hobby project is
  * limited to two cron jobs and to a daily cadence; keeping this to a single
- * entry means the frequency is a plan decision, not a refactor. Neither job
- * blocks the other: the sweep runs even if a handler threw, because the
- * dispatcher reports failures rather than propagating them.
+ * entry means the frequency is a plan decision, not a refactor. No job
+ * blocks another: each runs in its own `try` (see `attempt` below), and the
+ * response carries all three outcomes.
  *
  * AUTHENTICATION IS NOT OPTIONAL. An unauthenticated URL that drains the
  * outbox is a URL anybody can use to make us send email, and to force the
@@ -29,6 +32,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { getPayload } from "payload";
 
+import { sweepStaleCarts } from "../../../../src/scripts/sweep-carts";
 import { sweepStaleCheckouts } from "../../../../src/scripts/sweep-checkouts";
 import { DISPATCH_BUDGET_MS, dispatchOutbox } from "../../../../src/server/outbox";
 import { outboxHandlers } from "../../../../src/server/outbox-handlers";
@@ -66,14 +70,43 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const payload = await getPayload({ config });
 
-  const outbox = await dispatchOutbox(payload, {
-    handlers: outboxHandlers(),
-    budgetMs: DISPATCH_BUDGET_MS,
-  });
-  const checkouts = await sweepStaleCheckouts(payload);
+  /*
+   * Cada trabajo en su propio `try`, y el porqué está medido.
+   *
+   * La cabecera de este fichero prometía que ninguno bloquea al otro, y era
+   * cierto para el fallo de UN handler —el despachador lo captura— pero no
+   * para el despachador entero: el censo, la consulta de elegibles y la
+   * reclamación por SQL están fuera de su try, así que un hipo de la base de
+   * datos subía hasta aquí y `sweepStaleCheckouts` no llegaba a correr. Con
+   * cadencia diaria eso son 24 h de reservas de stock sin liberar por un
+   * error que no tenía nada que ver con ellas.
+   *
+   * Y el 500 tampoco valía: escondía el resultado del trabajo que SÍ había
+   * funcionado. Ahora la respuesta trae los tres resultados o el error de
+   * cada uno, y el estado es 207 si alguno falló — hay algo que mirar, pero
+   * no todo está roto.
+   */
+  async function attempt<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
+    try {
+      return await job();
+    } catch (error) {
+      console.error(`[cron] ${name} falló`, error);
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  const outbox = await attempt("outbox", () =>
+    dispatchOutbox(payload, { handlers: outboxHandlers(), budgetMs: DISPATCH_BUDGET_MS }),
+  );
+  const checkouts = await attempt("checkouts", () => sweepStaleCheckouts(payload));
+  const carts = await attempt("carts", () => sweepStaleCarts(payload));
+
+  const failed = [outbox, checkouts, carts].filter(
+    (result) => typeof result === "object" && result !== null && "error" in result,
+  ).length;
 
   return Response.json(
-    { outbox, checkouts },
-    { headers: { "cache-control": "no-store" } },
+    { outbox, checkouts, carts },
+    { status: failed === 0 ? 200 : 207, headers: { "cache-control": "no-store" } },
   );
 }

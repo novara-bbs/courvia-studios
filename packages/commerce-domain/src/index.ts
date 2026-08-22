@@ -133,6 +133,7 @@ export type {
   UnknownAvailability,
 } from "./availability";
 export type { Cart, CartLine, CartLineInput, CreateCartInput } from "./cart";
+export { MAX_CART_LINE_QUANTITY } from "./cart";
 export {
   CHECKOUT_HANDOFF_KINDS,
   handoffRedirectUrl,

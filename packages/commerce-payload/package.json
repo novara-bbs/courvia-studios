@@ -5,7 +5,8 @@
   "type": "module",
   "description": "CommerceService implementation over Payload's Local API. Owns persistence and catalog — never gateway concerns.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tx": "./src/tx-sql.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

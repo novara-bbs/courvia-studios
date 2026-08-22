@@ -51,6 +51,13 @@ import type {
   TextFieldSingleValidation,
 } from "payload";
 
+// `/tx`, no el barril: la regla `adapters-are-not-imported-by-routes`
+// deja que la CONFIGURACIÓN de Payload —que es el esquema del propio
+// adaptador— use sus primitivas de transacción, y solo esas. Importar
+// `@courvia/commerce-payload` a secas metería el motor aquí dentro, que
+// es justo lo que ADR-029 prohíbe.
+import { lockOrderRow } from "@courvia/commerce-payload/tx";
+
 import { isAdmin } from "./access";
 import { panelText, panelTextFor } from "./admin-copy";
 import type { LocalizedText } from "./admin-copy";
@@ -336,7 +343,17 @@ async function applyFulfilment(
   effectData: EffectData,
 ): Promise<OrderStatus> {
   const { payload } = req;
-  await payload.update({ collection: "orders", id: orderId, data: {}, overrideAccess: true, req });
+  // `SELECT … FOR UPDATE`, no un `update` con payload vacío: aquel toma el
+  // lock pero reescribe la fila entera al soltarlo con el estado que había
+  // cargado ANTES, así que el escritor bloqueado deshace lo que el ganador
+  // acaba de confirmar. Medido y documentado en
+  // `packages/commerce-payload/src/tx-sql.ts`.
+  //
+  // Aquí se traduce a lo que este fichero ya sabe decir: un pedido que no
+  // existe es el mismo `order_not_found` que devuelve `readOrder`.
+  if (!(await lockOrderRow(payload, req, orderId))) {
+    throw new APIError(`order_not_found: ${String(orderId)}`, 404);
+  }
   const order = await readOrder(req, orderId);
 
   let status = order.status;

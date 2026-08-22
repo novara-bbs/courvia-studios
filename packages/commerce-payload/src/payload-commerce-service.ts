@@ -48,7 +48,7 @@ import type {
 import type { PaymentProviderId } from "@courvia/platform";
 import type { BasePayload, PayloadRequest, Where } from "payload";
 import { commitTransaction, initTransaction, killTransaction } from "payload";
-import { int, qualified, transactionSql } from "./tx-sql";
+import { int, lockOrderRow, qualified, transactionSql } from "./tx-sql";
 
 /** Gateways available to checkout, keyed by id. Injected by the composition
  *  root — this package never knows which adapters exist (ADR-13/17). */
@@ -688,13 +688,13 @@ export class PayloadCommerceService implements CommerceService {
     const req: Partial<PayloadRequest> = { payload: this.payload };
     await initTransaction(req as Parameters<typeof initTransaction>[0]);
     try {
-      // Lock the order (UPDATE takes the row lock), then read the status
-      // this transaction must decide on — §4: transitions run inside a
-      // transaction, never against a stale read.
-      const locked = await this.payload
-        .update({ collection: "orders", id: orderId, data: {}, overrideAccess: true, req })
-        .catch(() => null);
-      if (locked === null) throw new CheckoutError("order_not_found", input.orderId);
+      // Lock del pedido, y luego el estado que esta transacción debe decidir
+      // — §4: las transiciones corren dentro de una transacción, nunca sobre
+      // una lectura vieja. `SELECT … FOR UPDATE` y no un `update` vacío: el
+      // porqué, medido, está en `tx-sql.ts`.
+      if (!(await lockOrderRow(this.payload, req, orderId))) {
+        throw new CheckoutError("order_not_found", input.orderId);
+      }
       const order = (await this.payload.findByID({
         collection: "orders",
         id: orderId,
