@@ -172,6 +172,26 @@ export const Orders: CollectionConfig = {
       },
     },
     { name: "refundedAmount", type: "number", required: true, min: 0, defaultValue: 0, validate: minorUnits },
+    {
+      name: "withdrawalDeadline",
+      type: "date",
+      admin: {
+        readOnly: true,
+        description: {
+          es: "Hasta cuándo puede desistir quien compró. La abre la entrega y la calcula el plazo legal del mercado; vacía mientras el pedido no esté entregado, o en mercados sin plazo legal uniforme.",
+          en: "How long the buyer may withdraw. Delivery opens it and the market’s statutory period sets it; empty until the order is delivered, or in markets with no uniform statutory period.",
+          ar: "حتى متى يحق للمشتري الانسحاب. يفتحها التسليم وتحدّدها المهلة القانونية للسوق؛ فارغة حتى يُسلَّم الطلب، أو في أسواق بلا مهلة قانونية موحّدة.",
+        },
+      },
+      /*
+       * Solo lectura, y con negación a nivel de CAMPO igual que `status`.
+       * `admin.readOnly` gris el input y nada más: la API sigue aceptando la
+       * escritura de cualquiera con sesión de admin. Y esta fecha es la que
+       * decide si una devolución entra en plazo — moverla a mano es cambiar
+       * un derecho del comprador desde un formulario.
+       */
+      access: { create: nobodyWrites, update: nobodyWrites },
+    },
     { name: "shippingAddress", type: "group", fields: addressFields },
     {
       name: "billingAddress",

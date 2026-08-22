@@ -63,12 +63,34 @@ export interface MarketDefinition {
   /** Presentment currency; prices are fixed per currency, never converted. */
   currency: Currency;
   incoterm: Incoterm;
+  /**
+   * Días de desistimiento desde la ENTREGA, o `null` donde no hay un plazo
+   * legal que aplicar.
+   *
+   * Es LEY, no configuración, y por eso está aquí y no en un Global editable
+   * desde el panel: cambiarlo no es una decisión comercial. Las cifras salen
+   * de `docs/markets.md` §«Desistimiento» y de ahí no se mueven sin abogado.
+   *
+   * `null` en EAU no es «cero días»: allí el plazo lo fija el contrato y la
+   * ley de comercio electrónico, no un número uniforme, así que inventarle
+   * uno sería peor que no tener ninguno. Quien consuma esto tiene que tratar
+   * los dos casos —lo hace `openWithdrawalWindow`, en la app.
+   *
+   * **El caso español lleva trampa y conviene saberla:** el Art. 102 TRLGDCU
+   * da 14 días, pero si NO se informa del derecho el plazo se convierte en
+   * DOCE MESES. O sea, el riesgo de no implementar esto no era «no tener una
+   * fecha»: era multiplicar el plazo por veintiséis.
+   */
+  withdrawalDays: number | null;
 }
 
 export const MARKET_DEFINITIONS: Record<MarketId, MarketDefinition> = {
-  es: { id: "es", currency: "EUR", incoterm: "DDP" },
-  uk: { id: "uk", currency: "GBP", incoterm: "DDP" },
-  ae: { id: "ae", currency: "AED", incoterm: "DDP" },
+  // Art. 102 TRLGDCU.
+  es: { id: "es", currency: "EUR", incoterm: "DDP", withdrawalDays: 14 },
+  // 14 días + Consumer Rights Act 2015.
+  uk: { id: "uk", currency: "GBP", incoterm: "DDP", withdrawalDays: 14 },
+  // Según contrato y Ley de comercio electrónico: no hay un número uniforme.
+  ae: { id: "ae", currency: "AED", incoterm: "DDP", withdrawalDays: null },
 };
 
 export const DEFAULT_MARKET: MarketId = "es";

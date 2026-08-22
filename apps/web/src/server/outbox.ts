@@ -211,14 +211,34 @@ export function eligibleWhere(effects: string[], nowMs: number): Where {
  * the concurrency test in outbox.test.ts runs this statement against a real
  * database, so a rename fails CI rather than production.
  */
-interface PostgresHandle {
+export interface PostgresHandle {
   query: (
     text: string,
     values: unknown[],
   ) => Promise<{ rowCount: number | null; rows?: Record<string, unknown>[] }>;
 }
 
-function outboxTable(payload: BasePayload): { pool: PostgresHandle; table: string } {
+/**
+ * Exported because a HANDLER needs it too, and for the same reason.
+ *
+ * `openWithdrawalWindow` writes one column of one order. Doing that with
+ * `payload.update` would repeat, in a sixth place, the failure this repo
+ * already measured and fixed in five: Payload's update-by-id reads the whole
+ * document, merges, and writes every column back, so a transition that
+ * commits in between is silently undone (`.claude/rules/database.md`,
+ * `packages/commerce-payload/src/tx-sql.ts`). An outbox tick and a payment
+ * webhook touching the same order is not hypothetical — that is the ordinary
+ * shape of a refund arriving on a delivered order.
+ *
+ * The handler cannot import `@courvia/commerce-payload/tx`: dependency-cruiser
+ * reserves that door for `apps/web/src/payload/**` and `src/server/` is not
+ * it. So the primitive it needs lives here, next to the other statement this
+ * file already owns.
+ */
+export function collectionTable(
+  payload: BasePayload,
+  slug: string,
+): { pool: PostgresHandle; table: string } {
   const db = payload.db as unknown as {
     pool?: PostgresHandle;
     schemaName?: string;
@@ -228,13 +248,17 @@ function outboxTable(payload: BasePayload): { pool: PostgresHandle; table: strin
     throw new Error("the outbox dispatcher needs a Postgres adapter (payload.db.pool)");
   }
   const schema = db.schemaName ?? "public";
-  const table = db.tableNameMap?.get("outbox") ?? "outbox";
+  const table = db.tableNameMap?.get(slug) ?? slug;
   // Defensive, though both values are ours: an identifier cannot be
   // parameterized, so it is quoted AND constrained rather than trusted.
   for (const part of [schema, table]) {
     if (!/^[a-z_][a-z0-9_]*$/.test(part)) throw new Error(`unusable identifier: ${part}`);
   }
   return { pool: db.pool, table: `"${schema}"."${table}"` };
+}
+
+function outboxTable(payload: BasePayload): { pool: PostgresHandle; table: string } {
+  return collectionTable(payload, "outbox");
 }
 
 /**

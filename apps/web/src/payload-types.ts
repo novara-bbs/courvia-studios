@@ -2687,6 +2687,10 @@ export interface Order {
    */
   taxAmount: number;
   refundedAmount: number;
+  /**
+   * How long the buyer may withdraw. Delivery opens it and the market’s statutory period sets it; empty until the order is delivered, or in markets with no uniform statutory period.
+   */
+  withdrawalDeadline?: string | null;
   shippingAddress: {
     name: string;
     line1: string;
@@ -4379,6 +4383,7 @@ export interface OrdersSelect<T extends boolean = true> {
   shippingAmount?: T;
   taxAmount?: T;
   refundedAmount?: T;
+  withdrawalDeadline?: T;
   shippingAddress?:
     | T
     | {

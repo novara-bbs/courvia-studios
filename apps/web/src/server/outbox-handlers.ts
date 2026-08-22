@@ -28,10 +28,18 @@
  *     que este fichero defiende para todo lo que no se puede ejecutar. Un
  *     handler que fallara por falta de dirección quemaría los cinco intentos
  *     y dejaría la fila en `failed`, que es peor: menos visible.
+ *   - `open_withdrawal_window` — **registrado desde el 22 ago 2026, y no era
+ *     un correo.** Es la ventana de desistimiento: un derecho del comprador
+ *     con plazo fijado por ley, no por nosotros. Se encolaba desde que existe
+ *     el flujo de fulfilment y nadie la abría, así que el pedido no guardaba
+ *     en ningún sitio hasta cuándo se puede devolver. En España eso no es un
+ *     hueco cosmético: el Art. 102 TRLGDCU da 14 días **y doce meses si no se
+ *     informa**, o sea que no implementarlo multiplicaba el plazo por 26.
+ *     No necesita credenciales ni copy: es una fecha.
  *   - `send_confirmation_email`, `send_tracking_email`, `send_post_sale_email`,
  *     `send_refund_email`, `issue_tax_invoice`, `issue_credit_note`,
- *     `notify_crm`, `open_withdrawal_window` — order-side effects, several
- *     of them queued by the fulfilment flow (ADR-027).
+ *     `notify_crm` — order-side effects, several of them queued by the
+ *     fulfilment flow (ADR-027).
  *     Their copy has not been written, and there is no checkout yet, so no
  *     order reaches the status that queues most of them. Registering a
  *     handler that mails an empty template would be worse than a queue that
@@ -40,7 +48,13 @@
  *
  * Adding one is adding an entry here. Nothing else changes.
  */
-import { DEFAULT_LOCALE, REGIONS, REGION_DEFINITIONS, isLocaleId } from "@courvia/platform";
+import {
+  DEFAULT_LOCALE,
+  MARKET_DEFINITIONS,
+  REGIONS,
+  REGION_DEFINITIONS,
+  isLocaleId,
+} from "@courvia/platform";
 import type { LocaleId, MarketId, RegionId } from "@courvia/platform";
 import type { BasePayload } from "payload";
 
@@ -48,7 +62,7 @@ import { leadConfirmationEmail } from "../email/lead-confirmation";
 import { opsAlertEmail } from "../email/ops-alert";
 import type { LeadIntent } from "../email/lead-confirmation";
 import { siteUrl } from "../seo/site-url";
-import { PermanentEffectError } from "./outbox";
+import { collectionTable, PermanentEffectError } from "./outbox";
 import type { OutboxHandler, OutboxHandlers, OutboxRow } from "./outbox";
 
 const LEAD_INTENTS: readonly LeadIntent[] = ["demo", "waitlist", "preorder"];
@@ -134,6 +148,81 @@ const sendLeadConfirmation: OutboxHandler = async (row: OutboxRow, payload: Base
  * a test can substitute its own registry without reaching into the module.
  */
 /**
+ * Cuándo acaba el plazo de desistimiento, dado el día de entrega y el mercado.
+ *
+ * Separada del handler porque es la única parte con aritmética, y porque el
+ * caso interesante —EAU devuelve `null`— se comprueba mejor sin una base de
+ * datos delante. `null` significa «este mercado no tiene un plazo legal
+ * uniforme que fijar», nunca «cero días».
+ */
+export function withdrawalDeadlineFor(deliveredAt: Date, market: MarketId): Date | null {
+  const days = MARKET_DEFINITIONS[market].withdrawalDays;
+  if (days === null) return null;
+  return new Date(deliveredAt.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Abre la ventana de desistimiento del pedido.
+ *
+ * La entrega la dispara (`fulfilment.delivered`) y la fila trae `deliveredAt`
+ * y `market`, porque **la duración es ley y la ley es por mercado**
+ * (`docs/markets.md`, fila «Desistimiento»). Un 14 codificado aquí sería
+ * derecho español aplicado a Dubái, que es literalmente lo que advierte el
+ * comentario de `orders-fulfilment.ts` al encolar esto.
+ *
+ * Un mercado sin plazo legal uniforme —EAU, donde lo fija el contrato— deja
+ * la fecha VACÍA en vez de inventarse una. Una fecha inventada en este campo
+ * es peor que ninguna: es la que decide si una devolución entra en plazo.
+ *
+ * ---------------------------------------------------------------------------
+ * POR QUÉ UNA SENTENCIA Y NO `payload.update`
+ * ---------------------------------------------------------------------------
+ *
+ * Porque `payload.update` por id LEE el documento entero, mezcla y reescribe
+ * todas las columnas. Este repo ya midió esa pérdida de escrituras y la
+ * arregló en cinco sitios (`packages/commerce-payload/src/tx-sql.ts`), y aquí
+ * el escritor rival no es hipotético: el tick del outbox corre por cron
+ * mientras un webhook de pago puede estar moviendo el MISMO pedido —un
+ * reembolso sobre un pedido recién entregado es el caso ordinario, no el
+ * raro—. Un `UPDATE … SET withdrawal_deadline = $1 WHERE id = $2` toca una
+ * columna y no puede deshacer la transición de nadie.
+ *
+ * `rowCount === 0` es «ese pedido ya no está», que es un error permanente:
+ * reintentarlo cuatro veces no lo devuelve.
+ */
+const openWithdrawalWindow: OutboxHandler = async (row: OutboxRow, payload: BasePayload) => {
+  if (row.order === null) throw new PermanentEffectError("la fila no lleva pedido");
+
+  const data = (row.payload ?? {}) as { deliveredAt?: unknown; market?: unknown };
+  const deliveredAt = typeof data.deliveredAt === "string" ? new Date(data.deliveredAt) : null;
+  if (deliveredAt === null || Number.isNaN(deliveredAt.getTime())) {
+    throw new PermanentEffectError(`fecha de entrega inservible: ${String(data.deliveredAt)}`);
+  }
+
+  const market = marketOf(data.market);
+  const deadline = withdrawalDeadlineFor(deliveredAt, market);
+  if (deadline === null) {
+    // EAU: sin plazo legal uniforme. Se deja constancia de que se miró.
+    console.info(
+      `[outbox] pedido ${String(row.order)} en ${market}: sin plazo legal de desistimiento que fijar`,
+    );
+    return;
+  }
+
+  const { pool, table } = collectionTable(payload, "orders");
+  const written = await pool.query(
+    `UPDATE ${table} SET withdrawal_deadline = $1, updated_at = now() WHERE id = $2`,
+    [deadline.toISOString(), row.order],
+  );
+  if (written.rowCount === 0) {
+    throw new PermanentEffectError(`el pedido ${String(row.order)} ya no existe`);
+  }
+  console.info(
+    `[outbox] pedido ${String(row.order)}: desistimiento abierto hasta ${deadline.toISOString()} (${market})`,
+  );
+};
+
+/**
  * La alerta que una persona tiene que leer.
  *
  * Se construye por efecto, porque los dos que la usan quieren el mismo correo
@@ -170,6 +259,8 @@ export function outboxHandlers(): OutboxHandlers {
     // predates the customer-facing confirmation; notifying the sales inbox
     // as well needs an operations address this deployment does not have yet.
     notify_sales_lead: sendLeadConfirmation,
+    // No es un correo y no espera copy: es una fecha que la ley fija.
+    open_withdrawal_window: openWithdrawalWindow,
   };
 
   /*
