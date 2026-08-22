@@ -164,6 +164,11 @@ jobs:
       - name: Build
         run: pnpm --filter @courvia/web build
 
+      # `playwright.config.ts` monta antes el escenario del recorrido con
+      # `seed:e2e-operator` (globalSetup). Ese script crea un usuario con
+      # contraseña fija y SOLO corre contra Postgres local o el desechable de
+      # CI: aquí cumple las dos condiciones (DATABASE_URL a localhost y
+      # CI=true), y contra cualquier otra base de datos se niega.
       - name: Browser suite
         run: pnpm e2e
 

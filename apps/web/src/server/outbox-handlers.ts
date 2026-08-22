@@ -45,15 +45,23 @@
  *     hueco cosmético: el Art. 102 TRLGDCU da 14 días **y doce meses si no se
  *     informa**, o sea que no implementarlo multiplicaba el plazo por 26.
  *     No necesita credenciales ni copy: es una fecha.
- *   - `send_confirmation_email`, `send_tracking_email`, `send_post_sale_email`,
- *     `send_refund_email`, `issue_tax_invoice`, `issue_credit_note`,
- *     `notify_crm` — order-side effects, several of them queued by the
- *     fulfilment flow (ADR-027).
- *     Their copy has not been written, and there is no checkout yet, so no
- *     order reaches the status that queues most of them. Registering a
- *     handler that mails an empty template would be worse than a queue that
- *     says "not yet": the row stays visible in the admin until somebody
- *     writes the message.
+ *   - `send_tracking_email`, `send_post_sale_email` — **registrados desde el
+ *     22 ago 2026, con copy escrito en los tres idiomas.** Son los dos
+ *     correos del recorrido que un admin puede operar hoy sin pasarela: crear
+ *     el envío, rellenar seguimiento, fechar la entrega. El de entrega lleva
+ *     además el plazo de desistimiento, que no es cortesía: informar del
+ *     derecho es lo que evita que 14 días se conviertan en doce meses.
+ *     Incondicionales, como la confirmación de lead — `payload.sendEmail` cae
+ *     al log cuando no hay adaptador, y una fila diferida no avisaría a nadie
+ *     de que su pedido salió.
+ *   - `send_confirmation_email`, `send_refund_email`, `issue_tax_invoice`,
+ *     `issue_credit_note`, `notify_crm` — order-side effects (ADR-027). Los
+ *     tres primeros los encola un pago, y no hay pasarela con credenciales,
+ *     así que ningún pedido llega al estado que los encola; los dos fiscales
+ *     esperan al proveedor de SIF (ADR-07) y `notify_crm` a un CRM. Registrar
+ *     un handler que mande una plantilla vacía sería peor que una cola que
+ *     dice «todavía no»: la fila se queda visible en el panel hasta que
+ *     alguien escriba el mensaje.
  *
  * Adding one is adding an entry here. Nothing else changes.
  */
@@ -70,6 +78,8 @@ import type { BasePayload } from "payload";
 import { leadConfirmationEmail } from "../email/lead-confirmation";
 import { opsAlertEmail } from "../email/ops-alert";
 import { opsWorkOrderEmail } from "../email/ops-work-order";
+import { orderDeliveredEmail } from "../email/order-delivered";
+import { orderShippedEmail } from "../email/order-shipped";
 import type { LeadIntent } from "../email/lead-confirmation";
 import { siteUrl } from "../seo/site-url";
 import { collectionTable, PermanentEffectError } from "./outbox";
@@ -262,6 +272,125 @@ function sendOpsAlert(effect: string, to: string): OutboxHandler {
 }
 
 /**
+ * Lo que un pedido necesita del pedido para escribirle a quien compró.
+ *
+ * Una lectura, no una escritura: sin la pérdida de escrituras que obligó a
+ * `openWithdrawalWindow` a bajar a SQL. Un pedido que ya no existe, o sin
+ * dirección, es un error permanente — reintentarlo cuatro veces no le pone
+ * un correo.
+ */
+interface OrderForEmail {
+  readonly to: string;
+  readonly locale: LocaleId;
+  readonly market: MarketId;
+  readonly lines: { sku: string; quantity: number }[];
+}
+
+async function readOrderForEmail(
+  row: OutboxRow,
+  payload: BasePayload,
+): Promise<OrderForEmail> {
+  if (row.order === null) throw new PermanentEffectError("la fila no lleva pedido");
+
+  const order = (await payload
+    .findByID({ collection: "orders", id: row.order, depth: 0, overrideAccess: true })
+    .catch(() => null)) as {
+    email?: unknown;
+    locale?: unknown;
+    market?: unknown;
+    lines?: { sku?: unknown; quantity?: unknown }[];
+  } | null;
+  if (order === null) throw new PermanentEffectError(`el pedido ${String(row.order)} ya no existe`);
+
+  const to = typeof order.email === "string" ? order.email : "";
+  if (to === "") throw new PermanentEffectError(`el pedido ${String(row.order)} no tiene correo`);
+
+  return {
+    to,
+    locale: isLocaleId(order.locale) ? order.locale : DEFAULT_LOCALE,
+    market: marketOf(order.market),
+    lines: (order.lines ?? []).map((line) => ({
+      sku: String(line.sku ?? "(sin sku)"),
+      quantity: Number(line.quantity ?? 0),
+    })),
+  };
+}
+
+/**
+ * «Tu pedido va en camino».
+ *
+ * Todo lo del transportista viene de la FILA, no del envío: el payload lo
+ * escribió `orders-fulfilment.ts` con lo que decía la etiqueta ese día
+ * —transportista, número, plantilla de seguimiento e incoterm—, y corregir
+ * después una fila de `carriers` no debe reescribir un correo ya mandado.
+ * Del pedido salen solo el destinatario, el idioma y las líneas.
+ */
+const sendTrackingEmail: OutboxHandler = async (row: OutboxRow, payload: BasePayload) => {
+  const order = await readOrderForEmail(row, payload);
+  const data = (row.payload ?? {}) as Record<string, unknown>;
+  const shippedAt = typeof data.shippedAt === "string" ? data.shippedAt : "";
+  if (shippedAt === "") {
+    throw new PermanentEffectError(`fecha de envío inservible: ${String(data.shippedAt)}`);
+  }
+
+  const message = orderShippedEmail({
+    orderId: row.order as number,
+    locale: order.locale,
+    lines: order.lines,
+    carrierName: typeof data.carrierName === "string" ? data.carrierName : "",
+    trackingNumber: typeof data.trackingNumber === "string" ? data.trackingNumber : "",
+    trackingUrl: typeof data.trackingUrl === "string" ? data.trackingUrl : "",
+    shippedAt,
+    incoterm: typeof data.incoterm === "string" ? data.incoterm : "",
+  });
+
+  await payload.sendEmail({
+    to: order.to,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    headers: { "Idempotency-Key": `outbox-${String(row.id)}` },
+  });
+  // La dirección es PII y no va al log de un despliegue; el id basta.
+  console.info(`[outbox] seguimiento enviado del pedido ${String(row.order)}`);
+};
+
+/**
+ * «Entregado. Ahora la primera sesión» — con el plazo de desistimiento.
+ *
+ * El plazo se RECALCULA aquí en vez de leerse de `orders.withdrawalDeadline`,
+ * y no es duplicación: este correo y `open_withdrawal_window` son dos filas de
+ * outbox distintas y nada ordena cuál se despacha antes. Leer el campo daría
+ * un correo sin fecha la mitad de las veces. La función es la misma, así que
+ * no pueden discrepar.
+ */
+const sendPostSaleEmail: OutboxHandler = async (row: OutboxRow, payload: BasePayload) => {
+  const order = await readOrderForEmail(row, payload);
+  const data = (row.payload ?? {}) as { deliveredAt?: unknown };
+  const deliveredAt = typeof data.deliveredAt === "string" ? new Date(data.deliveredAt) : null;
+  if (deliveredAt === null || Number.isNaN(deliveredAt.getTime())) {
+    throw new PermanentEffectError(`fecha de entrega inservible: ${String(data.deliveredAt)}`);
+  }
+
+  const message = orderDeliveredEmail({
+    orderId: row.order as number,
+    locale: order.locale,
+    market: order.market,
+    deliveredAt: deliveredAt.toISOString(),
+    withdrawalDeadline: withdrawalDeadlineFor(deliveredAt, order.market),
+  });
+
+  await payload.sendEmail({
+    to: order.to,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    headers: { "Idempotency-Key": `outbox-${String(row.id)}` },
+  });
+  console.info(`[outbox] posventa enviada del pedido ${String(row.order)}`);
+};
+
+/**
  * La orden de trabajo del almacén, y su contraorden.
  *
  * El payload de la fila no basta: `start_picking` guarda `{market}` y
@@ -322,6 +451,12 @@ export function outboxHandlers(): OutboxHandlers {
     notify_sales_lead: sendLeadConfirmation,
     // No es un correo y no espera copy: es una fecha que la ley fija.
     open_withdrawal_window: openWithdrawalWindow,
+    // Los dos correos al cliente sobre un pedido de verdad. Incondicionales,
+    // igual que la confirmación de lead: `payload.sendEmail` cae al log
+    // cuando no hay adaptador configurado, y una fila diferida no avisaría a
+    // nadie de que el envío salió.
+    send_tracking_email: sendTrackingEmail,
+    send_post_sale_email: sendPostSaleEmail,
   };
 
   /*

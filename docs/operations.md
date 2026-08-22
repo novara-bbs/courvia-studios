@@ -96,7 +96,8 @@ Ejecuta `expireStaleCheckouts` (`packages/commerce-payload`): los pedidos `pendi
 | Unit | Vitest | Dominio, Zod, monedas (zero-decimal, redondeo), **normalización de PaymentEvents** | Cada PR |
 | Integración | Vitest + **Stripe test clocks** (+ sandbox Tabby/Tamara en S4) | Adaptadores, webhooks idempotentes, máquina de estados | Cada PR |
 | Navegador | **Playwright** — `pnpm e2e` | **Existe desde el 22 ago 2026.** Geometría del raíl pegajoso · desbordamiento horizontal a 320/390 en cuatro rutas + RTL · axe AA en los tres temas y en RTL · teclado (menú móvil, salto al contenido) | Job `e2e` en cada PR |
-| E2E de compra | Playwright | Checkout **por mercado y proveedor**: EUR+Bizum · GBP+Klarna · AED+tarjeta y AED+Tabby; RMA; desistimiento | 🔒 pendiente: exige credenciales de pasarela |
+| Operar un pedido | Playwright, por `request` con sesión real | **Desde el 22 ago 2026.** `paid → preparing → shipped → delivered` por la API del panel, con las dos escrituras que tiene que negar (`orders.status` y `withdrawalDeadline`). El escenario lo monta `pnpm seed:e2e-operator`, que **se niega a correr contra una base de datos que no sea local o la de CI** | Job `e2e` en cada PR |
+| E2E de compra | Playwright | Checkout **por mercado y proveedor**: EUR+Bizum · GBP+Klarna · AED+tarjeta y AED+Tabby; RMA | 🔒 pendiente: exige credenciales de pasarela |
 | Visual | Storybook (+Chromatic opc.) | `ui` en 3 temas + RTL | ⏳ pendiente |
 
 **El harness de navegador, en concreto** (`apps/web/playwright.config.ts`,

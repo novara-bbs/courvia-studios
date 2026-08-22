@@ -66,6 +66,13 @@ const executablePath = existsSync(PREINSTALLED) ? PREINSTALLED : undefined;
 export default defineConfig({
   testDir: "./e2e",
   /*
+   * El escenario del recorrido de un pedido: un operador con sesión y un
+   * pedido pagado esperando a que alguien lo prepare. Corre en otro proceso
+   * porque Playwright no puede cargar la Local API de Payload — ver
+   * `e2e/global-setup.ts`.
+   */
+  globalSetup: "./e2e/global-setup.ts",
+  /*
    * En serie, y a propósito. Estas pruebas comparten un servidor y una base de
    * datos, y varias miden geometría: dos páginas compitiendo por CPU producen
    * medidas de scroll que no se reproducen. La lentitud es el precio de que un

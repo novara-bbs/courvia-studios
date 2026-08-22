@@ -20,6 +20,7 @@
     "seed:markets": "tsx src/seeds/seed-markets.ts",
     "seed:content": "tsx src/seeds/seed-content.ts",
     "seed:templates": "tsx src/seeds/seed-templates.ts",
+    "seed:e2e-operator": "tsx src/seeds/seed-e2e-operator.ts",
     "sweep:checkouts": "tsx src/scripts/expire-checkouts.ts",
     "test": "vitest run",
     "e2e": "playwright test",

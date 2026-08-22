@@ -23,8 +23,7 @@ import { dispatchOutbox } from "./outbox";
 
 const hasDb = typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL !== "";
 const dbIsDisposable =
-  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") ||
-  process.env.CI === "true";
+  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") || process.env.CI === "true";
 const describeDb = hasDb && dbIsDisposable ? describe : describe.skip;
 
 /** Propios de esta suite: nada más los usa, así que borrarlos no pisa a nadie. */
@@ -57,7 +56,14 @@ describeDb("la orden de preparación y su contraorden", () => {
         market: "es",
         email: "almacen@courvia.test",
         locale: "es",
-        lines: [{ variant: variantId, sku: FIXTURE_SKU, quantity: 2, unitAmount: 1000 }],
+        lines: [
+          {
+            variant: variantId,
+            sku: FIXTURE_SKU,
+            quantity: 2,
+            unitAmount: 1000,
+          },
+        ],
         totalAmount: 2000,
         taxAmount: 0,
         shippingAmount: 0,
@@ -99,7 +105,11 @@ describeDb("la orden de preparación y su contraorden", () => {
       id,
       depth: 0,
       overrideAccess: true,
-    })) as unknown as { status: string; attempts: number; lastError?: string | null };
+    })) as unknown as {
+      status: string;
+      attempts: number;
+      lastError?: string | null;
+    };
   }
 
   /** El registro de verdad, con la dirección puesta. */
@@ -144,7 +154,10 @@ describeDb("la orden de preparación y su contraorden", () => {
                   excerpt: "Fixture de las órdenes de almacén. No es un producto.",
                   specs: [],
                   launchStatus: "available",
-                  _status: "published",
+                  // BORRADOR, y es importante: un producto publicado sale en /{región}/robots
+                  // como cualquier otro. Uno de estos fixtures llegó a la portada de
+                  // catálogo y tumbó `chrome-shell.test.ts` con «a card image with no alt».
+                  _status: "draft",
                 },
               })
             ).id,
@@ -165,7 +178,12 @@ describeDb("la orden de preparación y su contraorden", () => {
               await payload.create({
                 collection: "variants",
                 overrideAccess: true,
-                data: { product: productId, sku: FIXTURE_SKU, sport: "padel", active: true },
+                data: {
+                  product: productId,
+                  sku: FIXTURE_SKU,
+                  sport: "padel",
+                  active: true,
+                },
               })
             ).id,
           );
@@ -248,7 +266,11 @@ describeDb("la orden de preparación y su contraorden", () => {
   it("un pedido que ya no existe mata la fila al primer intento, no a los cinco", async () => {
     const orderId = await makeOrder();
     const rowId = await queue("start_picking", orderId);
-    await payload.delete({ collection: "orders", id: orderId, overrideAccess: true });
+    await payload.delete({
+      collection: "orders",
+      id: orderId,
+      overrideAccess: true,
+    });
     const handlers = await handlersWithOps();
 
     await dispatchOutbox(payload, { handlers });

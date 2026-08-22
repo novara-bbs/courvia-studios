@@ -51,8 +51,7 @@ const FIXTURE_SKU = "WD-TEST";
 
 const hasDb = typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL !== "";
 const dbIsDisposable =
-  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") ||
-  process.env.CI === "true";
+  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") || process.env.CI === "true";
 const describeDb = hasDb && dbIsDisposable ? describe : describe.skip;
 
 async function loadPayload() {
@@ -119,7 +118,14 @@ describeDb("abrir la ventana escribe en el pedido", () => {
         market,
         email: "desistimiento@courvia.test",
         locale: "es",
-        lines: [{ variant: variantId, sku: FIXTURE_SKU, quantity: 1, unitAmount: 1000 }],
+        lines: [
+          {
+            variant: variantId,
+            sku: FIXTURE_SKU,
+            quantity: 1,
+            unitAmount: 1000,
+          },
+        ],
         totalAmount: 1000,
         taxAmount: 0,
         shippingAmount: 0,
@@ -159,7 +165,9 @@ describeDb("abrir la ventana escribe en el pedido", () => {
   async function run(): Promise<void> {
     const handler = outboxHandlers().open_withdrawal_window;
     if (handler === undefined) throw new Error("open_withdrawal_window sin handler");
-    await dispatchOutbox(payload, { handlers: { open_withdrawal_window: handler } });
+    await dispatchOutbox(payload, {
+      handlers: { open_withdrawal_window: handler },
+    });
   }
 
   async function readOrder(id: number) {
@@ -177,7 +185,11 @@ describeDb("abrir la ventana escribe en el pedido", () => {
       id,
       depth: 0,
       overrideAccess: true,
-    })) as unknown as { status: string; attempts: number; lastError?: string | null };
+    })) as unknown as {
+      status: string;
+      attempts: number;
+      lastError?: string | null;
+    };
   }
 
   beforeAll(async () => {
@@ -209,7 +221,10 @@ describeDb("abrir la ventana escribe en el pedido", () => {
                   excerpt: "Fixture de la ventana de desistimiento. No es un producto.",
                   specs: [],
                   launchStatus: "available",
-                  _status: "published",
+                  // BORRADOR, y es importante: un producto publicado sale en /{región}/robots
+                  // como cualquier otro. Uno de estos fixtures llegó a la portada de
+                  // catálogo y tumbó `chrome-shell.test.ts` con «a card image with no alt».
+                  _status: "draft",
                 },
               })
             ).id,
@@ -230,7 +245,12 @@ describeDb("abrir la ventana escribe en el pedido", () => {
               await payload.create({
                 collection: "variants",
                 overrideAccess: true,
-                data: { product: productId, sku: FIXTURE_SKU, sport: "padel", active: true },
+                data: {
+                  product: productId,
+                  sku: FIXTURE_SKU,
+                  sport: "padel",
+                  active: true,
+                },
               })
             ).id,
           );
@@ -253,7 +273,10 @@ describeDb("abrir la ventana escribe en el pedido", () => {
 
   it("un pedido español entregado queda con fecha, y es la de la entrega + 14", async () => {
     const orderId = await makeOrder("es");
-    const rowId = await queue(orderId, { deliveredAt: DELIVERED_AT, market: "es" });
+    const rowId = await queue(orderId, {
+      deliveredAt: DELIVERED_AT,
+      market: "es",
+    });
 
     await run();
 
@@ -269,7 +292,10 @@ describeDb("abrir la ventana escribe en el pedido", () => {
 
   it("un pedido de EAU se queda VACÍO, que no es lo mismo que a cero", async () => {
     const orderId = await makeOrder("ae");
-    const rowId = await queue(orderId, { deliveredAt: DELIVERED_AT, market: "ae" });
+    const rowId = await queue(orderId, {
+      deliveredAt: DELIVERED_AT,
+      market: "ae",
+    });
 
     await run();
 
@@ -301,7 +327,10 @@ describeDb("abrir la ventana escribe en el pedido", () => {
      * desaparece de un pedido entregado.
      */
     const orderId = await makeOrder("es");
-    const rowId = await queue(orderId, { deliveredAt: DELIVERED_AT, market: "es" });
+    const rowId = await queue(orderId, {
+      deliveredAt: DELIVERED_AT,
+      market: "es",
+    });
 
     const db = payload.db as unknown as {
       pool: {
@@ -309,10 +338,7 @@ describeDb("abrir la ventana escribe en el pedido", () => {
           query: (text: string, values?: unknown[]) => Promise<unknown>;
           release: () => void;
         }>;
-        query: (
-          text: string,
-          values?: unknown[],
-        ) => Promise<{ rows?: Record<string, unknown>[] }>;
+        query: (text: string, values?: unknown[]) => Promise<{ rows?: Record<string, unknown>[] }>;
       };
       schemaName?: string;
       tableNameMap?: Map<string, string>;

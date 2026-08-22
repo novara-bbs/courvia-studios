@@ -142,6 +142,30 @@
       "expiry": "It expires in {minutes} minutes and works once.",
       "ignore": "If this was not you, ignore this message. The current password still works and nobody got in.",
       "signature": "The Courvia team"
+    },
+    "orderShipped": {
+      "subject": "Your order is on its way",
+      "preheader": "{carrierName} has it. Tracking number: {trackingNumber}.",
+      "intro": "Your order {orderId} left on {shippedAt}.",
+      "itemsTitle": "What is inside",
+      "item": "{sku} × {quantity}",
+      "carrier": "{carrierName} is carrying it, under tracking number {trackingNumber}.",
+      "track": "Follow the shipment here: {trackingUrl}",
+      "noTrackingUrl": "This carrier does not publish online tracking. If you want to know where it is, reply to this email with the number above.",
+      "ddp": "Duties and import taxes are already paid. Nobody will ask you for anything on delivery.",
+      "signature": "The Courvia team"
+    },
+    "orderDelivered": {
+      "subject": "Delivered. Now the first session",
+      "preheader": "How to calibrate it, and how long you can withdraw.",
+      "intro": "Your order {orderId} was delivered on {deliveredAt}.",
+      "firstTitle": "Before the first basket",
+      "firstCalibrate": "Calibrate it for your court and your ball. A padel ball does not bounce like a tennis ball, and the setting does not carry across.",
+      "firstDrill": "Start with one stroke, not a programme. Twenty minutes of the same backhand, not a varied hour.",
+      "withdrawal": "You have until {deadline} to withdraw from the purchase and return it. Reply to this email and we will handle it.",
+      "withdrawalContract": "The return terms are the ones in your order's purchase contract. Reply to this email and we will set them out for you.",
+      "support": "If something does not work the way you expected, reply to this email before returning anything: it is nearly always calibration.",
+      "signature": "The Courvia team"
     }
   },
   "cart": {
