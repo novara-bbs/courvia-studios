@@ -563,10 +563,10 @@ export class PayloadCommerceService implements CommerceService {
       orderId = created.id as number;
 
       // reserve_stock_temporarily (transactional side effect of the draft
-      // transition). Lock each inventory row (an UPDATE takes a row lock),
-      // then RE-READ and re-check: two concurrent checkouts for the last
-      // unit serialize here, and the loser rolls back with a typed error
-      // instead of overselling. Deterministic variant order avoids deadlock.
+      // transition). Dos checkouts concurrentes por la última unidad se
+      // serializan aquí y el perdedor sale con un error tipado en vez de
+      // sobrevender; el CÓMO está en el bloque de abajo, que ya no lee antes
+      // de escribir. Orden determinista de variante para no abrazarse.
       const orderedLines = [...lines].sort(
         (a, b) => Number(a.variantDoc.id) - Number(b.variantDoc.id),
       );

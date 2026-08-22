@@ -16,6 +16,7 @@ import { MARKETS, SPORTS } from "@courvia/platform";
 import type { CollectionConfig, Field } from "payload";
 
 import { anyone, hiddenUnlessAdmin, isAdmin, isAuthenticated } from "./access";
+import { PANEL_GROUPS } from "./admin-copy";
 import { catalogHooks, revalidateCatalog } from "./catalog-revalidation";
 import { editorialKeyField } from "./commerce-connections";
 import { previewRegion, previewUrl } from "./preview";
@@ -45,22 +46,33 @@ function skuFromVariant(): Field {
   return {
     name: "sku",
     type: "text",
-    label: "SKU",
+    label: { es: "SKU", en: "SKU", ar: "رمز التخزين" },
     virtual: "variant.sku",
     admin: {
       readOnly: true,
-      description: "De la variante enlazada. No es una columna: renombrar el SKU lo cambia aquí también.",
+      description: {
+          es: "De la variante enlazada. No es una columna: renombrar el SKU lo cambia aquí también.",
+          en: "Taken from the linked variant. It is not a column: renaming the SKU changes it here too.",
+          ar: "مأخوذ من المتغيّر المرتبط. ليس عمودًا: تغيير رمز التخزين يغيّره هنا أيضًا.",
+        },
     },
   };
 }
 
 export const Brands: CollectionConfig = {
   slug: "brands",
-  labels: { singular: "Marca", plural: "Marcas" },
+  labels: {
+    singular: { es: "Marca", en: "Brand", ar: "علامة" },
+    plural: { es: "Marcas", en: "Brands", ar: "العلامات" },
+  },
   admin: {
     useAsTitle: "name",
-    group: "Catálogo",
-    description: "Marcas de la casa (Drill, Gear…). Multimarca sin multi-sitio: una faceta, no un fork.",
+    group: PANEL_GROUPS.catalog,
+    description: {
+      es: "Marcas de la casa (Drill, Gear…). Multimarca sin multi-sitio: una faceta, no un fork.",
+      en: "In-house brands (Drill, Gear…). Multi-brand without multi-site: a facet, not a fork.",
+      ar: "علاماتنا الداخلية (Drill، Gear…). تعدّد علامات دون تعدّد مواقع: وجه تصنيف، لا نسخة منفصلة.",
+    },
   },
   access: { read: anyone, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
   hooks: {
@@ -85,11 +97,18 @@ export const Brands: CollectionConfig = {
 
 export const Categories: CollectionConfig = {
   slug: "categories",
-  labels: { singular: "Categoría", plural: "Categorías" },
+  labels: {
+    singular: { es: "Categoría", en: "Category", ar: "فئة" },
+    plural: { es: "Categorías", en: "Categories", ar: "الفئات" },
+  },
   admin: {
     useAsTitle: "title",
-    group: "Catálogo",
-    description: "Facetas de catálogo: robots, palas, bolas…",
+    group: PANEL_GROUPS.catalog,
+    description: {
+      es: "Facetas de catálogo: robots, palas, bolas…",
+      en: "Catalogue facets: robots, rackets, balls…",
+      ar: "أوجه الكتالوج: روبوتات، مضارب، كرات…",
+    },
   },
   access: { read: anyone, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
   hooks: {
@@ -112,27 +131,46 @@ export const Categories: CollectionConfig = {
       name: "image",
       type: "upload",
       relationTo: "media",
-      admin: { description: "Cabecera de la página de categoría. Material o pista, nunca stock." },
+      admin: {
+        description: {
+          es: "Cabecera de la página de categoría. Material o pista, nunca stock.",
+          en: "The category page's header image. Material or court, never a stock photo.",
+          ar: "صورة ترويسة صفحة الفئة. خامة أو ملعب، لا صورة أرشيفية أبدًا.",
+        },
+      },
     },
     {
       name: "description",
       type: "textarea",
       localized: true,
       maxLength: 300,
-      admin: { description: "Se muestra bajo el título en /{región}/c/{slug}." },
+      admin: {
+        description: {
+          es: "Se muestra bajo el título en /{región}/c/{slug}.",
+          en: "Shown under the heading at /{region}/c/{slug}.",
+          ar: "يظهر أسفل العنوان في /{region}/c/{slug}.",
+        },
+      },
     },
   ],
 };
 
 export const Products: CollectionConfig = {
   slug: "products",
-  labels: { singular: "Producto", plural: "Productos" },
+  labels: {
+    singular: { es: "Producto", en: "Product", ar: "منتج" },
+    plural: { es: "Productos", en: "Products", ar: "المنتجات" },
+  },
   admin: {
     useAsTitle: "title",
-    group: "Catálogo",
+    group: PANEL_GROUPS.catalog,
     defaultColumns: ["title", "slug", "sports", "launchStatus", "_status", "updatedAt"],
     description:
-      "La familia (Tempo, Go, Rally). La configuración por deporte vive en sus variantes (ADR-04).",
+      {
+      es: "La familia (Tempo, Go, Rally). La configuración por deporte vive en sus variantes (ADR-04).",
+      en: "The family (Tempo, Go, Rally). Per-sport configuration lives in its variants (ADR-04).",
+      ar: "العائلة (Tempo، Go، Rally). تهيئة كل رياضة تعيش في متغيّراتها (ADR-04).",
+    },
     /**
      * Preview of the PDP, and it is only honest because the route reads
      * drafts.
@@ -196,7 +234,13 @@ export const Products: CollectionConfig = {
       required: true,
       unique: true,
       index: true,
-      admin: { description: "Forma la URL /{región}/robots/{slug}. No se traduce." },
+      admin: {
+        description: {
+          es: "Forma la URL /{región}/robots/{slug}. No se traduce.",
+          en: "Forms the URL /{region}/robots/{slug}. It is not translated.",
+          ar: "يكوّن العنوان /{region}/robots/{slug}. لا يُترجم.",
+        },
+      },
       validate: (value: string | null | undefined) =>
         typeof value === "string" && KEBAB.test(value) ? true : "kebab-case",
     },
@@ -206,14 +250,26 @@ export const Products: CollectionConfig = {
       hasMany: true,
       required: true,
       options: [...SPORTS],
-      admin: { description: "Faceta de listado. La variante concreta fija SU deporte." },
+      admin: {
+        description: {
+          es: "Faceta de listado. La variante concreta fija SU deporte.",
+          en: "A listing facet. The individual variant sets ITS own sport.",
+          ar: "وجه تصنيف في القوائم. المتغيّر نفسه يحدّد رياضته.",
+        },
+      },
     },
     { name: "category", type: "relationship", relationTo: "categories" },
     {
       name: "brand",
       type: "relationship",
       relationTo: "brands",
-      admin: { description: "Marca de la casa bajo la que se vende (Drill, Gear…)." },
+      admin: {
+        description: {
+          es: "Marca de la casa bajo la que se vende (Drill, Gear…).",
+          en: "The in-house brand it is sold under (Drill, Gear…).",
+          ar: "العلامة الداخلية التي يُباع تحتها (Drill، Gear…).",
+        },
+      },
     },
     {
       name: "launchStatus",
@@ -223,7 +279,11 @@ export const Products: CollectionConfig = {
       options: [...LAUNCH_STATUSES],
       admin: {
         description:
-          "available = a la venta · preorder = preventa con precio · waitlist = sin precio, captura lista de espera (lanzamiento estilo Kickstarter = waitlist + una landing del CMS).",
+          {
+          es: "available = a la venta · preorder = preventa con precio · waitlist = sin precio, captura lista de espera (lanzamiento estilo Kickstarter = waitlist + una landing del CMS).",
+          en: "available = on sale · preorder = pre-sale with a price · waitlist = no price, captures interest (a Kickstarter-style launch = waitlist + a CMS landing page).",
+          ar: "available = معروض للبيع · preorder = بيع مسبق بسعر · waitlist = بلا سعر، يلتقط قائمة انتظار (إطلاق على طريقة Kickstarter = waitlist + صفحة هبوط من نظام المحتوى).",
+        },
       },
     },
     {
@@ -233,7 +293,11 @@ export const Products: CollectionConfig = {
       hasMany: true,
       admin: {
         description:
-          "Producto sobre material (aluminio/carbono) o pista real — nunca stock genérico (guía de marca). La primera es la principal.",
+          {
+          es: "Producto sobre material (aluminio/carbono) o pista real — nunca stock genérico (guía de marca). La primera es la principal.",
+          en: "The product on a material (aluminium/carbon) or on a real court — never a generic stock photo (brand guide). The first one is the hero.",
+          ar: "المنتج على خامة (ألومنيوم/كربون) أو على ملعب حقيقي — لا صورة أرشيفية عامة أبدًا (دليل العلامة). الأولى هي الرئيسية.",
+        },
       },
     },
     { name: "excerpt", type: "textarea", localized: true, maxLength: 200 },
@@ -243,14 +307,24 @@ export const Products: CollectionConfig = {
       type: "array",
       admin: {
         description:
-          "key técnica estable (velocidad, capacidad…) para alinear el comparador; el valor sí se traduce.",
+          {
+          es: "key técnica estable (velocidad, capacidad…) para alinear el comparador; el valor sí se traduce.",
+          en: "A stable technical key (speed, capacity…) so the comparator lines rows up; the value IS translated.",
+          ar: "مفتاح تقني ثابت (سرعة، سعة…) لمحاذاة المقارن؛ أمّا القيمة فتُترجم.",
+        },
       },
       fields: [
         {
           name: "key",
           type: "text",
           required: true,
-          admin: { description: "Identificador estable para alinear el comparador. No se muestra." },
+          admin: {
+            description: {
+              es: "Identificador estable para alinear el comparador. No se muestra.",
+              en: "A stable identifier used to line the comparator up. Never shown.",
+              ar: "معرّف ثابت لمحاذاة المقارن. لا يُعرض.",
+            },
+          },
           validate: (value: string | null | undefined) =>
             typeof value === "string" && KEBAB.test(value) ? true : "kebab-case",
         },
@@ -259,7 +333,13 @@ export const Products: CollectionConfig = {
           type: "text",
           required: true,
           localized: true,
-          admin: { description: "Etiqueta visible de la fila (Capacidad, Velocidad…)." },
+          admin: {
+            description: {
+              es: "Etiqueta visible de la fila (Capacidad, Velocidad…).",
+              en: "The row's visible label (Capacity, Speed…).",
+              ar: "التسمية الظاهرة للصف (السعة، السرعة…).",
+            },
+          },
         },
         { name: "value", type: "text", required: true, localized: true },
         { name: "unit", type: "text" },
@@ -271,7 +351,11 @@ export const Products: CollectionConfig = {
           options: [...SPEC_EVIDENCE_LEVELS],
           admin: {
             description:
-              "Estado de verificación (register CV-DATA): target = objetivo de diseño · factory_claim = dato OEM sin verificar · sample_tested/pilot_verified = medido · published = verificado y aprobado. La PDP etiqueta todo lo no-published.",
+              {
+              es: "Estado de verificación (register CV-DATA): target = objetivo de diseño · factory_claim = dato OEM sin verificar · sample_tested/pilot_verified = medido · published = verificado y aprobado. La PDP etiqueta todo lo no-published.",
+              en: "Verification state (CV-DATA register): target = design goal · factory_claim = unverified OEM figure · sample_tested/pilot_verified = measured · published = verified and approved. The PDP labels everything that is not published.",
+              ar: "حالة التحقّق (سجل CV-DATA): target = هدف تصميمي · factory_claim = رقم من المصنّع دون تحقّق · sample_tested/pilot_verified = مقيس · published = مُتحقَّق ومعتمَد. صفحة المنتج تضع وسمًا على كل ما ليس published.",
+            },
           },
         },
       ],
@@ -300,7 +384,11 @@ export const Products: CollectionConfig = {
       filterOptions: () => ({ kind: { equals: "product" } }),
       admin: {
         position: "sidebar",
-        description: "Vacío = la plantilla por defecto de producto. Cambiarla no toca el contenido.",
+        description: {
+          es: "Vacío = la plantilla por defecto de producto. Cambiarla no toca el contenido.",
+          en: "Empty = the default product template. Changing it does not touch the content.",
+          ar: "فارغ = قالب المنتج الافتراضي. تغييره لا يمسّ المحتوى.",
+        },
       },
     },
   ],
@@ -308,12 +396,19 @@ export const Products: CollectionConfig = {
 
 export const Variants: CollectionConfig = {
   slug: "variants",
-  labels: { singular: "Variante", plural: "Variantes" },
+  labels: {
+    singular: { es: "Variante", en: "Variant", ar: "متغيّر" },
+    plural: { es: "Variantes", en: "Variants", ar: "المتغيّرات" },
+  },
   admin: {
     useAsTitle: "sku",
-    group: "Catálogo",
+    group: PANEL_GROUPS.catalog,
     defaultColumns: ["sku", "product", "sport", "active"],
-    description: "Un SKU por deporte y configuración (Rally Station → RLY-ST-T / RLY-ST-P).",
+    description: {
+      es: "Un SKU por deporte y configuración (Rally Station → RLY-ST-T / RLY-ST-P).",
+      en: "One SKU per sport and configuration (Rally Station → RLY-ST-T / RLY-ST-P).",
+      ar: "رمز تخزين واحد لكل رياضة وتهيئة (Rally Station ← RLY-ST-T / RLY-ST-P).",
+    },
   },
   // Server-only: a variant has no draft state of its own, so public REST
   // would leak the SKUs/config of variants belonging to draft products. The
@@ -355,17 +450,23 @@ export const Variants: CollectionConfig = {
 
 export const Prices: CollectionConfig = {
   slug: "prices",
-  labels: { singular: "Precio", plural: "Precios" },
+  labels: {
+    singular: { es: "Precio", en: "Price", ar: "سعر" },
+    plural: { es: "Precios", en: "Prices", ar: "الأسعار" },
+  },
   admin: {
     useAsTitle: "sku",
-    group: "Catálogo",
+    group: PANEL_GROUPS.catalog,
     defaultColumns: ["sku", "market", "amount", "compareAtAmount", "active"],
     // Prices are neither editorial nor readable at a glance, and an editor
     // who can open the list is an editor who will eventually try to fix a
     // price in it. `hidden` removes the nav entry AND the routes.
     hidden: hiddenUnlessAdmin,
-    description:
-      "SOLO SERVIDOR. Importes en unidades menores (129000 = 1.290,00). La moneda la fija el mercado en código: nunca hay conversión en runtime (ADR-05).",
+    description: {
+      es: "SOLO SERVIDOR. Importes en unidades menores (129000 = 1.290,00). La moneda la fija el mercado en código: nunca hay conversión en runtime (ADR-05).",
+      en: "SERVER ONLY. Amounts in minor units (129000 = 1,290.00). The currency comes from the market, in code: there is never a runtime conversion (ADR-05).",
+      ar: "من الخادم فقط. المبالغ بالوحدات الصغرى (129000 = 1290.00). العملة يحدّدها السوق في الشيفرة: لا تحويل أثناء التشغيل أبدًا (ADR-05).",
+    },
   },
   // Server-only, and admin-only to write: a price is money. The storefront
   // reads prices through the CommerceService adapter (Local API).
@@ -387,7 +488,13 @@ export const Prices: CollectionConfig = {
       name: "compareAtAmount",
       type: "number",
       min: 0,
-      admin: { description: "Precio anterior tachado, mismas unidades menores que amount." },
+      admin: {
+        description: {
+          es: "Precio anterior tachado, mismas unidades menores que amount.",
+          en: "The struck-through previous price, in the same minor units as amount.",
+          ar: "السعر السابق مشطوبًا، بنفس الوحدات الصغرى المستخدمة في amount.",
+        },
+      },
       validate: (value: number | null | undefined) =>
         value === null || value === undefined || Number.isInteger(value)
           ? true
@@ -407,15 +514,22 @@ export const Prices: CollectionConfig = {
 
 export const Inventory: CollectionConfig = {
   slug: "inventory",
-  labels: { singular: "Existencias", plural: "Existencias" },
+  labels: {
+    singular: { es: "Existencias", en: "Stock", ar: "المخزون" },
+    plural: { es: "Existencias", en: "Stock", ar: "المخزون" },
+  },
   admin: {
     useAsTitle: "sku",
-    group: "Catálogo",
+    group: PANEL_GROUPS.catalog,
     defaultColumns: ["sku", "qtyOnHand", "qtyCommitted"],
     // Same reasoning as Prices: `qtyCommitted` is written by the state
     // machine after `paid`, and a hand edit here oversells or hides stock.
     hidden: hiddenUnlessAdmin,
-    description: "SOLO SERVIDOR. Disponible = en mano − comprometido; se compromete solo tras `paid`.",
+    description: {
+      es: "SOLO SERVIDOR. Disponible = en mano − comprometido; se compromete solo tras `paid`.",
+      en: "SERVER ONLY. Available = on hand − committed; stock is committed only after `paid`.",
+      ar: "من الخادم فقط. المتاح = الموجود − المحجوز؛ ولا يُحجز إلا بعد `paid`.",
+    },
   },
   access: { read: isAuthenticated, create: isAdmin, update: isAdmin, delete: isAdmin },
   hooks: catalogHooks("variant"),
@@ -436,12 +550,19 @@ export const Inventory: CollectionConfig = {
 
 export const Leads: CollectionConfig = {
   slug: "leads",
-  labels: { singular: "Lead", plural: "Leads" },
+  labels: {
+    singular: { es: "Lead", en: "Lead", ar: "عميل محتمل" },
+    plural: { es: "Leads", en: "Leads", ar: "العملاء المحتملون" },
+  },
   admin: {
     useAsTitle: "email",
-    group: "Comercio",
+    group: PANEL_GROUPS.commerce,
     defaultColumns: ["email", "status", "market", "sportInterest", "createdAt"],
-    description: "Captación comercial. Se crean desde el formulario web (server action), nunca por REST público.",
+    description: {
+      es: "Captación comercial. Se crean desde el formulario web (server action), nunca por REST público.",
+      en: "Sales capture. Created from the web form (a server action), never through public REST.",
+      ar: "التقاط تجاري. تُنشأ من نموذج الويب (إجراء خادم)، لا عبر REST العام أبدًا.",
+    },
   },
   // Server-only writes (the public form uses a validated server action over
   // the Local API, so anonymous REST cannot spam this collection) AND
@@ -459,13 +580,25 @@ export const Leads: CollectionConfig = {
       required: true,
       defaultValue: "demo",
       options: ["demo", "waitlist", "preorder"],
-      admin: { description: "Qué pedía el visitante: demo, lista de espera o reserva (preventa)." },
+      admin: {
+        description: {
+          es: "Qué pedía el visitante: demo, lista de espera o reserva (preventa).",
+          en: "What the visitor asked for: a demo, a waitlist spot or a pre-order.",
+          ar: "ما طلبه الزائر: عرض تجريبي، أو مكان في قائمة الانتظار، أو حجز مسبق.",
+        },
+      },
     },
     { name: "product", type: "relationship", relationTo: "products" },
     {
       name: "variantSku",
       type: "text",
-      admin: { description: "Configuración que el comprador marcó en el formulario (si eligió una)." },
+      admin: {
+        description: {
+          es: "Configuración que el comprador marcó en el formulario (si eligió una).",
+          en: "The configuration the buyer picked in the form, if they picked one.",
+          ar: "التهيئة التي اختارها المشتري في النموذج، إن اختار واحدة.",
+        },
+      },
     },
     { name: "message", type: "textarea", maxLength: 1000 },
     { name: "consent", type: "checkbox", required: true },
@@ -473,8 +606,11 @@ export const Leads: CollectionConfig = {
       name: "consentText",
       type: "textarea",
       admin: {
-        description:
-          "El texto exacto de consentimiento que se mostró al enviar (RGPD art. 7.1: el consentimiento debe poder demostrarse).",
+        description: {
+          es: "El texto exacto de consentimiento que se mostró al enviar (RGPD art. 7.1: el consentimiento debe poder demostrarse).",
+          en: "The exact consent wording shown at submit time (GDPR art. 7.1: consent must be demonstrable).",
+          ar: "نصّ الموافقة كما عُرض تمامًا لحظة الإرسال (اللائحة العامة لحماية البيانات، م. 7.1: يجب أن تكون الموافقة قابلة للإثبات).",
+        },
       },
     },
     {
@@ -484,7 +620,13 @@ export const Leads: CollectionConfig = {
       defaultValue: "new",
       index: true,
       options: ["new", "contacted", "closed"],
-      admin: { description: "Pipeline mínimo: nuevo → contactado → cerrado." },
+      admin: {
+        description: {
+          es: "Pipeline mínimo: nuevo → contactado → cerrado.",
+          en: "A minimal pipeline: new → contacted → closed.",
+          ar: "مسار مبسّط: جديد ← تمّ التواصل ← مغلق.",
+        },
+      },
     },
     { name: "locale", type: "text" },
     { name: "sourcePath", type: "text" },

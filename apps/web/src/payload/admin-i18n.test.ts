@@ -15,12 +15,16 @@
  * record covering all three languages, or a function (Payload's own fields
  * resolve through `t()`), and nothing else.
  *
- * WHAT IS DELIBERATELY NOT COVERED, and it is a real gap rather than an
- * oversight: `catalog.ts` (brands, categories, products, variants, prices,
- * inventory, leads), `templates.ts` and `commerce-connections.ts` are owned
- * by other work in flight and still hold Spanish literals. They are listed
- * as PENDING below so the debt is written down instead of implied — add them
- * to `LOCALIZED` as they are converted, and this suite starts enforcing it.
+ * LA DEUDA QUE ESTE FICHERO LLEVABA ESCRITA YA NO EXISTE. `catalog.ts`,
+ * `templates.ts` y `commerce-connections.ts` estaban apuntados como PENDING
+ * porque los tenía otra tarea en vuelo; están convertidos y han pasado a
+ * `LOCALIZED`, así que la suite los exige como a los demás. Queda una sola
+ * lista de excepciones —`FOREIGN_SPANISH`— y es de otra naturaleza: cadenas
+ * que un módulo escribe DENTRO de una colección de otro.
+ *
+ * Los grupos del menú van aparte, en `PANEL_GROUPS` (admin-copy.ts), y no por
+ * gusto: Payload agrupa por igualdad del valor resuelto, así que dos
+ * literales que difieran en una tilde parten el menú en dos sin decir nada.
  */
 import { describe, expect, it } from "vitest";
 import { formatLabels, toWords } from "payload";
@@ -45,49 +49,41 @@ const LOCALIZED = {
     "carts",
     "carriers",
     "shipments",
+    "brands",
+    "categories",
+    "products",
+    "variants",
+    "prices",
+    "inventory",
+    "leads",
+    "templates",
+    "commerce-connections",
+    "commerce-bindings",
+    "commerce-product-refs",
   ],
   globals: ["theme-settings", "market-settings", "navigation"],
 };
 
 /**
- * Spanish strings that survive inside a converted collection because another
- * module writes them.
+ * Cadenas en castellano que sobreviven dentro de una colección convertida
+ * porque las escribe OTRO módulo.
  *
- * `withCommerceOwner` (commerce-connections.ts) bolts four ownership columns
- * onto `orders` and `carts`, with their help lines in Spanish. That file is
- * owned by other work in flight, so instead of pretending the collection is
- * clean, the exact paths are written down — and if one of them is translated
- * without this list being updated, the test says so rather than passing
- * quietly.
+ * `withCommerceOwner` (commerce-connections.ts) atornilla cuatro columnas de
+ * propiedad a `orders` y a `carts`, con sus ayudas. Estaban en castellano
+ * porque aquel fichero lo tenía otra tarea en vuelo; ya no. La lista se queda
+ * vacía y con su explicación: el mecanismo —una colección cuyo copy lo pone
+ * un tercero— sigue existiendo, y el día que vuelva a pasar se apunta aquí en
+ * vez de fingir que la colección está limpia.
  */
-const FOREIGN_SPANISH: Record<string, string[]> = {
-  orders: [
-    "orders.siteKey.description",
-    "orders.engine.description",
-    "orders.connectionKey.description",
-    "orders.bindingRevision.description",
-  ],
-  carts: [
-    "carts.siteKey.description",
-    "carts.engine.description",
-    "carts.connectionKey.description",
-    "carts.bindingRevision.description",
-  ],
-};
+const FOREIGN_SPANISH: Record<string, string[]> = {};
 
-/** Still Spanish-only, and owned by other work: see the header. */
-const PENDING_COLLECTIONS = [
-  "brands",
-  "categories",
-  "products",
-  "variants",
-  "prices",
-  "inventory",
-  "leads",
-  "commerce-connections",
-  "commerce-bindings",
-  "commerce-product-refs",
-];
+/**
+ * Ya no queda ninguna. La constante se conserva vacía a propósito: es lo que
+ * hace que la comprobación de abajo —«toda colección del config está cubierta
+ * o apuntada»— siga siendo una comprobación y no una lista que alguien tenga
+ * que acordarse de crear el día que vuelva a haber deuda.
+ */
+const PENDING_COLLECTIONS: string[] = [];
 
 /** One complaint, with the path that produces it. */
 interface Problem {

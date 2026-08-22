@@ -44,6 +44,7 @@ import type { BasePayload, CollectionConfig, Field, PayloadRequest, Where } from
 
 import { bindingTag } from "../catalog/cache-tags";
 import { isAdmin, nobodyWrites } from "./access";
+import { PANEL_GROUPS } from "./admin-copy";
 
 /**
  * Una revisión nueva del binding cambia qué conexión sirve el catálogo, y las
@@ -132,13 +133,19 @@ function kebabValidate(value: string | null | undefined): true | string {
 
 export const CommerceConnections: CollectionConfig = {
   slug: "commerce-connections",
-  labels: { singular: "Conexión de comercio", plural: "Conexiones de comercio" },
+  labels: {
+    singular: { es: "Conexión de comercio", en: "Commerce connection", ar: "اتصال تجاري" },
+    plural: { es: "Conexiones de comercio", en: "Commerce connections", ar: "الاتصالات التجارية" },
+  },
   admin: {
     useAsTitle: "key",
-    group: "Comercio",
+    group: PANEL_GROUPS.commerce,
     defaultColumns: ["key", "siteKey", "engine", "status", "updatedAt"],
-    description:
-      "A qué motor está conectado un storefront. Metadatos y referencias a secretos — NUNCA el secreto. Activar una conexión requiere aprobación humana (plan §7).",
+    description: {
+      es: "A qué motor está conectado un storefront. Metadatos y referencias a secretos — NUNCA el secreto. Activar una conexión requiere aprobación humana (plan §7).",
+      en: "Which engine a storefront is connected to. Metadata and references to secrets — NEVER the secret itself. Activating a connection needs human approval (plan §7).",
+      ar: "بأي محرّك ترتبط واجهة المتجر. بيانات وصفية ومراجع إلى الأسرار — لا السرّ نفسه أبدًا. تفعيل اتصال يتطلّب موافقة بشرية (الخطة §7).",
+    },
   },
   // Configuración de infraestructura: ni pública ni editorial.
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
@@ -154,7 +161,11 @@ export const CommerceConnections: CollectionConfig = {
       // reescribiría a quién pertenece un pedido ya cobrado.
       access: { update: nobodyWrites },
       admin: {
-        description: "Identificador estable. No se renombra: los pedidos lo guardan.",
+        description: {
+          es: "Identificador estable. No se renombra: los pedidos lo guardan.",
+          en: "A stable identifier. It is never renamed: orders keep a copy of it.",
+          ar: "معرّف ثابت. لا يُعاد تسميته: الطلبات تحتفظ بنسخة منه.",
+        },
       },
     },
     {
@@ -165,7 +176,13 @@ export const CommerceConnections: CollectionConfig = {
       defaultValue: DEFAULT_SITE_KEY,
       validate: kebabValidate,
       access: { update: nobodyWrites },
-      admin: { description: "Storefront al que pertenece." },
+      admin: {
+        description: {
+          es: "Storefront al que pertenece.",
+          en: "The storefront it belongs to.",
+          ar: "واجهة المتجر التي ينتمي إليها.",
+        },
+      },
     },
     {
       name: "engine",
@@ -173,7 +190,13 @@ export const CommerceConnections: CollectionConfig = {
       required: true,
       options: [...ENGINE_KINDS],
       access: { update: nobodyWrites },
-      admin: { description: "native = Payload + Supabase + PSP · shopify = headless." },
+      admin: {
+        description: {
+          es: "native = Payload + Supabase + PSP · shopify = headless.",
+          en: "native = Payload + Supabase + PSP · shopify = headless.",
+          ar: "native = ‏Payload + Supabase + بوّابة دفع · shopify = بلا واجهة.",
+        },
+      },
     },
     {
       name: "status",
@@ -182,8 +205,11 @@ export const CommerceConnections: CollectionConfig = {
       defaultValue: "draft",
       options: [...CONNECTION_STATUSES],
       admin: {
-        description:
-          "draft → configured → verified → active → draining → retired. A partir de verified solo avanza (lo impone un trigger).",
+        description: {
+          es: "draft → configured → verified → active → draining → retired. A partir de verified solo avanza (lo impone un trigger).",
+          en: "draft → configured → verified → active → draining → retired. From verified onwards it only moves forward, and a trigger enforces it.",
+          ar: "draft ← configured ← verified ← active ← draining ← retired. من verified فصاعدًا يتقدّم فقط، ويفرض ذلك مُشغّل في قاعدة البيانات.",
+        },
       },
     },
     {
@@ -193,7 +219,13 @@ export const CommerceConnections: CollectionConfig = {
         value === null || value === undefined || value === "" || API_VERSION_PATTERN.test(value)
           ? true
           : "Formato AAAA-MM (versión de API del motor)",
-      admin: { description: "Solo motores externos. Formato 2026-07." },
+      admin: {
+        description: {
+          es: "Solo motores externos. Formato 2026-07.",
+          en: "External engines only. Format 2026-07.",
+          ar: "للمحرّكات الخارجية فقط. الصيغة 2026-07.",
+        },
+      },
     },
     {
       name: "shopDomain",
@@ -202,7 +234,13 @@ export const CommerceConnections: CollectionConfig = {
         value === null || value === undefined || value === "" || SHOP_DOMAIN_PATTERN.test(value)
           ? true
           : "Dominio *.myshopify.com, sin protocolo",
-      admin: { description: "Solo Shopify. tienda.myshopify.com — sin https:// y sin token." },
+      admin: {
+        description: {
+          es: "Solo Shopify. tienda.myshopify.com — sin https:// y sin token.",
+          en: "Shopify only. shop.myshopify.com — no https:// and no token.",
+          ar: "لـ Shopify فقط. shop.myshopify.com — بلا https:// وبلا رمز وصول.",
+        },
+      },
     },
     {
       name: "secretRef",
@@ -217,15 +255,24 @@ export const CommerceConnections: CollectionConfig = {
         return SECRET_REF_PATTERN.test(value) ? true : "env:NOMBRE_DE_VARIABLE o vault:ruta/al/secreto";
       },
       admin: {
-        description:
-          "REFERENCIA al secreto, jamás el secreto: env:SHOPIFY_ADMIN_TOKEN, vault:courvia/stripe. La base de datos rechaza cualquier otra forma.",
+        description: {
+          es: "REFERENCIA al secreto, jamás el secreto: env:SHOPIFY_ADMIN_TOKEN, vault:courvia/stripe. La base de datos rechaza cualquier otra forma.",
+          en: "A REFERENCE to the secret, never the secret: env:SHOPIFY_ADMIN_TOKEN, vault:courvia/stripe. The database refuses any other shape.",
+          ar: "مرجع إلى السرّ، لا السرّ نفسه أبدًا: env:SHOPIFY_ADMIN_TOKEN، vault:courvia/stripe. قاعدة البيانات ترفض أي صيغة أخرى.",
+        },
       },
     },
     {
       name: "notes",
       type: "textarea",
       maxLength: 500,
-      admin: { description: "Para operar: quién la creó, qué catálogo sirve, qué falta." },
+      admin: {
+        description: {
+          es: "Para operar: quién la creó, qué catálogo sirve, qué falta.",
+          en: "For whoever operates it: who created it, which catalogue it serves, what is missing.",
+          ar: "لمن يُشغّلها: من أنشأها، وأي كتالوج تخدم، وما الناقص.",
+        },
+      },
     },
   ],
 };
@@ -236,13 +283,19 @@ export const CommerceConnections: CollectionConfig = {
 
 export const CommerceBindings: CollectionConfig = {
   slug: "commerce-bindings",
-  labels: { singular: "Binding de comercio", plural: "Bindings de comercio" },
+  labels: {
+    singular: { es: "Vínculo de comercio", en: "Commerce binding", ar: "ارتباط تجاري" },
+    plural: { es: "Vínculos de comercio", en: "Commerce bindings", ar: "الارتباطات التجارية" },
+  },
   admin: {
     useAsTitle: "siteKey",
-    group: "Comercio",
+    group: PANEL_GROUPS.commerce,
     defaultColumns: ["siteKey", "connection", "revision", "status", "updatedAt"],
-    description:
-      "Qué conexión sirve los carritos NUEVOS de un sitio. El binding activo NO se edita: se crea una revisión nueva y la anterior pasa a draining (ADR-029).",
+    description: {
+      es: "Qué conexión sirve los carritos NUEVOS de un sitio. El vínculo activo NO se edita: se crea una revisión nueva y la anterior pasa a draining (ADR-029).",
+      en: "Which connection serves a site's NEW carts. The active binding is never edited: a new revision is created and the previous one moves to draining (ADR-029).",
+      ar: "أي اتصال يخدم السلال الجديدة لموقع ما. الارتباط النشط لا يُعدَّل: تُنشأ مراجعة جديدة وينتقل السابق إلى draining (ADR-029).",
+    },
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
   hooks: {
@@ -258,7 +311,13 @@ export const CommerceBindings: CollectionConfig = {
       defaultValue: DEFAULT_SITE_KEY,
       validate: kebabValidate,
       access: { update: nobodyWrites },
-      admin: { description: "Debe coincidir con el siteKey de la conexión (lo comprueba un trigger)." },
+      admin: {
+        description: {
+          es: "Debe coincidir con el siteKey de la conexión (lo comprueba un trigger).",
+          en: "Must match the connection's siteKey, and a trigger checks it.",
+          ar: "يجب أن يطابق siteKey الخاص بالاتصال، ويتحقّق من ذلك مُشغّل.",
+        },
+      },
     },
     {
       name: "connection",
@@ -268,7 +327,13 @@ export const CommerceBindings: CollectionConfig = {
       index: true,
       hasMany: false,
       access: { update: nobodyWrites },
-      admin: { description: "La conexión a la que apunta esta revisión. No se cambia: se crea otra." },
+      admin: {
+        description: {
+          es: "La conexión a la que apunta esta revisión. No se cambia: se crea otra.",
+          en: "The connection this revision points at. It is never changed: another revision is created.",
+          ar: "الاتصال الذي تشير إليه هذه المراجعة. لا يُغيَّر: تُنشأ مراجعة أخرى.",
+        },
+      },
     },
     /*
      * `connectionKey` y `engine` son los campos que ADR-029 nombra en
@@ -282,13 +347,27 @@ export const CommerceBindings: CollectionConfig = {
       name: "connectionKey",
       type: "text",
       virtual: "connection.key",
-      admin: { readOnly: true, description: "De la conexión enlazada. No es una columna." },
+      admin: {
+        readOnly: true,
+        description: {
+          es: "De la conexión enlazada. No es una columna.",
+          en: "Taken from the linked connection. It is not a column.",
+          ar: "مأخوذ من الاتصال المرتبط. ليس عمودًا.",
+        },
+      },
     },
     {
       name: "engine",
       type: "text",
       virtual: "connection.engine",
-      admin: { readOnly: true, description: "De la conexión enlazada. No es una columna." },
+      admin: {
+        readOnly: true,
+        description: {
+          es: "De la conexión enlazada. No es una columna.",
+          en: "Taken from the linked connection. It is not a column.",
+          ar: "مأخوذ من الاتصال المرتبط. ليس عمودًا.",
+        },
+      },
     },
     {
       name: "revision",
@@ -298,7 +377,11 @@ export const CommerceBindings: CollectionConfig = {
       index: true,
       access: { update: nobodyWrites },
       admin: {
-        description: "Entero que avanza. Cambiar de motor es insertar la siguiente revisión, no editar esta.",
+        description: {
+          es: "Entero que avanza. Cambiar de motor es insertar la siguiente revisión, no editar esta.",
+          en: "An integer that only moves forward. Switching engine means inserting the next revision, never editing this one.",
+          ar: "عدد صحيح يتقدّم فقط. تغيير المحرّك يعني إدراج المراجعة التالية، لا تعديل هذه.",
+        },
       },
     },
     {
@@ -308,14 +391,23 @@ export const CommerceBindings: CollectionConfig = {
       defaultValue: "verified",
       options: [...BINDING_STATUSES],
       admin: {
-        description:
-          "verified → active → draining → retired. Solo avanza, y solo puede haber UN active por sitio (índice único parcial).",
+        description: {
+          es: "verified → active → draining → retired. Solo avanza, y solo puede haber UN active por sitio (índice único parcial).",
+          en: "verified → active → draining → retired. It only moves forward, and there can be exactly ONE active per site (a partial unique index).",
+          ar: "verified ← active ← draining ← retired. يتقدّم فقط، ولا يمكن أن يوجد أكثر من active واحد لكل موقع (فهرس فريد جزئي).",
+        },
       },
     },
     {
       name: "activatedAt",
       type: "date",
-      admin: { description: "Cuándo empezó a servir carritos nuevos." },
+      admin: {
+        description: {
+          es: "Cuándo empezó a servir carritos nuevos.",
+          en: "When it started serving new carts.",
+          ar: "متى بدأ يخدم السلال الجديدة.",
+        },
+      },
     },
   ],
 };
@@ -326,13 +418,19 @@ export const CommerceBindings: CollectionConfig = {
 
 export const CommerceProductReferences: CollectionConfig = {
   slug: "commerce-product-refs",
-  labels: { singular: "Referencia de producto", plural: "Referencias de producto" },
+  labels: {
+    singular: { es: "Referencia de producto", en: "Product reference", ar: "مرجع منتج" },
+    plural: { es: "Referencias de producto", en: "Product references", ar: "مراجع المنتجات" },
+  },
   admin: {
     useAsTitle: "externalProductId",
-    group: "Comercio",
+    group: PANEL_GROUPS.commerce,
     defaultColumns: ["product", "connection", "externalProductId", "status", "verifiedAt"],
-    description:
-      "Enlaza un producto editorial con su producto en un motor. Se une por clave editorial y por id externo (GID en Shopify) — nunca por slug, handle o SKU.",
+    description: {
+      es: "Enlaza un producto editorial con su producto en un motor. Se une por clave editorial y por id externo (GID en Shopify) — nunca por slug, handle o SKU.",
+      en: "Links an editorial product to its product inside an engine. The join is by editorial key and external id (a GID on Shopify) — never by slug, handle or SKU.",
+      ar: "يربط منتجًا تحريريًا بمنتجه داخل محرّك. الربط بالمفتاح التحريري وبالمعرّف الخارجي (GID في Shopify) — لا بالاسم اللطيف أو المقبض أو رمز التخزين.",
+    },
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
   fields: [
@@ -344,7 +442,13 @@ export const CommerceProductReferences: CollectionConfig = {
       index: true,
       hasMany: false,
       access: { update: nobodyWrites },
-      admin: { description: "El producto editorial. La unión real es su editorialKey, no su slug." },
+      admin: {
+        description: {
+          es: "El producto editorial. La unión real es su editorialKey, no su slug.",
+          en: "The editorial product. The real join is its editorialKey, not its slug.",
+          ar: "المنتج التحريري. الربط الفعلي عبر editorialKey، لا عبر الاسم اللطيف.",
+        },
+      },
     },
     {
       /*
@@ -356,7 +460,14 @@ export const CommerceProductReferences: CollectionConfig = {
       name: "editorialProductId",
       type: "text",
       virtual: "product.editorialKey",
-      admin: { readOnly: true, description: "Clave editorial del producto enlazado. No es una columna." },
+      admin: {
+        readOnly: true,
+        description: {
+          es: "Clave editorial del producto enlazado. No es una columna.",
+          en: "The linked product's editorial key. It is not a column.",
+          ar: "المفتاح التحريري للمنتج المرتبط. ليس عمودًا.",
+        },
+      },
     },
     {
       name: "connection",
@@ -366,19 +477,39 @@ export const CommerceProductReferences: CollectionConfig = {
       index: true,
       hasMany: false,
       access: { update: nobodyWrites },
-      admin: { description: "En qué conexión vive el producto externo." },
+      admin: {
+        description: {
+          es: "En qué conexión vive el producto externo.",
+          en: "Which connection the external product lives in.",
+          ar: "في أي اتصال يعيش المنتج الخارجي.",
+        },
+      },
     },
     {
       name: "connectionKey",
       type: "text",
       virtual: "connection.key",
-      admin: { readOnly: true, description: "De la conexión enlazada. No es una columna." },
+      admin: {
+        readOnly: true,
+        description: {
+          es: "De la conexión enlazada. No es una columna.",
+          en: "Taken from the linked connection. It is not a column.",
+          ar: "مأخوذ من الاتصال المرتبط. ليس عمودًا.",
+        },
+      },
     },
     {
       name: "engine",
       type: "text",
       virtual: "connection.engine",
-      admin: { readOnly: true, description: "De la conexión enlazada. No es una columna." },
+      admin: {
+        readOnly: true,
+        description: {
+          es: "De la conexión enlazada. No es una columna.",
+          en: "Taken from the linked connection. It is not a column.",
+          ar: "مأخوذ من الاتصال المرتبط. ليس عمودًا.",
+        },
+      },
     },
     {
       name: "externalProductId",
@@ -387,8 +518,11 @@ export const CommerceProductReferences: CollectionConfig = {
       index: true,
       access: { update: nobodyWrites },
       admin: {
-        description:
-          "Id opaco en el motor. Shopify: el GID completo (gid://shopify/Product/123) — un handle o un SKU NO valen y la base de datos los rechaza.",
+        description: {
+          es: "Id opaco en el motor. Shopify: el GID completo (gid://shopify/Product/123) — un handle o un SKU NO valen y la base de datos los rechaza.",
+          en: "An opaque id inside the engine. Shopify: the full GID (gid://shopify/Product/123) — a handle or a SKU will NOT do, and the database refuses them.",
+          ar: "معرّف مبهم داخل المحرّك. في Shopify: الـ GID الكامل (gid://shopify/Product/123) — المقبض أو رمز التخزين لا يصلحان، وقاعدة البيانات ترفضهما.",
+        },
       },
     },
     {
@@ -401,7 +535,13 @@ export const CommerceProductReferences: CollectionConfig = {
     {
       name: "verifiedAt",
       type: "date",
-      admin: { description: "Cuándo se comprobó que el id externo existe y es ese producto." },
+      admin: {
+        description: {
+          es: "Cuándo se comprobó que el id externo existe y es ese producto.",
+          en: "When it was checked that the external id exists and is that product.",
+          ar: "متى جرى التحقّق من أن المعرّف الخارجي موجود وأنه ذلك المنتج.",
+        },
+      },
     },
   ],
 };
@@ -440,14 +580,28 @@ export function commerceOwnerFields(): Field[] {
       type: "text",
       index: true,
       access: { update: nobodyWrites },
-      admin: { readOnly: true, description: "Storefront del que salió. Se fija al crear." },
+      admin: {
+        readOnly: true,
+        description: {
+          es: "Storefront del que salió. Se fija al crear.",
+          en: "The storefront it came from. Set when the row is created.",
+          ar: "الواجهة التي جاء منها. تُثبَّت عند الإنشاء.",
+        },
+      },
     },
     {
       name: "engine",
       type: "select",
       options: [...ENGINE_KINDS],
       access: { update: nobodyWrites },
-      admin: { readOnly: true, description: "Motor propietario. Inmutable." },
+      admin: {
+        readOnly: true,
+        description: {
+          es: "Motor propietario. Inmutable.",
+          en: "The owning engine. Immutable.",
+          ar: "المحرّك المالك. غير قابل للتغيير.",
+        },
+      },
     },
     {
       name: "connectionKey",
@@ -456,7 +610,11 @@ export function commerceOwnerFields(): Field[] {
       access: { update: nobodyWrites },
       admin: {
         readOnly: true,
-        description: "Conexión propietaria. Inmutable, y la operación va por ella.",
+        description: {
+          es: "Conexión propietaria. Inmutable, y la operación va por ella.",
+          en: "The owning connection. Immutable, and every operation goes through it.",
+          ar: "الاتصال المالك. غير قابل للتغيير، وكل عملية تمرّ عبره.",
+        },
       },
     },
     {
@@ -466,7 +624,11 @@ export function commerceOwnerFields(): Field[] {
       access: { update: nobodyWrites },
       admin: {
         readOnly: true,
-        description: "Revisión del binding vigente al nacer. Procedencia, no permiso.",
+        description: {
+          es: "Revisión del vínculo vigente al nacer. Procedencia, no permiso.",
+          en: "The binding revision in force when this was created. Provenance, not permission.",
+          ar: "مراجعة الارتباط السارية عند الإنشاء. مصدر، لا إذن.",
+        },
       },
     },
   ];
@@ -619,7 +781,11 @@ export function editorialKeyField(): Field {
       readOnly: true,
       position: "sidebar",
       description:
-        "Identidad editorial estable. No es el id ni el slug: se genera una vez y sobrevive a renombrados y migraciones.",
+        {
+        es: "Identidad editorial estable. No es el id ni el slug: se genera una vez y sobrevive a renombrados y migraciones.",
+        en: "A stable editorial identity. Neither the id nor the slug: generated once, and it survives renames and migrations.",
+        ar: "هوية تحريرية ثابتة. ليست المعرّف ولا الاسم اللطيف: تُولَّد مرة واحدة وتبقى بعد إعادة التسمية والترحيلات.",
+      },
     },
   };
 }

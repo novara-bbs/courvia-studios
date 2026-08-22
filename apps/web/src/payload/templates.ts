@@ -59,7 +59,10 @@ function revalidateTemplates(): void {
 
 export const Templates: CollectionConfig = {
   slug: "templates",
-  labels: { singular: "Plantilla", plural: "Plantillas" },
+  labels: {
+    singular: { es: "Plantilla", en: "Template", ar: "قالب" },
+    plural: { es: "Plantillas", en: "Templates", ar: "القوالب" },
+  },
   admin: {
     useAsTitle: "name",
     group: { es: "Contenido", en: "Content", ar: "المحتوى" },
@@ -109,7 +112,13 @@ export const Templates: CollectionConfig = {
       name: "name",
       type: "text",
       required: true,
-      admin: { description: "Cómo la reconoce quien la asigna: «Ficha estándar», «Lanzamiento»." },
+      admin: {
+        description: {
+          es: "Cómo la reconoce quien la asigna: «Ficha estándar», «Lanzamiento».",
+          en: "How whoever assigns it recognises it: “Standard page”, “Launch”.",
+          ar: "كيف يميّزها من يسندها: «صفحة قياسية»، «إطلاق».",
+        },
+      },
     },
     {
       name: "kind",
@@ -117,28 +126,40 @@ export const Templates: CollectionConfig = {
       required: true,
       defaultValue: "product",
       options: [{ label: { es: "Producto", en: "Product", ar: "منتج" }, value: "product" }],
-      admin: { description: "Qué tipo de página describe. Fija a qué documentos se puede asignar." },
+      admin: {
+        description: {
+          es: "Qué tipo de página describe. Fija a qué documentos se puede asignar.",
+          en: "Which kind of page it describes. It decides which documents it can be assigned to.",
+          ar: "أي نوع من الصفحات تصف. تحدّد المستندات التي يمكن إسنادها إليها.",
+        },
+      },
     },
     {
       name: "isDefault",
       type: "checkbox",
       defaultValue: false,
       admin: {
-        description:
-          "La que usa cualquier producto sin plantilla asignada. Marcarla desmarca la anterior de su mismo tipo.",
+        description: {
+          es: "La que usa cualquier producto sin plantilla asignada. Marcarla desmarca la anterior de su mismo tipo.",
+          en: "The one every product without an assigned template uses. Ticking it unticks the previous one of its kind.",
+          ar: "القالب الذي يستخدمه كل منتج بلا قالب مُسند. تحديده يُلغي تحديد سابقه من النوع نفسه.",
+        },
       },
     },
     {
       name: "blocks",
       type: "blocks",
-      label: "Secciones",
+      label: { es: "Secciones", en: "Sections", ar: "الأقسام" },
       // `bound: true` = también las secciones vinculadas. Es la única
       // superficie que las ofrece; `pages` llama a buildBlocks() sin
       // opciones y no las ve (src/payload/blocks.ts explica por qué).
       blocks: buildBlocks({ bound: true }),
       admin: {
-        description:
-          "El orden es el orden en pantalla. Las secciones de producto (cabecera, relato, ficha técnica, gama, formulario) no piden contenido: lo toman del producto.",
+        description: {
+          es: "El orden es el orden en pantalla. Las secciones de producto (cabecera, relato, ficha técnica, gama, formulario) no piden contenido: lo toman del producto.",
+          en: "The order here is the order on screen. The product sections (header, story, spec sheet, range, form) ask for no content: they take it from the product.",
+          ar: "الترتيب هنا هو الترتيب على الشاشة. أقسام المنتج (الترويسة، السرد، الورقة الفنية، المجموعة، النموذج) لا تطلب محتوى: تأخذه من المنتج.",
+        },
       },
     },
   ],

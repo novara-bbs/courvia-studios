@@ -1207,7 +1207,7 @@ export interface Page {
   _status?: ('draft' | 'published') | null;
 }
 /**
- * La familia (Tempo, Go, Rally). La configuración por deporte vive en sus variantes (ADR-04).
+ * The family (Tempo, Go, Rally). Per-sport configuration lives in its variants (ADR-04).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "products".
@@ -1216,28 +1216,28 @@ export interface Product {
   id: number;
   title: string;
   /**
-   * Identidad editorial estable. No es el id ni el slug: se genera una vez y sobrevive a renombrados y migraciones.
+   * A stable editorial identity. Neither the id nor the slug: generated once, and it survives renames and migrations.
    */
   editorialKey?: string | null;
   /**
-   * Forma la URL /{región}/robots/{slug}. No se traduce.
+   * Forms the URL /{region}/robots/{slug}. It is not translated.
    */
   slug: string;
   /**
-   * Faceta de listado. La variante concreta fija SU deporte.
+   * A listing facet. The individual variant sets ITS own sport.
    */
   sports: ('tenis' | 'padel' | 'pickleball')[];
   category?: (number | null) | Category;
   /**
-   * Marca de la casa bajo la que se vende (Drill, Gear…).
+   * The in-house brand it is sold under (Drill, Gear…).
    */
   brand?: (number | null) | Brand;
   /**
-   * available = a la venta · preorder = preventa con precio · waitlist = sin precio, captura lista de espera (lanzamiento estilo Kickstarter = waitlist + una landing del CMS).
+   * available = on sale · preorder = pre-sale with a price · waitlist = no price, captures interest (a Kickstarter-style launch = waitlist + a CMS landing page).
    */
   launchStatus: 'available' | 'preorder' | 'waitlist';
   /**
-   * Producto sobre material (aluminio/carbono) o pista real — nunca stock genérico (guía de marca). La primera es la principal.
+   * The product on a material (aluminium/carbon) or on a real court — never a generic stock photo (brand guide). The first one is the hero.
    */
   images?: (number | Media)[] | null;
   excerpt?: string | null;
@@ -1257,22 +1257,22 @@ export interface Product {
     [k: string]: unknown;
   } | null;
   /**
-   * key técnica estable (velocidad, capacidad…) para alinear el comparador; el valor sí se traduce.
+   * A stable technical key (speed, capacity…) so the comparator lines rows up; the value IS translated.
    */
   specs?:
     | {
         /**
-         * Identificador estable para alinear el comparador. No se muestra.
+         * A stable identifier used to line the comparator up. Never shown.
          */
         key: string;
         /**
-         * Etiqueta visible de la fila (Capacidad, Velocidad…).
+         * The row's visible label (Capacity, Speed…).
          */
         label: string;
         value: string;
         unit?: string | null;
         /**
-         * Estado de verificación (register CV-DATA): target = objetivo de diseño · factory_claim = dato OEM sin verificar · sample_tested/pilot_verified = medido · published = verificado y aprobado. La PDP etiqueta todo lo no-published.
+         * Verification state (CV-DATA register): target = design goal · factory_claim = unverified OEM figure · sample_tested/pilot_verified = measured · published = verified and approved. The PDP labels everything that is not published.
          */
         evidence: 'target' | 'factory_claim' | 'sample_tested' | 'pilot_verified' | 'published';
         id?: string | null;
@@ -1280,7 +1280,7 @@ export interface Product {
     | null;
   warrantyMonths?: number | null;
   /**
-   * Vacío = la plantilla por defecto de producto. Cambiarla no toca el contenido.
+   * Empty = the default product template. Changing it does not touch the content.
    */
   template?: (number | null) | Template;
   updatedAt: string;
@@ -1288,7 +1288,7 @@ export interface Product {
   _status?: ('draft' | 'published') | null;
 }
 /**
- * Facetas de catálogo: robots, palas, bolas…
+ * Catalogue facets: robots, rackets, balls…
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "categories".
@@ -1299,18 +1299,18 @@ export interface Category {
   slug: string;
   sport?: ('tenis' | 'padel' | 'pickleball') | null;
   /**
-   * Cabecera de la página de categoría. Material o pista, nunca stock.
+   * The category page's header image. Material or court, never a stock photo.
    */
   image?: (number | null) | Media;
   /**
-   * Se muestra bajo el título en /{región}/c/{slug}.
+   * Shown under the heading at /{region}/c/{slug}.
    */
   description?: string | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
- * Marcas de la casa (Drill, Gear…). Multimarca sin multi-sitio: una faceta, no un fork.
+ * In-house brands (Drill, Gear…). Multi-brand without multi-site: a facet, not a fork.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "brands".
@@ -1333,19 +1333,19 @@ export interface Brand {
 export interface Template {
   id: number;
   /**
-   * Cómo la reconoce quien la asigna: «Ficha estándar», «Lanzamiento».
+   * How whoever assigns it recognises it: “Standard page”, “Launch”.
    */
   name: string;
   /**
-   * Qué tipo de página describe. Fija a qué documentos se puede asignar.
+   * Which kind of page it describes. It decides which documents it can be assigned to.
    */
   kind: 'product';
   /**
-   * La que usa cualquier producto sin plantilla asignada. Marcarla desmarca la anterior de su mismo tipo.
+   * The one every product without an assigned template uses. Ticking it unticks the previous one of its kind.
    */
   isDefault?: boolean | null;
   /**
-   * El orden es el orden en pantalla. Las secciones de producto (cabecera, relato, ficha técnica, gama, formulario) no piden contenido: lo toman del producto.
+   * The order here is the order on screen. The product sections (header, story, spec sheet, range, form) ask for no content: they take it from the product.
    */
   blocks?:
     | (
@@ -2417,7 +2417,7 @@ export interface Redirect {
   deletedAt?: string | null;
 }
 /**
- * Un SKU por deporte y configuración (Rally Station → RLY-ST-T / RLY-ST-P).
+ * One SKU per sport and configuration (Rally Station → RLY-ST-T / RLY-ST-P).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "variants".
@@ -2440,7 +2440,7 @@ export interface Variant {
   createdAt: string;
 }
 /**
- * SOLO SERVIDOR. Importes en unidades menores (129000 = 1.290,00). La moneda la fija el mercado en código: nunca hay conversión en runtime (ADR-05).
+ * SERVER ONLY. Amounts in minor units (129000 = 1,290.00). The currency comes from the market, in code: there is never a runtime conversion (ADR-05).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "prices".
@@ -2449,13 +2449,13 @@ export interface Price {
   id: number;
   variant: number | Variant;
   /**
-   * De la variante enlazada. No es una columna: renombrar el SKU lo cambia aquí también.
+   * Taken from the linked variant. It is not a column: renaming the SKU changes it here too.
    */
   sku?: string | null;
   market: 'es' | 'uk' | 'ae';
   amount: number;
   /**
-   * Precio anterior tachado, mismas unidades menores que amount.
+   * The struck-through previous price, in the same minor units as amount.
    */
   compareAtAmount?: number | null;
   taxBehavior: 'inclusive' | 'exclusive';
@@ -2464,7 +2464,7 @@ export interface Price {
   createdAt: string;
 }
 /**
- * SOLO SERVIDOR. Disponible = en mano − comprometido; se compromete solo tras `paid`.
+ * SERVER ONLY. Available = on hand − committed; stock is committed only after `paid`.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "inventory".
@@ -2473,7 +2473,7 @@ export interface Inventory {
   id: number;
   variant: number | Variant;
   /**
-   * De la variante enlazada. No es una columna: renombrar el SKU lo cambia aquí también.
+   * Taken from the linked variant. It is not a column: renaming the SKU changes it here too.
    */
   sku?: string | null;
   qtyOnHand: number;
@@ -2482,7 +2482,7 @@ export interface Inventory {
   createdAt: string;
 }
 /**
- * Captación comercial. Se crean desde el formulario web (server action), nunca por REST público.
+ * Sales capture. Created from the web form (a server action), never through public REST.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "leads".
@@ -2494,22 +2494,22 @@ export interface Lead {
   market: 'es' | 'uk' | 'ae';
   sportInterest?: ('tenis' | 'padel' | 'pickleball') | null;
   /**
-   * Qué pedía el visitante: demo, lista de espera o reserva (preventa).
+   * What the visitor asked for: a demo, a waitlist spot or a pre-order.
    */
   intent: 'demo' | 'waitlist' | 'preorder';
   product?: (number | null) | Product;
   /**
-   * Configuración que el comprador marcó en el formulario (si eligió una).
+   * The configuration the buyer picked in the form, if they picked one.
    */
   variantSku?: string | null;
   message?: string | null;
   consent: boolean;
   /**
-   * El texto exacto de consentimiento que se mostró al enviar (RGPD art. 7.1: el consentimiento debe poder demostrarse).
+   * The exact consent wording shown at submit time (GDPR art. 7.1: consent must be demonstrable).
    */
   consentText?: string | null;
   /**
-   * Pipeline mínimo: nuevo → contactado → cerrado.
+   * A minimal pipeline: new → contacted → closed.
    */
   status: 'new' | 'contacted' | 'closed';
   locale?: string | null;
@@ -2518,7 +2518,7 @@ export interface Lead {
   createdAt: string;
 }
 /**
- * A qué motor está conectado un storefront. Metadatos y referencias a secretos — NUNCA el secreto. Activar una conexión requiere aprobación humana (plan §7).
+ * Which engine a storefront is connected to. Metadata and references to secrets — NEVER the secret itself. Activating a connection needs human approval (plan §7).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "commerce-connections".
@@ -2526,11 +2526,11 @@ export interface Lead {
 export interface CommerceConnection {
   id: number;
   /**
-   * Identificador estable. No se renombra: los pedidos lo guardan.
+   * A stable identifier. It is never renamed: orders keep a copy of it.
    */
   key: string;
   /**
-   * Storefront al que pertenece.
+   * The storefront it belongs to.
    */
   siteKey: string;
   /**
@@ -2538,30 +2538,30 @@ export interface CommerceConnection {
    */
   engine: 'native' | 'shopify';
   /**
-   * draft → configured → verified → active → draining → retired. A partir de verified solo avanza (lo impone un trigger).
+   * draft → configured → verified → active → draining → retired. From verified onwards it only moves forward, and a trigger enforces it.
    */
   status: 'draft' | 'configured' | 'verified' | 'active' | 'draining' | 'retired';
   /**
-   * Solo motores externos. Formato 2026-07.
+   * External engines only. Format 2026-07.
    */
   apiVersion?: string | null;
   /**
-   * Solo Shopify. tienda.myshopify.com — sin https:// y sin token.
+   * Shopify only. shop.myshopify.com — no https:// and no token.
    */
   shopDomain?: string | null;
   /**
-   * REFERENCIA al secreto, jamás el secreto: env:SHOPIFY_ADMIN_TOKEN, vault:courvia/stripe. La base de datos rechaza cualquier otra forma.
+   * A REFERENCE to the secret, never the secret: env:SHOPIFY_ADMIN_TOKEN, vault:courvia/stripe. The database refuses any other shape.
    */
   secretRef: string;
   /**
-   * Para operar: quién la creó, qué catálogo sirve, qué falta.
+   * For whoever operates it: who created it, which catalogue it serves, what is missing.
    */
   notes?: string | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
- * Qué conexión sirve los carritos NUEVOS de un sitio. El binding activo NO se edita: se crea una revisión nueva y la anterior pasa a draining (ADR-029).
+ * Which connection serves a site's NEW carts. The active binding is never edited: a new revision is created and the previous one moves to draining (ADR-029).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "commerce-bindings".
@@ -2569,38 +2569,38 @@ export interface CommerceConnection {
 export interface CommerceBinding {
   id: number;
   /**
-   * Debe coincidir con el siteKey de la conexión (lo comprueba un trigger).
+   * Must match the connection's siteKey, and a trigger checks it.
    */
   siteKey: string;
   /**
-   * La conexión a la que apunta esta revisión. No se cambia: se crea otra.
+   * The connection this revision points at. It is never changed: another revision is created.
    */
   connection: number | CommerceConnection;
   /**
-   * De la conexión enlazada. No es una columna.
+   * Taken from the linked connection. It is not a column.
    */
   connectionKey?: string | null;
   /**
-   * De la conexión enlazada. No es una columna.
+   * Taken from the linked connection. It is not a column.
    */
   engine?: string | null;
   /**
-   * Entero que avanza. Cambiar de motor es insertar la siguiente revisión, no editar esta.
+   * An integer that only moves forward. Switching engine means inserting the next revision, never editing this one.
    */
   revision: number;
   /**
-   * verified → active → draining → retired. Solo avanza, y solo puede haber UN active por sitio (índice único parcial).
+   * verified → active → draining → retired. It only moves forward, and there can be exactly ONE active per site (a partial unique index).
    */
   status: 'verified' | 'active' | 'draining' | 'retired';
   /**
-   * Cuándo empezó a servir carritos nuevos.
+   * When it started serving new carts.
    */
   activatedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
- * Enlaza un producto editorial con su producto en un motor. Se une por clave editorial y por id externo (GID en Shopify) — nunca por slug, handle o SKU.
+ * Links an editorial product to its product inside an engine. The join is by editorial key and external id (a GID on Shopify) — never by slug, handle or SKU.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "commerce-product-refs".
@@ -2608,32 +2608,32 @@ export interface CommerceBinding {
 export interface CommerceProductRef {
   id: number;
   /**
-   * El producto editorial. La unión real es su editorialKey, no su slug.
+   * The editorial product. The real join is its editorialKey, not its slug.
    */
   product: number | Product;
   /**
-   * Clave editorial del producto enlazado. No es una columna.
+   * The linked product's editorial key. It is not a column.
    */
   editorialProductId?: string | null;
   /**
-   * En qué conexión vive el producto externo.
+   * Which connection the external product lives in.
    */
   connection: number | CommerceConnection;
   /**
-   * De la conexión enlazada. No es una columna.
+   * Taken from the linked connection. It is not a column.
    */
   connectionKey?: string | null;
   /**
-   * De la conexión enlazada. No es una columna.
+   * Taken from the linked connection. It is not a column.
    */
   engine?: string | null;
   /**
-   * Id opaco en el motor. Shopify: el GID completo (gid://shopify/Product/123) — un handle o un SKU NO valen y la base de datos los rechaza.
+   * An opaque id inside the engine. Shopify: the full GID (gid://shopify/Product/123) — a handle or a SKU will NOT do, and the database refuses them.
    */
   externalProductId: string;
   status: 'draft' | 'verified' | 'active' | 'retired';
   /**
-   * Cuándo se comprobó que el id externo existe y es ese producto.
+   * When it was checked that the external id exists and is that product.
    */
   verifiedAt?: string | null;
   updatedAt: string;
@@ -2708,19 +2708,19 @@ export interface Order {
    */
   providerPaymentId?: string | null;
   /**
-   * Storefront del que salió. Se fija al crear.
+   * The storefront it came from. Set when the row is created.
    */
   siteKey?: string | null;
   /**
-   * Motor propietario. Inmutable.
+   * The owning engine. Immutable.
    */
   engine?: ('native' | 'shopify') | null;
   /**
-   * Conexión propietaria. Inmutable, y la operación va por ella.
+   * The owning connection. Immutable, and every operation goes through it.
    */
   connectionKey?: string | null;
   /**
-   * Revisión del binding vigente al nacer. Procedencia, no permiso.
+   * The binding revision in force when this was created. Provenance, not permission.
    */
   bindingRevision?: number | null;
   /**
@@ -2840,19 +2840,19 @@ export interface Cart {
    */
   expiresAt: string;
   /**
-   * Storefront del que salió. Se fija al crear.
+   * The storefront it came from. Set when the row is created.
    */
   siteKey?: string | null;
   /**
-   * Motor propietario. Inmutable.
+   * The owning engine. Immutable.
    */
   engine?: ('native' | 'shopify') | null;
   /**
-   * Conexión propietaria. Inmutable, y la operación va por ella.
+   * The owning connection. Immutable, and every operation goes through it.
    */
   connectionKey?: string | null;
   /**
-   * Revisión del binding vigente al nacer. Procedencia, no permiso.
+   * The binding revision in force when this was created. Provenance, not permission.
    */
   bindingRevision?: number | null;
   updatedAt: string;

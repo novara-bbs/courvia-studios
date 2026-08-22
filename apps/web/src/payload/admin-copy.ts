@@ -36,6 +36,25 @@ import type { LocalizedText } from "@courvia/appearance";
 export type { LocalizedText };
 
 /**
+ * Los grupos del menú lateral, escritos UNA vez.
+ *
+ * Cada colección declaraba el suyo con un literal, así que «Catálogo» vivía
+ * en seis sitios y «Comercio» en nueve. Payload agrupa por IGUALDAD del
+ * valor resuelto: dos literales que difieran en una tilde son dos grupos, y
+ * el editor ve el menú partido en dos sin saber por qué. Aquí no puede pasar.
+ *
+ * No hay grupo de logística: transportistas y envíos viven DENTRO de
+ * «Comercio» a propósito (`orders-fulfilment.ts`), porque un operador que
+ * busca un envío lo busca al lado del pedido.
+ */
+export const PANEL_GROUPS = {
+  catalog: { es: "Catálogo", en: "Catalogue", ar: "الكتالوج" },
+  commerce: { es: "Comercio", en: "Commerce", ar: "التجارة" },
+  content: { es: "Contenido", en: "Content", ar: "المحتوى" },
+  system: { es: "Sistema", en: "System", ar: "النظام" },
+} as const satisfies Record<string, LocalizedText>;
+
+/**
  * The shape Payload hands a `validate`, narrowed to the part that names the
  * panel's language. Structural rather than imported: `validate` receives a
  * different options object per field type, and all of them carry `req`.
