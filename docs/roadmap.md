@@ -35,7 +35,7 @@
 11. ✅ `prices` (currency, market) solo-servidor.
 12. ✅ `commerce-domain`: `CommerceService` + **puerto `PaymentProvider` + tipos `PaymentEvent`** + máquina de estados (doc+tests).
 13. ✅ Bloques Hero/RichText/CTABand + Home editable con live preview.
-14. Landing `/es/padel` (Hero+Bento).
+14. ✅ Landing `/es/padel` (Hero+Bento) — página compuesta sembrada (stage de apertura + mosaico de cinco piezas, es/en), editable desde el admin; la suite de layout la mide a 320/390. Con ella, S1 queda completo.
 15. ✅ PDP de robot (specs con estado de evidencia + garantía) + LeadForm→`leads` — como ruta. El producto es **Tempo R1** en su variante de pádel, SKU `TMP-R1-P`: lo que este plan llamó «Drill Pro P» es hoy ese SKU, porque ADR-022 retiró el naming Drill One/Pro/Club. La PDP editable como plantilla llegó con WP 13 (Fase 3 del plan dual-commerce, 21-ago): hoy la coloca una plantilla, no la ruta.
 
 Entregado además de este plan (verificable en el repo): chrome global (header, footer, selector de región) · comparador `/comparar` · navegación y páginas legales seed · SEO (sitemap, hreflang, JSON-LD, `llms.txt`) · fontanería de pagos completa (orders/payments/outbox, webhook `/next/webhooks/[provider]`) con adaptador Stripe verify+normalize — la conexión del SDK (createSession/refund) queda en WP 15b.
