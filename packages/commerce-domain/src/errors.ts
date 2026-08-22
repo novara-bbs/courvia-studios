@@ -14,7 +14,10 @@ export type CheckoutErrorCode =
   /** The product is in waitlist stage: capturing interest, not selling. */
   | "not_purchasable"
   | "insufficient_stock"
-  | "order_not_found";
+  | "order_not_found"
+  /** A return asks for more units of a SKU than the order bought, counting
+   *  prior non-rejected returns of the same order. */
+  | "return_exceeds_order";
 
 /** Raised by CommerceService.createCheckout / requestReturn with a CODE the
  *  UI can translate — never match on the prose. */

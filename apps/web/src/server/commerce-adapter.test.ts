@@ -513,6 +513,80 @@ if (hasDb && dbIsDisposable) {
     });
   });
 
+  describe("una devolución se valida contra el pedido", () => {
+    async function freshOrder(quantity: number) {
+      const { getCommerce } = await loadContainer();
+      const service = await getCommerce("es");
+      const checkout = await service.createCheckout({
+        ...CHECKOUT_INPUT,
+        lines: [{ sku: "TST-RIG-B", quantity }],
+        email: "returns@courvia.test",
+      });
+      return { service, orderId: checkout.orderId };
+    }
+
+    it("rechaza un SKU que el pedido no contiene", async () => {
+      const { service, orderId } = await freshOrder(1);
+      await expect(
+        service.requestReturn({
+          orderId,
+          lines: [{ sku: "TST-RIG-P", quantity: 1 }],
+          reason: "llegó otra cosa",
+        }),
+      ).rejects.toMatchObject({ code: "unknown_sku" });
+    });
+
+    it("rechaza devolver más cantidad de la comprada", async () => {
+      const { service, orderId } = await freshOrder(1);
+      await expect(
+        service.requestReturn({
+          orderId,
+          lines: [{ sku: "TST-RIG-B", quantity: 2 }],
+          reason: "no me gustan",
+        }),
+      ).rejects.toMatchObject({ code: "return_exceeds_order" });
+    });
+
+    it("dos líneas del mismo SKU cuentan como su suma", async () => {
+      const { service, orderId } = await freshOrder(1);
+      await expect(
+        service.requestReturn({
+          orderId,
+          lines: [
+            { sku: "TST-RIG-B", quantity: 1 },
+            { sku: "TST-RIG-B", quantity: 1 },
+          ],
+          reason: "en dos cajas",
+        }),
+      ).rejects.toMatchObject({ code: "return_exceeds_order" });
+    });
+
+    it("una parcial y luego el resto pasan; una unidad más ya no", async () => {
+      const { service, orderId } = await freshOrder(2);
+      const first = await service.requestReturn({
+        orderId,
+        lines: [{ sku: "TST-RIG-B", quantity: 1 }],
+        reason: "una llegó rota",
+      });
+      expect(first.status).toBe("requested");
+      const second = await service.requestReturn({
+        orderId,
+        lines: [{ sku: "TST-RIG-B", quantity: 1 }],
+        reason: "la otra también",
+      });
+      expect(second.status).toBe("requested");
+      // Las dos anteriores agotan lo comprado: la tercera pide una unidad
+      // que el pedido nunca tuvo.
+      await expect(
+        service.requestReturn({
+          orderId,
+          lines: [{ sku: "TST-RIG-B", quantity: 1 }],
+          reason: "y otra más",
+        }),
+      ).rejects.toMatchObject({ code: "return_exceeds_order" });
+    });
+  });
+
   describe("payment pipeline (§4: ledger-first, transactional, outbox)", () => {
     function paidEvent(orderId: string, eventId: string): PaymentEvent {
       return {

@@ -800,10 +800,14 @@ export class PayloadCommerceService implements CommerceService {
   }
 
   /**
-   * Logs the RMA always — support triages every request — and moves the
-   * order only when the state machine allows it from its current status
-   * (delivered → return_requested). A request against an undelivered order
-   * is a support conversation, not a state change.
+   * Logs every RMA whose CONTENT the order can honour — support triages the
+   * conversation, not the arithmetic — and moves the order only when the
+   * state machine allows it from its current status (delivered →
+   * return_requested). A request against an undelivered order is a support
+   * conversation, not a state change; a request for a SKU the order never
+   * bought, or for more units than it bought counting prior non-rejected
+   * returns, is neither: it is a poisoned row in the support panel, and it
+   * is refused with a code before any row exists.
    */
   async requestReturn(input: ReturnInput): Promise<ReturnRequest> {
     const orderId = Number(input.orderId);
@@ -825,7 +829,46 @@ export class PayloadCommerceService implements CommerceService {
         depth: 0,
         overrideAccess: true,
         req,
-      })) as unknown as { status: OrderStatus };
+      })) as unknown as { status: OrderStatus; lines: { sku: string; quantity: number }[] };
+
+      // Mismo idioma que createCheckout: dos líneas del mismo SKU cuentan
+      // como su suma, en la petición y en el pedido.
+      const requested = new Map<string, number>();
+      for (const line of input.lines) {
+        requested.set(line.sku, (requested.get(line.sku) ?? 0) + line.quantity);
+      }
+      const bought = new Map<string, number>();
+      for (const line of order.lines) {
+        bought.set(line.sku, (bought.get(line.sku) ?? 0) + line.quantity);
+      }
+      // Las devoluciones previas no rechazadas descuentan de lo comprado —
+      // dentro de la misma transacción y tras el lock del pedido, para que
+      // dos peticiones simultáneas no devuelvan la misma unidad dos veces.
+      const previous = (await this.payload.find({
+        collection: "returns",
+        where: { order: { equals: orderId }, status: { not_equals: "rejected" } },
+        limit: 100,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })) as unknown as { docs: { lines: { sku: string; quantity: number }[] }[] };
+      const alreadyReturned = new Map<string, number>();
+      for (const doc of previous.docs) {
+        for (const line of doc.lines) {
+          alreadyReturned.set(line.sku, (alreadyReturned.get(line.sku) ?? 0) + line.quantity);
+        }
+      }
+      for (const [sku, quantity] of requested) {
+        const purchased = bought.get(sku);
+        if (purchased === undefined) throw new CheckoutError("unknown_sku", sku);
+        const prior = alreadyReturned.get(sku) ?? 0;
+        if (prior + quantity > purchased) {
+          throw new CheckoutError(
+            "return_exceeds_order",
+            `${sku}: ${String(quantity)} pedidas + ${String(prior)} ya devueltas > ${String(purchased)} compradas`,
+          );
+        }
+      }
 
       const created = await this.payload.create({
         collection: "returns",
