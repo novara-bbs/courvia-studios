@@ -161,8 +161,17 @@ jobs:
 
       # `playwright.config.ts` sirve el build con `next start`; sin build no
       # hay nada que servir.
+      #
+      # POR TURBO, no `pnpm --filter @courvia/web build`. Eso último construye
+      # SOLO la app, y `@courvia/design-tokens` y `@courvia/appearance`
+      # GENERAN css (`dist/tokens.css`, `dist/appearance.css`, los dos
+      # ignorados por Git). Sin ellos el build de Next muere con
+      # `Module not found` en el layout de región — y así murió este job en
+      # `056b49f` y `c2f861e`, con `pnpm verify` verde en los dos, porque
+      # verify sí pasa por turbo y turbo respeta `dependsOn: ["^build"]`.
+      # `src/deploy/ci-build-contract.test.ts` lo vigila desde aquí.
       - name: Build
-        run: pnpm --filter @courvia/web build
+        run: pnpm turbo run build --filter=@courvia/web
 
       # `playwright.config.ts` monta antes el escenario del recorrido con
       # `seed:e2e-operator` (globalSetup). Ese script crea un usuario con
