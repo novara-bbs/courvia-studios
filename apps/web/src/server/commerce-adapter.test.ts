@@ -561,6 +561,130 @@ if (hasDb && dbIsDisposable) {
       expect(order?.refundedTotal).toMatchObject({ amount: 50_000 });
     });
   });
+
+  /**
+   * Concurrencia, que es donde este fichero se gana el sueldo.
+   *
+   * Nada de lo de arriba habría visto el fallo que estos dos tests miran,
+   * porque todo lo de arriba aplica un evento cada vez. El idioma que había
+   * —`payload.update` con payload vacío «para tomar el lock», y después
+   * releer— toma el lock de verdad, pero el `update` por id de Payload es un
+   * read-modify-write: carga el documento ANTES del lock y escribe la fila
+   * entera al soltarlo, así que el escritor bloqueado se despierta y
+   * reescribe lo que el ganador acaba de confirmar.
+   *
+   * `src/server/outbox.ts` ya lo había medido y documentado para su propia
+   * cola; aquí el precio es dinero y stock. Los dos tests corren contra
+   * Postgres de verdad y los dos se vieron en ROJO con el código anterior.
+   */
+  describe("concurrencia: dos webhooks a la vez no se pisan", () => {
+    it("dos pedidos pagados a la vez descuentan DOS unidades, no una", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+
+      const inventoryRow = async (): Promise<{ qtyOnHand: number; qtyCommitted: number }> => {
+        const variants = await payload.find({
+          collection: "variants",
+          where: { sku: { equals: "TST-RIG-P" } },
+          limit: 1,
+          depth: 0,
+          overrideAccess: true,
+        });
+        const found = await payload.find({
+          collection: "inventory",
+          where: { variant: { equals: variants.docs[0]!.id } },
+          limit: 1,
+          depth: 0,
+          overrideAccess: true,
+        });
+        return found.docs[0] as unknown as { qtyOnHand: number; qtyCommitted: number };
+      };
+
+      // Relativo a lo que haya, no a la constante de la fixture: los tests de
+      // arriba ya han consumido stock y el banco no se resiembra entre ellos.
+      const stockBefore = await inventoryRow();
+      const before = await service.getAvailability(["TST-RIG-P"]);
+      const [first, second] = await Promise.all([
+        service.createCheckout(CHECKOUT_INPUT),
+        service.createCheckout(CHECKOUT_INPUT),
+      ]);
+      // Dos pedidos de una unidad cada uno: el checkout ya comprometió dos.
+      const reserved = await service.getAvailability(["TST-RIG-P"]);
+      expect(reserved[0]!.available).toBe(before[0]!.available - 2);
+
+      const paid = (orderId: string): PaymentEvent => ({
+        type: "paid",
+        provider: "stripe",
+        providerEventId: `evt_race_${orderId}`,
+        providerPaymentId: `pi_${orderId}`,
+        orderId,
+        amount: { amount: 129_000, currency: "EUR" },
+        occurredAt: "2026-08-22T00:00:00.000Z",
+      });
+
+      // A LA VEZ, que es la única forma de ver esto.
+      const [a, b] = await Promise.all([
+        applyPaymentEvent(paid(first.orderId)),
+        applyPaymentEvent(paid(second.orderId)),
+      ]);
+      expect(a).toMatchObject({ outcome: "applied", status: "paid" });
+      expect(b).toMatchObject({ outcome: "applied", status: "paid" });
+
+      // `commit_stock` consuma la reserva: baja `qty_on_hand` y `qty_committed`
+      // en la misma cantidad. Con el idioma anterior una de las dos bajadas
+      // se perdía: el stock físico bajaba uno en vez de dos y quedaba una
+      // unidad comprometida de un pedido ya pagado, para siempre.
+      const stockAfter = await inventoryRow();
+      expect(stockAfter.qtyOnHand, "una de las dos bajadas se perdió").toBe(
+        stockBefore.qtyOnHand - 2,
+      );
+      expect(stockAfter.qtyCommitted, "quedó stock comprometido de un pedido pagado").toBe(
+        stockBefore.qtyCommitted,
+      );
+    });
+
+    it("dos eventos «paid» del MISMO pedido a la vez: uno aplica, el otro no", async () => {
+      const { getCommerce, applyPaymentEvent } = await loadContainer();
+      const payload = await loadPayload();
+      const service = await getCommerce("es");
+      const checkout = await service.createCheckout(CHECKOUT_INPUT);
+
+      // Ids de evento DISTINTOS: el índice único del libro mayor no los
+      // absorbe, así que lo único que puede impedir la doble transición es el
+      // lock de la fila del pedido.
+      const paid = (eventId: string): PaymentEvent => ({
+        type: "paid",
+        provider: "stripe",
+        providerEventId: eventId,
+        providerPaymentId: `pi_${checkout.orderId}`,
+        orderId: checkout.orderId,
+        amount: { amount: 129_000, currency: "EUR" },
+        occurredAt: "2026-08-22T00:00:00.000Z",
+      });
+
+      const outcomes = (
+        await Promise.all([
+          applyPaymentEvent(paid(`evt_lock_a_${checkout.orderId}`)),
+          applyPaymentEvent(paid(`evt_lock_b_${checkout.orderId}`)),
+        ])
+      )
+        .map((result) => result.outcome)
+        .sort();
+      expect(outcomes).toEqual(["already_applied", "applied"]);
+
+      // Y la consecuencia que se paga si el lock no sujeta: los efectos de
+      // `paid` se encolarían dos veces y el cliente recibiría dos correos.
+      const outbox = await payload.find({
+        collection: "outbox",
+        where: { order: { equals: Number(checkout.orderId) } },
+        depth: 0,
+        overrideAccess: true,
+      });
+      const effects = outbox.docs.map((doc) => doc.effect).sort();
+      expect(effects).toEqual(["issue_tax_invoice", "notify_crm", "send_confirmation_email"]);
+    });
+  });
 } else {
   describe.skip("PayloadCommerceService contract (requires a DISPOSABLE DATABASE_URL: localhost or CI)", () => {
     it("skipped", () => undefined);

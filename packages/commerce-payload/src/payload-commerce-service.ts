@@ -48,6 +48,7 @@ import type {
 import type { PaymentProviderId } from "@courvia/platform";
 import type { BasePayload, PayloadRequest, Where } from "payload";
 import { commitTransaction, initTransaction, killTransaction } from "payload";
+import { int, qualified, transactionSql } from "./tx-sql";
 
 /** Gateways available to checkout, keyed by id. Injected by the composition
  *  root — this package never knows which adapters exist (ADR-13/17). */
@@ -569,6 +570,26 @@ export class PayloadCommerceService implements CommerceService {
       const orderedLines = [...lines].sort(
         (a, b) => Number(a.variantDoc.id) - Number(b.variantDoc.id),
       );
+      /*
+       * La reserva, en UNA sentencia condicional por línea.
+       *
+       * Antes esto leía, comprobaba y escribía. El «lock» que tomaba entre
+       * medias era un `payload.update` con payload vacío, que es un
+       * read-modify-write: cargaba la fila ANTES del lock y la reescribía
+       * entera al soltarlo, así que la relectura veía su propia escritura
+       * vieja y el `qtyCommitted + N` salía de ahí. Dos checkouts a la vez
+       * sobre la misma variante reservaban UNA unidad. Medido en
+       * `commerce-adapter.test.ts`, que fue el primer sitio donde se corrió
+       * esto de verdad en paralelo. El porqué completo está en `tx-sql.ts`.
+       *
+       * Ahora la condición y la suma van juntas y las evalúa Postgres sobre
+       * la fila que él mismo bloquea al escribirla: `where … qty_on_hand -
+       * qty_committed >= N`. Si nadie cumple la condición, `rowCount` es
+       * cero y no hay stock — sin haber leído nada que se pudiera quedar
+       * viejo entre la lectura y la escritura.
+       */
+      const run = transactionSql(this.payload, req);
+      const inventoryTable = qualified(this.payload, "inventory");
       for (const line of orderedLines) {
         const inv = await this.payload.find({
           collection: "inventory",
@@ -578,32 +599,22 @@ export class PayloadCommerceService implements CommerceService {
           overrideAccess: true,
           req,
         });
-        const row = inv.docs[0] as { id: number } | undefined;
-        if (row === undefined) continue; // no inventory row = untracked stock
-        await this.payload.update({
-          collection: "inventory",
-          id: row.id,
-          data: {},
-          overrideAccess: true,
-          req,
-        });
-        const fresh = (await this.payload.findByID({
-          collection: "inventory",
-          id: row.id,
-          depth: 0,
-          overrideAccess: true,
-          req,
-        })) as unknown as { qtyOnHand: number; qtyCommitted: number };
-        if (fresh.qtyOnHand - fresh.qtyCommitted < line.quantity) {
+        // Sin fila de inventario, el stock no está controlado: se vende.
+        // Se distingue AQUÍ y no por el `rowCount` de abajo, porque «no hay
+        // fila» y «no hay unidades» son respuestas distintas y la segunda
+        // tiene que llegar al cliente como `insufficient_stock`.
+        if (inv.docs.length === 0) continue;
+        const variantId = int(Number(line.variantDoc.id), "variantId");
+        const quantity = int(line.quantity, "quantity");
+        const reserved = await run(
+          `update ${inventoryTable}
+              set qty_committed = qty_committed + ${quantity}, updated_at = now()
+            where variant_id = ${variantId}
+              and qty_on_hand - qty_committed >= ${quantity}`,
+        );
+        if ((reserved.rowCount ?? 0) === 0) {
           throw new CheckoutError("insufficient_stock", line.variantDoc.sku);
         }
-        await this.payload.update({
-          collection: "inventory",
-          id: row.id,
-          data: { qtyCommitted: fresh.qtyCommitted + line.quantity },
-          overrideAccess: true,
-          req,
-        });
       }
       await commitTransaction(req as Parameters<typeof commitTransaction>[0]);
     } catch (error) {

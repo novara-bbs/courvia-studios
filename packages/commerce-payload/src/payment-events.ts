@@ -25,6 +25,8 @@ import {
 } from "@courvia/commerce-domain";
 import type { PaymentEvent, SideEffect } from "@courvia/commerce-domain";
 import type { BasePayload, PayloadRequest } from "payload";
+
+import { int, qualified, transactionSql } from "./tx-sql";
 import { commitTransaction, initTransaction, killTransaction } from "payload";
 
 import { resolveRefundTotal } from "./refund-delta";
@@ -65,61 +67,103 @@ interface OrderRow {
 type Req = Partial<PayloadRequest>;
 type TxArg = Parameters<typeof initTransaction>[0];
 
-/** Serializes concurrent appliers for one order: an UPDATE takes a row
- *  lock, and a later SELECT in this transaction sees whatever the previous
- *  holder committed. Local-API-portable — no raw SQL, no dialect coupling. */
-async function lockOrderRow(payload: BasePayload, req: Req, orderId: number): Promise<void> {
-  await payload.update({
-    collection: "orders",
-    id: orderId,
-    data: {},
-    overrideAccess: true,
-    req,
-  });
+/* ==========================================================================
+ * Bloqueo y stock: SQL crudo dentro de la transacción, y por qué no hay
+ * alternativa con la Local API
+ * ==========================================================================
+ *
+ * Hasta ahora las dos cosas se hacían con el mismo idioma: `payload.update`
+ * con un payload vacío «para tomar el lock», y después releer. **Toma el
+ * lock** —un segundo escritor se bloquea de verdad— pero no sirve, y no es
+ * una sospecha: `apps/web/src/server/outbox.ts` lo documenta medido. El
+ * `update` por id de Payload es un read-modify-write que CARGA el documento
+ * ANTES del lock y escribe la fila entera al soltarlo, así que el escritor
+ * que estaba bloqueado se despierta y reescribe las columnas que el ganador
+ * acaba de confirmar. Ese fichero probó este mismo idioma primero, falló su
+ * test de concurrencia, y por eso acabó en SQL.
+ *
+ * Aquí el precio de equivocarse es mayor que allí:
+ *
+ *  - En `lockOrderRow`, el perdedor reescribía el `status` que había leído
+ *    antes del lock. Dos webhooks concurrentes sobre el mismo pedido —un
+ *    `paid` y un `refunded`, que llegan por rutas distintas— y el `paid`
+ *    queda deshecho.
+ *  - En `adjustStock`, el `update` vacío escribía las cantidades viejas, la
+ *    relectura veía su propia escritura vieja, y el delta salía de ahí:
+ *    actualización perdida de libro. Dos pedidos pagados a la vez descontaban
+ *    una unidad en vez de dos.
+ *
+ * Las dos se arreglan con Postgres y ninguna se puede arreglar sin él: no hay
+ * incremento atómico en la Local API, ni forma de pedir `FOR UPDATE`. Así que
+ * este bloque habla SQL, con la misma disciplina que `outbox.ts`: los
+ * identificadores salen del adaptador y se validan antes de interpolarse, los
+ * valores son enteros comprobados, y si el adaptador no es Postgres o no hay
+ * transacción, esto **lanza** en vez de degradar en silencio a lo que estaba
+ * roto.
+ */
+
+/**
+ * Serializa a los que apliquen eventos sobre el mismo pedido.
+ *
+ * `SELECT … FOR UPDATE` y no un `UPDATE`: lo que hace falta es el lock, no
+ * escribir. Escribir es justo lo que rompía esto (ver `tx-sql.ts`).
+ *
+ * Devuelve `false` si no hay tal pedido, que es la forma barata de contestar
+ * `order_not_found` antes de tocar el libro mayor.
+ */
+async function lockOrderRow(payload: BasePayload, req: Req, orderId: number): Promise<boolean> {
+  const run = transactionSql(payload, req);
+  const result = await run(
+    `select id from ${qualified(payload, "orders")} where id = ${int(orderId, "orderId")} for update`,
+  );
+  return (result.rowCount ?? result.rows.length) > 0;
 }
 
 function variantIdOf(line: OrderLineRow): number {
   return typeof line.variant === "object" ? line.variant.id : line.variant;
 }
 
+/**
+ * Descuenta stock con una sola sentencia por línea.
+ *
+ * No hay lectura, así que no hay nada que perder entre la lectura y la
+ * escritura: `qty_committed = greatest(0, qty_committed - N)` lo calcula
+ * Postgres sobre la fila que él mismo bloquea al escribirla. Dos
+ * transacciones concurrentes se serializan solas y las dos restan.
+ *
+ * `greatest(0, …)` conserva el comportamiento anterior —el stock nunca baja
+ * de cero— y con él su límite: si dos pedidos descuentan más de lo que hay,
+ * el segundo se queda en cero en vez de fallar. Reservar de verdad es trabajo
+ * del checkout, que compromete stock ANTES de cobrar; esto solo consuma lo
+ * que aquel apartó.
+ *
+ * Una variante sin fila de inventario no se toca: `where` no encuentra nada y
+ * la sentencia afecta a cero filas, que es lo mismo que decía el `continue`
+ * de antes — stock no controlado.
+ */
 async function adjustStock(
   payload: BasePayload,
   req: Req,
   lines: OrderLineRow[],
   effect: "commit_stock" | "release_reservation",
 ): Promise<void> {
-  // Deterministic order avoids deadlocks between concurrent transactions.
+  if (lines.length === 0) return;
+  const run = transactionSql(payload, req);
+  const table = qualified(payload, "inventory");
+  // Orden determinista: dos transacciones que tocan las mismas variantes en
+  // el mismo orden no se abrazan.
   const sorted = [...lines].sort((a, b) => variantIdOf(a) - variantIdOf(b));
   for (const line of sorted) {
-    const variantId = variantIdOf(line);
-    const found = await payload.find({
-      collection: "inventory",
-      where: { variant: { equals: variantId } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      req,
-    });
-    const row = found.docs[0] as { id: number } | undefined;
-    if (row === undefined) continue; // no inventory row = untracked stock
-    // Lock the inventory row, THEN read the value this transaction builds
-    // on — a read before the lock is a lost update waiting to happen.
-    await payload.update({ collection: "inventory", id: row.id, data: {}, overrideAccess: true, req });
-    const fresh = (await payload.findByID({
-      collection: "inventory",
-      id: row.id,
-      depth: 0,
-      overrideAccess: true,
-      req,
-    })) as unknown as { qtyOnHand: number; qtyCommitted: number };
-    const delta =
+    const variantId = int(variantIdOf(line), "variantId");
+    const quantity = int(line.quantity, "quantity");
+    const columns =
       effect === "release_reservation"
-        ? { qtyCommitted: Math.max(0, fresh.qtyCommitted - line.quantity) }
-        : {
-            qtyOnHand: Math.max(0, fresh.qtyOnHand - line.quantity),
-            qtyCommitted: Math.max(0, fresh.qtyCommitted - line.quantity),
-          };
-    await payload.update({ collection: "inventory", id: row.id, data: delta, overrideAccess: true, req });
+        ? `qty_committed = greatest(0, qty_committed - ${quantity})`
+        : `qty_on_hand = greatest(0, qty_on_hand - ${quantity}), ` +
+          `qty_committed = greatest(0, qty_committed - ${quantity})`;
+    await run(
+      `update ${table} set ${columns}, updated_at = now() where variant_id = ${variantId}`,
+    );
   }
 }
 
@@ -180,7 +224,28 @@ export async function applyPaymentEvent(
   await initTransaction(req as TxArg);
 
   try {
-    // 1. Ledger row FIRST: the unique index is the idempotency barrier.
+    // 1. EL LOCK VA PRIMERO, y este orden es obligatorio, no una preferencia.
+    //
+    // Insertar la fila del libro mayor toma un `FOR KEY SHARE` sobre el
+    // pedido, porque `payments.order` es una clave ajena. Si después se
+    // pidiera `FOR UPDATE`, dos transacciones concurrentes sobre el mismo
+    // pedido se abrazarían: cada una tiene el KEY SHARE que la otra necesita
+    // convertir en UPDATE. Medido: `deadlock detected (40P01)` en
+    // `commerce-adapter.test.ts` la primera vez que se escribió el lock de
+    // verdad. Tomando el lock antes, la segunda espera en la puerta y no hay
+    // ciclo.
+    //
+    // Esto NO afloja la regla de `.claude/rules/payments.md`: la fila del
+    // libro mayor sigue insertándose ANTES de aplicar la transición, que es
+    // lo que dice la regla y lo que hace que un duplicado reviente sin
+    // efectos.
+    const locked = await lockOrderRow(payload, req, orderId);
+    if (!locked) {
+      await killTransaction(req as TxArg);
+      return { outcome: "order_not_found" };
+    }
+
+    // 2. Ledger row: the unique index is the idempotency barrier.
     // Whether a failure here WAS the barrier is decided afterwards by
     // re-reading — never by matching error prose, which is minified,
     // localized and version-dependent.
@@ -218,8 +283,7 @@ export async function applyPaymentEvent(
       throw error;
     }
 
-    // 2. Serialize per order: lock, then read the status the lock revealed.
-    await lockOrderRow(payload, req, orderId).catch(() => null);
+    // 3. El estado que el lock reveló.
     const order = (await payload
       .findByID({ collection: "orders", id: orderId, depth: 0, overrideAccess: true, req })
       .catch(() => null)) as OrderRow | null;
@@ -236,7 +300,7 @@ export async function applyPaymentEvent(
       return { outcome: "recorded" };
     }
 
-    // 3. A signed event that CONTRADICTS the order is a conflict, not a
+    // 4. A signed event that CONTRADICTS the order is a conflict, not a
     // replay: money may be captured while the order says otherwise. This is
     // the server-side half of §4's "amounts validated on the server".
     if (event.type === "paid") {
@@ -257,7 +321,7 @@ export async function applyPaymentEvent(
       }
     }
 
-    // 4. Refund amounts: compute the DELTA — providers like Stripe report a
+    // 5. Refund amounts: compute the DELTA — providers like Stripe report a
     // running total (event.cumulative) — so replays absorb to zero and the
     // remainder of a partial refund still lands.
     let refundedAfter = order.refundedAmount;
@@ -295,14 +359,14 @@ export async function applyPaymentEvent(
       return { outcome: "invalid", reason: result.reason };
     }
 
-    // 5. Transactional side effects (stock), serialized by the order lock.
+    // 6. Transactional side effects (stock), serialized by the order lock.
     for (const effect of result.sideEffects) {
       if (SIDE_EFFECT_EXECUTION[effect] === "transactional" && STOCK_EFFECTS.has(effect)) {
         await adjustStock(payload, req, order.lines, effect as "commit_stock");
       }
     }
 
-    // 6. The order itself.
+    // 7. The order itself.
     await payload.update({
       collection: "orders",
       id: orderId,
@@ -314,7 +378,7 @@ export async function applyPaymentEvent(
       },
     });
 
-    // 7. Outbox rows, same transaction.
+    // 8. Outbox rows, same transaction.
     for (const effect of result.sideEffects) {
       if (SIDE_EFFECT_EXECUTION[effect] !== "outbox") continue;
       await writeOutboxRow(

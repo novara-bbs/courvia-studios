@@ -13,6 +13,8 @@ Aplican a `packages/commerce-domain`, `packages/payments-*` y a cualquier ruta q
 ## Siempre
 
 - Inserta la fila de `payments` **antes** de aplicar la transición, apoyándote en `UNIQUE(provider, provider_event_id)`: un duplicado revienta ahí, sin efectos.
+- Toma el lock del pedido **antes** que la fila de `payments`. Insertarla toma un `FOR KEY SHARE` sobre el pedido —es una clave ajena—, así que pedir el `FOR UPDATE` después provoca un abrazo mortal entre dos webhooks del mismo pedido. Medido: `40P01` en `commerce-adapter.test.ts`.
+- **Nunca** uses `payload.update` con payload vacío para tomar un lock. Lo toma, pero el `update` por id de Payload carga el documento ANTES del lock y reescribe la fila entera al soltarlo: el escritor bloqueado deshace lo que el ganador acaba de confirmar. Para bloquear, `SELECT … FOR UPDATE`; para sumar a un contador, una sola sentencia `UPDATE … SET x = x + n`. Las dos están en `packages/commerce-payload/src/tx-sql.ts`, con el porqué medido.
 - Alimenta la máquina de estados **solo** con `PaymentEvent` normalizados. El dominio nunca inspecciona payloads de Stripe/Tabby/Tamara.
 - Distingue el rechazo por `rejection`: `already_applied` es un webhook repetido (log a debug, responde 200); `invalid_for_status` es un fallo real.
 - Un `refund.approved` es el **único** disparador que ordena `execute_provider_refund`, y lleva importe.
