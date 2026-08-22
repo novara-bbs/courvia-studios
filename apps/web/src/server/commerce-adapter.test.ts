@@ -239,6 +239,65 @@ if (hasDb && dbIsDisposable) {
     },
   );
 
+  describe("una pasarela que no sabe cobrar no se queda con el stock", () => {
+    it("suelta la reserva en el acto y responde provider_not_available", async () => {
+      /*
+       * `createCheckout` reserva stock DENTRO de la transacción y pide sesión
+       * a la pasarela DESPUÉS del commit, que es lo correcto: llamar a una
+       * pasarela con la transacción abierta retendría el lock durante un
+       * viaje de red.
+       *
+       * Lo que no era correcto era qué pasa cuando esa llamada falla. «Se
+       * queda en `pending_payment` y el barrido lo libera» vale para un fallo
+       * transitorio —un 500, un timeout—: el intento existió y merece su hora
+       * de gracia. `NotImplementedError` no es eso: es «este proveedor NUNCA
+       * va a cobrar», que es lo que contestan HOY los cuatro adaptadores. Con
+       * el cron diario, cada intento de compra retenía su unidad hasta 24 h
+       * por un pago que nadie llegó a intentar.
+       *
+       * Se construye el servicio a mano con esa pasarela porque el container
+       * inyecta el proveedor falso, que sí sabe abrir sesión: lo que hay que
+       * ejercitar es el adaptador de verdad, y los de verdad lanzan.
+       */
+      const { PayloadCommerceService } = await import("@courvia/commerce-payload");
+      const { NotImplementedError } = await import("@courvia/commerce-domain");
+      const payload = await loadPayload();
+      const mudo = {
+        id: "stripe" as const,
+        createSession: () => Promise.reject(new NotImplementedError("createSession", "test")),
+        refund: () => Promise.reject(new NotImplementedError("refund", "test")),
+        verifyWebhook: () => Promise.resolve(null),
+        normalizeEvent: () => null,
+      };
+      const service = new PayloadCommerceService(payload, "es", { stripe: mudo as never });
+
+      const before = counted(await service.getAvailability(["TST-RIG-B"]), "TST-RIG-B");
+      await expect(
+        service.createCheckout({
+          ...CHECKOUT_INPUT,
+          lines: [{ sku: "TST-RIG-B", quantity: 2 }],
+          email: "pasarela-muda@courvia.test",
+        }),
+      ).rejects.toMatchObject({ code: "provider_not_available" });
+
+      // Lo que importa: el almacén está como estaba, sin esperar al tick.
+      expect(
+        counted(await service.getAvailability(["TST-RIG-B"]), "TST-RIG-B"),
+        "la reserva se quedó colgada esperando al barrendero",
+      ).toBe(before);
+
+      // Y el pedido no se queda mintiendo en `pending_payment`.
+      const orders = await payload.find({
+        collection: "orders",
+        where: { email: { equals: "pasarela-muda@courvia.test" } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      });
+      expect((orders.docs[0] as { status?: string } | undefined)?.status).toBe("cancelled");
+    });
+  });
+
   describe("checkout guardrails (§4)", () => {
     it("rejects a provider the market does not offer", async () => {
       const { getCommerce } = await loadContainer();

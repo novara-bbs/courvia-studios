@@ -13,6 +13,14 @@ checkout (server action / API propia)
   └─ CommerceService.createCheckout  — importes SOLO de la tabla prices
        ├─ transacción: pedido draft → pending_payment + reserva de stock
        └─ tras el commit: PaymentProvider.createSession → url/clientSecret
+            · si lanza algo transitorio (500, timeout): el pedido se queda
+              en pending_payment y el barrido lo caduca en una hora — el
+              intento existió y merece su margen por si el cliente recarga
+            · si lanza NotImplementedError («este proveedor no cobra»):
+              se deshace EN EL ACTO con releaseCheckout y el cliente recibe
+              provider_not_available. Esperar al tick costaba, con cadencia
+              diaria, hasta 24 h de stock retenido por un pago que nadie
+              llegó a intentar
 
 webhook POST /next/webhooks/{provider}
   └─ verifyWebhook(bytes exactos, firma) → normalizeEvent → PaymentEvent
@@ -101,6 +109,11 @@ secreto de Tabby o Tamara. Contra eso solo hay rotación.
    - `PAYMENT_FAKE_SECRET` → proveedor fake. Fail-closed: bloqueado con
      `VERCEL_ENV=production`, y con `NODE_ENV=production` exige además
      `PAYMENT_FAKE_UNSAFE_ALLOW=1` (solo el servidor local en modo prod).
+     **Y no convive con `STRIPE_WEBHOOK_SECRET`**: los dos ocupan el
+     proveedor `stripe`, así que tenerlos a la vez es una configuración
+     ambigua sobre si se cobra de verdad, y arranca lanzando en vez de dejar
+     que gane el último `if`. Al conectar Stripe en un entorno de pruebas,
+     quitar antes el del falso.
 2. **Oferta por mercado (ADR-14)** — Global `MarketSettings` en el admin:
    qué proveedores ve el cliente en cada mercado, en qué orden y con qué
    MÉTODOS (`methods`: card, bizum, klarna, sequra, clearpay, apple_pay,

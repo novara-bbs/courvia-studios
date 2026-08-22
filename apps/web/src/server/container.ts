@@ -72,12 +72,39 @@ export function getPaymentProviders(): PaymentProviderRegistry {
     process.env.VERCEL_ENV !== "production" &&
     (process.env.NODE_ENV !== "production" ||
       process.env.PAYMENT_FAKE_UNSAFE_ALLOW === "1");
-  if (fakeSecret !== undefined && fakeSecret !== "" && fakeAllowed) {
-    providers.stripe = new FakePaymentProvider({ secret: fakeSecret });
-  }
+  const fakeWanted = fakeSecret !== undefined && fakeSecret !== "" && fakeAllowed;
 
   const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (stripeWebhookSecret !== undefined && stripeWebhookSecret !== "") {
+  const stripeWanted = stripeWebhookSecret !== undefined && stripeWebhookSecret !== "";
+
+  /*
+   * Los dos a la vez es una configuración AMBIGUA sobre pagos, y hasta ahora
+   * se resolvía sola: los dos escribían `providers.stripe` y el segundo
+   * `if` ganaba en silencio. O sea, quien pegara `STRIPE_WEBHOOK_SECRET` en
+   * un entorno que ya usaba el falso dejaba de usarlo sin enterarse, y quien
+   * los quitara en el orden equivocado empezaba a usar el falso creyendo que
+   * usaba Stripe. Ninguna de las dos cosas se ve en un log.
+   *
+   * No hay una respuesta correcta que adivinar aquí: hay una configuración
+   * que alguien tiene que arreglar. Fail-closed, igual que el resto de
+   * `getPaymentProviders`, y con el nombre de las dos variables en el
+   * mensaje para que arreglarla no cueste un rato de búsqueda.
+   *
+   * El gate del falso (`fakeAllowed`) se evalúa ANTES: un
+   * `PAYMENT_FAKE_SECRET` filtrado en producción no habilita el falso, así
+   * que tampoco es una ambigüedad — ahí manda Stripe y punto.
+   */
+  if (fakeWanted && stripeWanted) {
+    throw new Error(
+      "PAYMENT_FAKE_SECRET y STRIPE_WEBHOOK_SECRET están las dos configuradas y las dos " +
+        "ocupan el proveedor `stripe`. Quita una: el falso para cobrar de verdad, o el " +
+        "de Stripe para seguir con el circuito de pruebas.",
+    );
+  }
+  if (fakeWanted && fakeSecret !== undefined) {
+    providers.stripe = new FakePaymentProvider({ secret: fakeSecret });
+  }
+  if (stripeWanted && stripeWebhookSecret !== undefined) {
     providers.stripe = new StripePaymentProvider({ webhookSecret: stripeWebhookSecret });
   }
 

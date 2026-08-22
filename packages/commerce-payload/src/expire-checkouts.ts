@@ -57,7 +57,31 @@ export async function expireStaleCheckouts(
   let skipped = 0;
 
   for (const doc of stale.docs) {
-    const orderId = Number(doc.id);
+    if (await releaseCheckout(payload, Number(doc.id))) expired += 1;
+    else skipped += 1;
+  }
+
+  return { scanned: stale.docs.length, expired, skipped };
+}
+
+/**
+ * Cancela UN checkout a medias y devuelve su reserva al almacén.
+ *
+ * Devuelve `true` si lo hizo, `false` si no había nada que hacer: la fila se
+ * evaporó, o el pedido ya no admite `checkout.expired` porque un webhook lo
+ * pagó mientras tanto. Ninguno de los dos es un error.
+ *
+ * ESTÁ EXPORTADA A PROPÓSITO, y el porqué es el mismo de `tx-sql.ts`: el
+ * barrido no es el único que necesita deshacer un checkout. `createCheckout`
+ * reserva stock y DESPUÉS pide sesión a la pasarela; cuando la pasarela dice
+ * que no sabe cobrar —`NotImplementedError`, que es lo que hoy contestan los
+ * cuatro adaptadores— esperar al siguiente tick para soltar esa reserva
+ * significa, con cadencia diaria, hasta 24 h de stock retenido por un pago
+ * que nadie intentó. Una función que solo el barrido puede llamar es una
+ * función que el otro llamante reimplementa mal.
+ */
+export async function releaseCheckout(payload: BasePayload, orderId: number): Promise<boolean> {
+  {
     const req: Req = { payload };
     await initTransaction(req as TxArg);
     try {
@@ -79,8 +103,7 @@ export async function expireStaleCheckouts(
        */
       if (!(await lockOrderRow(payload, req, orderId))) {
         await killTransaction(req as TxArg);
-        skipped += 1;
-        continue;
+        return false;
       }
       const order = (await payload.findByID({
         collection: "orders",
@@ -95,8 +118,7 @@ export async function expireStaleCheckouts(
       });
       if (!result.ok) {
         await killTransaction(req as TxArg);
-        skipped += 1;
-        continue;
+        return false;
       }
 
       // release_reservation, en orden determinista (igual que el aplicador) y
@@ -115,12 +137,10 @@ export async function expireStaleCheckouts(
         req,
       });
       await commitTransaction(req as TxArg);
-      expired += 1;
+      return true;
     } catch (error) {
       await killTransaction(req as TxArg);
       throw error;
     }
   }
-
-  return { scanned: stale.docs.length, expired, skipped };
 }

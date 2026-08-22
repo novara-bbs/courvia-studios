@@ -16,6 +16,7 @@ import { MARKET_DEFINITIONS } from "@courvia/platform";
 import type { LocaleId, MarketId, Sport } from "@courvia/platform";
 import {
   CheckoutError,
+  NotImplementedError,
   SPEC_EVIDENCE_LEVELS,
   compare,
   money,
@@ -48,6 +49,7 @@ import type {
 import type { PaymentProviderId } from "@courvia/platform";
 import type { BasePayload, PayloadRequest, Where } from "payload";
 import { commitTransaction, initTransaction, killTransaction } from "payload";
+import { releaseCheckout } from "./expire-checkouts";
 import { int, lockOrderRow, qualified, transactionSql } from "./tx-sql";
 
 /** Gateways available to checkout, keyed by id. Injected by the composition
@@ -629,11 +631,43 @@ export class PayloadCommerceService implements CommerceService {
       throw error;
     }
 
-    // Gateway session AFTER commit: if this fails the order stays
-    // pending_payment and a checkout.expired sweep releases it later.
+    /*
+     * La sesión de pago va DESPUÉS del commit, y eso sigue siendo correcto:
+     * llamar a una pasarela dentro de la transacción retendría el lock
+     * durante un viaje de red (`.claude/rules/payments.md`).
+     *
+     * Lo que no era correcto era qué pasa cuando falla. «El pedido se queda
+     * en `pending_payment` y el barrido lo libera luego» es la respuesta
+     * buena para un fallo TRANSITORIO —un 500 de Stripe, un timeout—: el
+     * intento existió y merece su hora de gracia por si el cliente recarga.
+     *
+     * `NotImplementedError` no es eso. Es «este proveedor NUNCA va a
+     * cobrar», que es lo que contestan hoy los cuatro adaptadores, así que
+     * cada intento de compra dejaba un pedido zombi con su stock reservado
+     * hasta el siguiente tick — con cadencia diaria, hasta 24 h de almacén
+     * retenido por un pago que nadie llegó a intentar. Y en un lanzamiento,
+     * eso son unidades que no se pueden vender a nadie más.
+     *
+     * Así que se deshace en el acto, por la MISMA transición y la misma
+     * función que usa el barrido (`releaseCheckout`, exportada por eso), y
+     * el cliente recibe `provider_not_available` en vez de un error que no
+     * significa nada para él. Si la liberación falla, no se esconde el
+     * error original: el barrido sigue siendo la red de abajo.
+     */
     const order = await this.getOrder(String(orderId));
     if (order === null) throw new CheckoutError("order_not_found", String(orderId));
-    const session = await gateway.createSession(order, input.market);
+    let session;
+    try {
+      session = await gateway.createSession(order, input.market);
+    } catch (error) {
+      if (error instanceof NotImplementedError) {
+        await releaseCheckout(this.payload, orderId).catch((cleanup: unknown) => {
+          console.error(`checkout ${String(orderId)}: no se pudo soltar la reserva`, cleanup);
+        });
+        throw new CheckoutError("provider_not_available", input.provider);
+      }
+      throw error;
+    }
     await this.payload.update({
       collection: "orders",
       id: orderId,
