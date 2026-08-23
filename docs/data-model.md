@@ -138,7 +138,7 @@ Acceso: `read`/`create`/`update` solo admin; `shipments` no se puede borrar
 contenido y solo viven en una plantilla: `productHero` · `productStory` · `productSpecs` ·
 `productRange` · `productLead`. `partialRef` (ADR-030) es distinto de los dos
 grupos anteriores: tiene contenido —una referencia, no texto propio— y no es
-`bound`, así que un editor lo coloca en cualquier página **y también** dentro
+vinculado, así que un editor lo coloca en cualquier página **y también** dentro
 de una plantilla, como cualquier bloque de contenido; lo que renderiza son
 los bloques de una colección Partials aparte, sincronizados en cada sitio
 que lo use.

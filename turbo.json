@@ -88,6 +88,23 @@
         "$TURBO_ROOT$/apps/web/app/**/*.css"
       ]
     },
+    // `registry.test.ts` compara el registro contra el párrafo «Bloques» de
+    // este archivo (`readFileSync`, fuera del árbol del paquete), y turbo no
+    // sabe hashear una lectura que su fingerprint por defecto no ve. Medido
+    // el 23 ago 2026, no supuesto: dos ediciones de esa frase en la misma
+    // sesión pasaron en local con caché caliente y solo fallaron en CI —
+    // `pnpm turbo run test --filter=@courvia/sections --force` es lo que las
+    // hizo rojas. Misma avería que el `env` de `build`, con un doc en vez de
+    // una variable.
+    "@courvia/sections#test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/docs/data-model.md"
+      ]
+    },
     "@courvia/web#test": {
       "dependsOn": [
         "^build",
