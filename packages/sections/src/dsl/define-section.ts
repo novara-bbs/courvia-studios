@@ -66,6 +66,20 @@ export interface RenderContext {
    * the page and WHERE it sits; the app decides what it looks like.
    */
   renderProductSurface?: (surface: ProductSurface) => ReactNode;
+  /**
+   * A shared partial, resolved by id (ADR-030).
+   *
+   * `partialRef` stores only the referenced document's id — never its
+   * blocks — so the section is a pure function of a reference, the same
+   * shape as `renderProductGrid`. Resolving it (fetch the `partials` doc,
+   * walk ITS OWN blocks through the same registry) happens at the
+   * composition root, independent of the depth the page that contains the
+   * reference was fetched at: a page with no `partialRef` pays nothing
+   * extra, and editing a partial invalidates only its own cache tag instead
+   * of every page that might reference it. Optional, like the grid: a
+   * context without it renders nothing (preview shows why).
+   */
+  renderPartial?: (id: string | number) => ReactNode;
 }
 
 /**

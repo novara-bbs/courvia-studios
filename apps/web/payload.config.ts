@@ -29,6 +29,7 @@ import {
 import { Media } from "./src/payload/media";
 import { Carriers, Shipments, withFulfilment } from "./src/payload/orders-fulfilment";
 import { Pages } from "./src/payload/pages";
+import { Partials } from "./src/payload/partials";
 import { Redirects } from "./src/payload/redirects";
 import { Templates } from "./src/payload/templates";
 import { storagePlugins } from "./src/payload/storage";
@@ -223,6 +224,9 @@ export default buildConfig({
     // a quien tiene la contraseña bien (src/payload/auth-rate-limit.ts).
     withForgotPasswordLimit(withAdminPasswordReset(Users)),
     Media,
+    // Antes de Pages y Templates: las dos pueden llevar un bloque `partialRef`
+    // que referencia esta colección (ADR-030).
+    Partials,
     Pages,
     // Antes de Products: es la colección que su campo `template` referencia.
     Templates,

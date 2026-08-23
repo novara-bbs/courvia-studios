@@ -14,6 +14,7 @@ import { isRegionId } from "@courvia/platform";
 import type { RegionId } from "@courvia/platform";
 
 import { SectionLeadForm } from "./section-lead-form";
+import { SectionPartial } from "./section-partial";
 import { SectionProductGrid } from "./section-product-grid";
 import { SectionSpecTable } from "./section-spec-table";
 
@@ -75,7 +76,11 @@ export function makeRenderContext(
   /** One line per distinct bad destination per page render, not one per
    *  click target: three CTAs sharing a broken href are one mistake. */
   const reported = new Set<string>();
-  return {
+  // A `const` the object closes over, not the returned value read back:
+  // `renderPartial` needs to hand the SAME context to `SectionList` when it
+  // resolves the partial's own blocks (ADR-030), and by the time anyone
+  // calls it this assignment has already finished — arrow functions are lazy.
+  const context: RenderContext = {
     preview,
     // Sections hold no user-visible strings: the concept-render label they
     // must show over non-final assets (E-028) arrives translated from here.
@@ -87,6 +92,7 @@ export function makeRenderContext(
     renderLeadForm: (options) => (
       <SectionLeadForm region={region} intent={options.intent} productSlug={options.productSlug} />
     ),
+    renderPartial: (id) => <SectionPartial id={id} ctx={context} />,
     /**
      * Content stores region-relative paths ("/robots"). Legacy content with a
      * baked-in region ("/es/...") passes through untouched.
@@ -131,4 +137,5 @@ export function makeRenderContext(
       return isRegionId(first) ? href : `/${region}${href === "/" ? "" : href}`;
     },
   };
+  return context;
 }

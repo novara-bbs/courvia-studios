@@ -209,6 +209,16 @@ function fieldToPayload(name: string, spec: FieldSpec): Field {
         ...(spec.max !== undefined ? { maxRows: spec.max } : {}),
         admin,
       };
+    case "partial":
+      return {
+        name,
+        type: "relationship",
+        label,
+        relationTo: "partials",
+        hasMany: false,
+        required: spec.required ?? false,
+        admin,
+      };
   }
 }
 
@@ -307,12 +317,20 @@ function appearanceSection(allowed: readonly ControlName[]): Field {
  * `{ bound: true }` and get everything, because a product template is
  * exactly the place where marketing sections and bound slots are meant to
  * be interleaved (docs/ARCHITECTURE.md §3).
+ *
+ * `exclude` removes named types after the `bound` filter. `Partials`
+ * (ADR-030) is the one caller: passing `{ exclude: ["partialRef"] }` keeps a
+ * partial from referencing another partial by never offering the block in
+ * that collection's own picker — the guard lives in what an editor can save,
+ * not in a runtime check the renderer would otherwise need.
  */
-export function buildBlocks(options?: { bound?: boolean }): Block[] {
-  const include =
+export function buildBlocks(options?: { bound?: boolean; exclude?: readonly string[] }): Block[] {
+  const excluded = new Set(options?.exclude ?? []);
+  const include = (
     options?.bound === true
       ? Object.values(SECTIONS)
-      : Object.values(SECTIONS).filter((section) => section.bound !== true);
+      : Object.values(SECTIONS).filter((section) => section.bound !== true)
+  ).filter((section) => !excluded.has(section.type));
   return include.map((section) => ({
     slug: section.type,
     // Postgres caps identifiers at 63 chars and versioned block tables

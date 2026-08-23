@@ -13,6 +13,7 @@ import { gallery } from "./blocks/gallery";
 import { hero } from "./blocks/hero";
 import { hotspots } from "./blocks/hotspots";
 import { mediaText } from "./blocks/media-text";
+import { partialRef } from "./blocks/partial-ref";
 import { productHero } from "./blocks/product-hero";
 import { productLead } from "./blocks/product-lead";
 import { productRange } from "./blocks/product-range";
@@ -53,6 +54,7 @@ export const SECTIONS: Record<string, SectionDefinition> = Object.fromEntries(
     productSpecs,
     productRange,
     embed,
+    partialRef,
     waitlist,
     productLead,
     faq,
@@ -67,7 +69,7 @@ export type {
   SectionLabels,
   SectionPlacement,
 } from "./dsl/define-section";
-export { LINK_CHILD_COPY, mediaValue, productSlugs } from "./dsl/fields";
+export { LINK_CHILD_COPY, mediaValue, partialRefId, productSlugs } from "./dsl/fields";
 export { PRODUCT_SURFACES, productSubject } from "./dsl/subject";
 export type {
   ProductLaunchStatus,

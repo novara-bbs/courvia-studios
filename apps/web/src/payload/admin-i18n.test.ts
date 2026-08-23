@@ -57,6 +57,7 @@ const LOCALIZED = {
     "inventory",
     "leads",
     "templates",
+    "partials",
     "commerce-connections",
     "commerce-bindings",
     "commerce-product-refs",
