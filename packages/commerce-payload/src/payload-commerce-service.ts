@@ -444,7 +444,15 @@ export class PayloadCommerceService implements CommerceService {
     if (skus.length === 0) return [];
     const result = await this.payload.find({
       collection: "variants",
-      where: { sku: { in: [...skus] } } as Where,
+      // `active: true` no estaba, y su ausencia tenía acta: una variante
+      // RETIRADA seguía publicando su stock, así que la PDP la pintaba
+      // comprable y el JSON-LD la mandaba a Google como `InStock`. El motor
+      // nuevo (`startCheckout`, más abajo) sí filtraba, de modo que la tienda
+      // decía que quedaban unidades de algo que el checkout iba a rechazar.
+      //
+      // Retirar una variante es exactamente cómo se saca un modelo del
+      // catálogo, así que esto no era un caso de laboratorio.
+      where: { sku: { in: [...skus] }, active: { equals: true } } as Where,
       limit: 500,
       depth: 0,
       overrideAccess: true,

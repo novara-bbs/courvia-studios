@@ -15,8 +15,7 @@ import type { BasePayload } from "payload";
 
 const hasDb = typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL !== "";
 const dbIsDisposable =
-  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") ||
-  process.env.CI === "true";
+  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") || process.env.CI === "true";
 
 /** Every slug this file may create, so teardown never guesses. */
 const SLUGS = ["rt-uno", "rt-dos", "rt-tres", "rt-manual"];
@@ -65,7 +64,9 @@ async function rename(id: number | string, slug: string): Promise<void> {
   });
 }
 
-async function redirectsFor(): Promise<Array<{ from: string; to: string; code: string; source: string }>> {
+async function redirectsFor(): Promise<
+  Array<{ from: string; to: string; code: string; source: string }>
+> {
   const result = await payload.find({
     collection: "redirects",
     where: { or: [{ from: { in: PATHS } }, { to: { in: PATHS } }] },
@@ -235,3 +236,196 @@ describe.skipIf(!hasDb || !dbIsDisposable)("a redirect an editor writes by hand"
     await expect(create({ from: "/rt-tres", to: "/rt-dos", code: "307" })).rejects.toThrow();
   });
 });
+
+/**
+ * Lo mismo para el catálogo, que hasta el 23 ago 2026 no lo tenía.
+ *
+ * ---------------------------------------------------------------------------
+ * POR QUÉ ERA PEOR QUE EN `pages`, Y POR QUÉ SE VOLVIÓ PEOR AÚN
+ * ---------------------------------------------------------------------------
+ *
+ * `redirectOnSlugChange` existía, estaba probado y estaba cableado **solo en
+ * `pages`**. Renombrar un producto publicado dejaba su URL anterior sin regla.
+ * Y desde ADR-026 el proxy sirve **404 reales**: lo que antes habría sido una
+ * redirección ausente pasó a ser una puerta cerrada en la dirección que Google
+ * tenía indexada, que es de lo poco que un catálogo no se puede permitir.
+ *
+ * ---------------------------------------------------------------------------
+ * LA PARTE QUE NO ERA CABLEAR
+ * ---------------------------------------------------------------------------
+ *
+ * Dos cosas no salían gratis, y las dos se comprueban abajo:
+ *
+ *  1. **El prefijo.** Un producto vive en `/robots/{slug}` y una categoría en
+ *     `/c/{slug}`, no en la raíz de la región. Sin prefijo la regla se habría
+ *     escrito para una URL que no existe.
+ *  2. **La validación de `redirects` lo rechazaba.** `isReservedPath` sin
+ *     manifiesto contesta «reservada» a CUALQUIER `/robots/x`, así que la
+ *     regla no se podía ni crear: la validación protegía una URL que acababa
+ *     de dejar de existir.
+ */
+describe.skipIf(!hasDb || !dbIsDisposable)(
+  "renombrar en el catálogo escribe su redirección",
+  () => {
+    const PRODUCT_SLUGS = ["rt-robot-uno", "rt-robot-dos"];
+    const CATEGORY_SLUGS = ["rt-cat-uno", "rt-cat-dos"];
+    const CATALOG_PATHS = [
+      ...PRODUCT_SLUGS.map((slug) => `/robots/${slug}`),
+      ...CATEGORY_SLUGS.map((slug) => `/c/${slug}`),
+    ];
+
+    async function purge(): Promise<void> {
+      await payload.delete({
+        collection: "redirects",
+        where: { or: [{ from: { in: CATALOG_PATHS } }, { to: { in: CATALOG_PATHS } }] },
+        overrideAccess: true,
+      });
+      await payload.delete({
+        collection: "products",
+        where: { slug: { in: PRODUCT_SLUGS } },
+        overrideAccess: true,
+      });
+      await payload.delete({
+        collection: "categories",
+        where: { slug: { in: CATEGORY_SLUGS } },
+        overrideAccess: true,
+      });
+    }
+
+    async function rulesFor(): Promise<{ from: string; to: string; source: string }[]> {
+      const result = await payload.find({
+        collection: "redirects",
+        where: { from: { in: CATALOG_PATHS } },
+        limit: 100,
+        depth: 0,
+        overrideAccess: true,
+        sort: "from",
+      });
+      return result.docs.map((doc) => ({ from: doc.from, to: doc.to, source: doc.source }));
+    }
+
+    beforeAll(async () => {
+      payload = await loadPayload();
+      await purge();
+    });
+
+    afterAll(purge);
+    beforeEach(purge);
+
+    it("un producto publicado que se renombra deja /robots/viejo → /robots/nuevo", async () => {
+      const created = await payload.create({
+        collection: "products",
+        locale: "es",
+        draft: false,
+        overrideAccess: true,
+        data: {
+          title: "Robot de prueba",
+          slug: PRODUCT_SLUGS[0]!,
+          editorialKey: "rt-robot-editorial",
+          sports: ["padel"],
+          _status: "published",
+        } as never,
+      });
+
+      await payload.update({
+        collection: "products",
+        id: created.id,
+        locale: "es",
+        draft: false,
+        overrideAccess: true,
+        data: { slug: PRODUCT_SLUGS[1]!, _status: "published" } as never,
+      });
+
+      expect(
+        await rulesFor(),
+        "renombrar un producto indexado dejó su URL anterior en un 404 duro",
+      ).toEqual([
+        {
+          from: `/robots/${PRODUCT_SLUGS[0]!}`,
+          to: `/robots/${PRODUCT_SLUGS[1]!}`,
+          source: "slug-change",
+        },
+      ]);
+    });
+
+    it("y un producto en BORRADOR no escribe ninguna: esa URL nunca existió", async () => {
+      const created = await payload.create({
+        collection: "products",
+        locale: "es",
+        draft: true,
+        overrideAccess: true,
+        data: {
+          title: "Robot en borrador",
+          slug: PRODUCT_SLUGS[0]!,
+          editorialKey: "rt-robot-borrador",
+          sports: ["padel"],
+          _status: "draft",
+        } as never,
+      });
+
+      await payload.update({
+        collection: "products",
+        id: created.id,
+        locale: "es",
+        draft: true,
+        overrideAccess: true,
+        data: { slug: PRODUCT_SLUGS[1]!, _status: "draft" } as never,
+      });
+
+      // El autoguardado del panel dispara cada 375 ms mientras alguien escribe:
+      // una regla por pulsación llenaría la tabla de URLs que nadie visitó nunca.
+      expect(await rulesFor()).toEqual([]);
+    });
+
+    it("una categoría también, aunque no tenga borradores", async () => {
+      // `categories` no lleva `_status`. Si `publishedSlug` tratara esa ausencia
+      // como «no publicado», esto se quedaría vacío en silencio.
+      const created = await payload.create({
+        collection: "categories",
+        locale: "es",
+        overrideAccess: true,
+        data: { title: "Categoría de prueba", slug: CATEGORY_SLUGS[0]! } as never,
+      });
+
+      await payload.update({
+        collection: "categories",
+        id: created.id,
+        locale: "es",
+        overrideAccess: true,
+        data: { slug: CATEGORY_SLUGS[1]! } as never,
+      });
+
+      expect(await rulesFor()).toEqual([
+        { from: `/c/${CATEGORY_SLUGS[0]!}`, to: `/c/${CATEGORY_SLUGS[1]!}`, source: "slug-change" },
+      ]);
+    });
+
+    it("y la validación sigue protegiendo un producto VIVO", async () => {
+      // La otra mitad del cambio. Aflojar `isReservedPath` para que la regla del
+      // renombrado se pueda escribir no puede convertirse en «cualquier URL de
+      // producto se puede tapar»: la que tiene documento publicado detrás sigue
+      // ganando.
+      await payload.create({
+        collection: "products",
+        locale: "es",
+        draft: false,
+        overrideAccess: true,
+        data: {
+          title: "Robot vivo",
+          slug: PRODUCT_SLUGS[0]!,
+          editorialKey: "rt-robot-vivo",
+          sports: ["padel"],
+          _status: "published",
+        } as never,
+      });
+
+      await expect(
+        payload.create({
+          collection: "redirects",
+          overrideAccess: true,
+          data: { from: `/robots/${PRODUCT_SLUGS[0]!}`, to: "/robots/otro", code: "301" } as never,
+        }),
+      ).rejects.toThrow();
+    });
+  },
+);

@@ -24,7 +24,13 @@ import {
   exactQuantity,
   stockSignal,
 } from "@courvia/commerce-domain";
-import type { CartRef, CommerceOwner, CustomerRef, OrderRef, VariantRef } from "@courvia/commerce-domain";
+import type {
+  CartRef,
+  CommerceOwner,
+  CustomerRef,
+  OrderRef,
+  VariantRef,
+} from "@courvia/commerce-domain";
 import {
   describeAvailabilityContract,
   describeCartContract,
@@ -39,8 +45,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const hasDb = typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL !== "";
 // Esta suite crea y borra filas: solo contra una base desechable.
 const dbIsDisposable =
-  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") ||
-  process.env.CI === "true";
+  /@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL ?? "") || process.env.CI === "true";
 
 /** La conexión que el composition root declara hoy (provisional, Fase 2). */
 const OWNER: CommerceOwner<"native"> = {
@@ -203,8 +208,9 @@ async function seed(): Promise<void> {
       country: "ES",
     },
   };
-  readOrderId = (await payload.create({ collection: "orders", overrideAccess: true, data: orderData }))
-    .id as number;
+  readOrderId = (
+    await payload.create({ collection: "orders", overrideAccess: true, data: orderData })
+  ).id as number;
   returnOrderId = (
     await payload.create({ collection: "orders", overrideAccess: true, data: orderData })
   ).id as number;
@@ -354,7 +360,9 @@ if (hasDb && dbIsDisposable) {
       // nadie se lo haya guardado.
       expect(cart.lines[0]?.unitAmount).toEqual({ amount: 100_000, currency: "EUR" });
       expect(cart.subtotal).toEqual({ amount: 300_000, currency: "EUR" });
-      const stored = await (await loadPayload()).find({
+      const stored = await (
+        await loadPayload()
+      ).find({
         collection: "carts",
         where: { sessionId: { equals: cart.ref.externalId } },
         depth: 0,
@@ -578,19 +586,33 @@ if (hasDb && dbIsDisposable) {
       expect(stockSignal(entry!.view)).toBe("unknown");
     });
 
-    it("una variante RETIRADA deja de publicar stock — y el método viejo sigue publicándolo", async () => {
+    it("una variante RETIRADA deja de publicar stock — por los DOS caminos", async () => {
       const [entry] = await engine.getAvailability([RETIRED_SKU]);
       expect(entry?.view.kind).toBe("unknown");
       expect(exactQuantity(entry!.view)).toBeNull();
 
-      // El defecto medido, afirmado tal cual para que se vea el día que se
-      // arregle: `PayloadCommerceService.getAvailability` consulta variantes
-      // solo por SKU, sin `active: true`, así que una variante retirada
-      // sigue contando stock. No se toca en esta fase (cero cambio de
-      // comportamiento); este test es su acta.
+      /*
+       * Aquí vivía el acta del defecto: este test exigía
+       * `legacy[0].available === RETIRED_ON_HAND` y su comentario decía «para
+       * que se vea el día que se arregle». Es hoy (23 ago 2026).
+       *
+       * `PayloadCommerceService.getAvailability` consultaba solo por SKU, sin
+       * `active: true`, mientras el motor nuevo sí filtraba. La consecuencia no
+       * era cosmética: la PDP pintaba comprable una variante retirada, el
+       * JSON-LD la publicaba como `InStock` a Google y a cada comparador, y el
+       * checkout —que sí filtra— la rechazaba. La tienda prometía unidades que
+       * su propio checkout no iba a vender.
+       *
+       * `null` y no `0`: «no lo sé» y «no queda» son respuestas distintas, y
+       * confundirlas es la avería que arregló `62`. Una variante retirada no
+       * es una variante agotada.
+       */
       const { getCommerce } = await loadContainer();
       const legacy = await (await getCommerce("es")).getAvailability([RETIRED_SKU]);
-      expect(legacy[0]?.available).toBe(RETIRED_ON_HAND);
+      expect(
+        legacy[0]?.available,
+        "el método viejo volvió a publicar el stock de una variante retirada",
+      ).toBeNull();
     });
 
     it("contesta una entrada por SKU pedido, en orden y con los repetidos", async () => {

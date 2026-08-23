@@ -29,9 +29,25 @@ interface PageLike {
   _status?: unknown;
 }
 
-function publishedSlug(doc: PageLike | undefined): string | null {
-  if (doc === undefined || doc._status !== "published") return null;
-  return typeof doc.slug === "string" && doc.slug !== "" ? normalizePath(`/${doc.slug}`) : null;
+/**
+ * La URL pública de un documento, o `null` si todavía no tiene ninguna.
+ *
+ * `prefix` existe porque no todo lo que se renombra vive en la raíz de la
+ * región: las páginas sí (`/{slug}`), pero un producto está en
+ * `/robots/{slug}` y una categoría en `/c/{slug}`. Sin él, renombrar un
+ * producto habría escrito una regla para una URL que no existe.
+ *
+ * `_status` ausente **cuenta como publicado**, y no es laxitud: `categories`
+ * no tiene borradores, así que sus documentos no llevan esa columna. Tratar la
+ * ausencia como «no publicado» dejaría a las categorías sin redirección en
+ * silencio — que es la forma exacta de fallo que este fichero existe para
+ * cerrar.
+ */
+function publishedSlug(doc: PageLike | undefined, prefix: string): string | null {
+  if (doc === undefined) return null;
+  if (doc._status !== undefined && doc._status !== "published") return null;
+  if (typeof doc.slug !== "string" || doc.slug === "") return null;
+  return normalizePath(`${prefix}/${doc.slug}`);
 }
 
 /**
@@ -106,14 +122,20 @@ export async function applySlugRedirect(
   }
 }
 
-export const redirectOnSlugChange: CollectionAfterChangeHook = async ({
-  doc,
-  previousDoc,
-  req,
-}) => {
-  const from = publishedSlug(previousDoc as PageLike | undefined);
-  const to = publishedSlug(doc as PageLike);
-  if (from === null || to === null || from === to) return doc;
-  await applySlugRedirect(req, from, to);
-  return doc;
-};
+/**
+ * El hook, por colección.
+ *
+ * Es una fábrica y no una constante porque el prefijo depende de dónde publica
+ * cada colección: `""` para `pages`, `/robots` para `products`, `/c` para
+ * `categories`. Todo lo demás —las tres formas incómodas de arriba— es común y
+ * vive en `applySlugRedirect`.
+ */
+export function redirectOnSlugChange(prefix = ""): CollectionAfterChangeHook {
+  return async ({ doc, previousDoc, req }) => {
+    const from = publishedSlug(previousDoc as PageLike | undefined, prefix);
+    const to = publishedSlug(doc as PageLike, prefix);
+    if (from === null || to === null || from === to) return doc;
+    await applySlugRedirect(req, from, to);
+    return doc;
+  };
+}
