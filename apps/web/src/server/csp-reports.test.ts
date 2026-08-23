@@ -127,6 +127,35 @@ describe("los dos formatos", () => {
     ).toEqual([]);
   });
 
+  it("el tope cuenta violaciones, no informes: un lote de ruido no las tapa", () => {
+    /*
+     * La Reporting API mezcla tipos en la misma petición. Cortando el array
+     * ANTES de filtrar —que es como estaba— diez `deprecation` al principio
+     * agotaban el cupo con informes que ni se guardan, y las violaciones que
+     * venían detrás se perdían en silencio: el peor resultado posible, porque
+     * una tabla vacía se lee igual que un sitio limpio.
+     */
+    const ruido = Array.from({ length: MAX_REPORTS_PER_REQUEST }, () => ({
+      type: "deprecation",
+      url: "https://courvia.test/es",
+      body: { id: "x" },
+    }));
+    const parsed = parseCspReports(
+      JSON.stringify([
+        ...ruido,
+        {
+          type: "csp-violation",
+          url: "https://courvia.test/es",
+          body: { effectiveDirective: "connect-src", blockedURL: "https://tercero.test/api" },
+        },
+      ]),
+    );
+    expect(parsed, "el ruido de delante se comió el cupo de la violación de detrás").toHaveLength(
+      1,
+    );
+    expect(parsed[0]?.blockedUri).toBe("https://tercero.test");
+  });
+
   it("un lote enorme se corta, y la basura no lanza", () => {
     const huge = Array.from({ length: 100 }, (_, index) => ({
       type: "csp-violation",

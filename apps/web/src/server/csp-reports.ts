@@ -175,7 +175,18 @@ export function parseCspReports(body: string): CspViolation[] {
   // Reporting API: un array de informes de varios tipos.
   if (Array.isArray(parsed)) {
     const found: CspViolation[] = [];
-    for (const item of parsed.slice(0, MAX_REPORTS_PER_REQUEST)) {
+    /*
+     * El tope se aplica a lo ACEPTADO, no a lo recibido.
+     *
+     * Antes se cortaba el array antes de filtrar por tipo, y ese orden tiraba
+     * violaciones reales: un lote que empiece con diez `deprecation` —la
+     * Reporting API mezcla tipos en la misma petición— agotaba el cupo con
+     * informes que ni siquiera se guardan y dejaba fuera las violaciones que
+     * venían detrás. Recorrer el array entero no abre nada: el tope de cuerpo
+     * de 16 KB ya acota cuántos elementos caben.
+     */
+    for (const item of parsed) {
+      if (found.length >= MAX_REPORTS_PER_REQUEST) break;
       const report = item as { type?: unknown; url?: unknown; body?: Record<string, unknown> };
       if (report.type !== "csp-violation") continue;
       const inner = report.body ?? {};

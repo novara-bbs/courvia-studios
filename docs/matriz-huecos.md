@@ -4,15 +4,37 @@
 > por cinco lentes independientes (dominio nativo, pagos, Shopify, CMS/catálogo,
 > documentación). Cada fila lleva `fichero:línea`.
 >
-> **Foto del 21-ago — leer con esa fecha delante.** La rama ha avanzado desde
-> `5637676` y esta matriz NO se re-audita fila a fila (una lista de pendientes
-> envejece igual que un comentario; la verdad viva está en
-> `docs/plan-dual-commerce.md`). Lo más grueso que ya no es cierto: de los seis
-> `launch_blocked`, los nº 2–4 (reserva de inventario, `adjustStock`,
-> `lockOrderRow`) están resueltos (`5d3d351`, `tx-sql.ts`), y el nº 1 dejó de
-> ser un checkout zombi: la reserva se libera en el acto cuando la pasarela no
-> sabe cobrar (`releaseCheckout`). Siguen bloqueados el nº 5 (handlers del
-> outbox, hoy 8/15) y el nº 6 (cadencia del cron, plan de Vercel).
+> **Foto del 21-ago, con una fe de erratas del 23-ago.** La rama ha avanzado
+> desde `5637676`. Aquí ponía que esta matriz «NO se re-audita fila a fila»
+> — y esa frase es justo lo que `docs/plan-dual-commerce.md` señala como el
+> modo de fallo de las listas de pendientes: la siguiente sesión abre esto,
+> lee un `not_started` y replanifica trabajo ya entregado. Así que no se
+> re-audita entera, pero **lo comprobado se corrige**, con el commit que lo
+> cerró.
+>
+> **Estas filas ya NO son ciertas** (verificadas contra el código el 23 ago):
+>
+> | Fila | Decía | Hoy |
+> |---|---|---|
+> | Clave editorial estable | `not_started` | Hecha: `editorialKeyField()`, `catalog.ts` |
+> | Site/Connection/engine/bindingRevision | `not_started` | Hecha, Fase 2 (`3cb4dec`) |
+> | ProductTemplates | `not_started` | Hecha, Fase 3 (`9b1e199`) |
+> | Papelera | `not_started` | Hecha en `pages`/`media`/`redirects` (`src/payload/trash.ts`) |
+> | `listProducts` pagina mal | INCOMPLETO | Arreglada (`5f043a4`) |
+> | El importe solo se comprueba en `pending_payment` | INCOMPLETO | Arreglada (`cfb6431`) |
+> | `requestReturn` no valida nada | INCOMPLETO | Arreglada (`fd725f4`) |
+> | Fila envenenada aborta el barrido | INCOMPLETO | Arreglada (`e03d8fb`) |
+> | `JSON.parse` de metafield sin guardia | INCOMPLETO | Arreglada (`9497e59`) |
+> | La mitad de checkout lanza síncronamente | `not_started` | Arreglada (`1b07a18`) |
+> | Redirección al renombrar slug de catálogo | `not_started` | Hecha el 23 ago: `redirectOnSlugChange` cableado en `products` y `categories` |
+> | `getAvailability` no filtra `active` | INCOMPLETO | Arreglada el 23 ago |
+>
+> Y de los seis `launch_blocked`, los nº 2–4 (reserva de inventario,
+> `adjustStock`, `lockOrderRow`) están resueltos (`5d3d351`, `tx-sql.ts`); el
+> nº 1 dejó de ser un checkout zombi porque la reserva se libera en el acto
+> cuando la pasarela no sabe cobrar (`releaseCheckout`). **Siguen bloqueados**
+> el nº 5 (handlers del outbox, hoy 8/15) y el nº 6 (cadencia del cron, plan
+> de Vercel). El recuento de abajo es el del 21-ago y no se ha recalculado.
 >
 > Escala de estado: `not_started` · `code_complete` · `sandbox_verified` · `launch_blocked`
 > · `launch_ready`. **Un adaptador que solo pasa tests contra fixtures nunca es

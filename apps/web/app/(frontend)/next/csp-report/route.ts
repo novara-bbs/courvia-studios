@@ -28,10 +28,14 @@
  *
  *  1. `Content-Type`. Un byte de cabecera; descarta el POST que ni siquiera
  *     finge ser un informe.
- *  2. `content-length`. **Antes de leer el cuerpo**: es lo único que impide
- *     que alguien nos haga materializar un megabyte en memoria por petición.
- *     Ausente también se rechaza — un `content-length` que falta es un cuerpo
- *     de tamaño desconocido, y aceptar tamaño desconocido es no tener tope.
+ *  2. `content-length`, **antes de leer el cuerpo**. Corta el caso honesto y el
+ *     descuidado sin materializar nada, y ausente también se rechaza: un
+ *     `content-length` que falta es un cuerpo de tamaño desconocido, y aceptar
+ *     tamaño desconocido es no tener tope.
+ *     <br>Lo que NO hace, dicho aquí para que nadie lo suponga: una cabecera
+ *     mentirosa se la salta y el cuerpo se materializa igual. La comprobación
+ *     en bytes de después lo descarta, pero **ya leído** — el tope real de esa
+ *     ruta lo pone la plataforma, no este `if`.
  *  3. El limitador. Ya con el cuerpo leído pero antes de tocar la base de
  *     datos, que es la parte cara.
  *  4. Parsear, validar contra `CSP_DIRECTIVES` y anotar.

@@ -241,6 +241,21 @@ borde, y el navegador ni reintenta ni enseña el resultado a nadie.
    condición adicional escrita en `mediaOrigin()`: hoy se resuelve en tiempo de
    build y un mismo build va a preview y a producción.
 
+**Y una expectativa que conviene bajar antes de mirar los datos.** La política
+de informe **ya permite `'unsafe-inline'`** en `script-src` y en `style-src`, y
+`blob:` en `img-src`/`worker-src`. O sea que aplicarla compra bastante menos de
+lo que sugiere la palabra «enforcing»: lo que este colector puede descubrir de
+verdad son **orígenes de terceros** —`connect-src`, `img-src`, `frame-src`— y
+de qué esquemas (`data:`, `blob:`) depende el sitio. Quitar `'unsafe-inline'`
+de `script-src`, que es lo que de verdad cerraría un XSS, exige nonces por
+petición, o sea un middleware que esta aplicación no tiene y que rompería el
+prerenderizado que sostiene ADR-015. Eso es otra decisión, y grande.
+
+Consecuencia práctica: **el panel también informa** —la entrada de
+`/admin/:path*` solo reemplaza la cabecera *enforcing*, no la de informe— pero
+como casi todo lo que hace ya está permitido, no hace falta filtrarlo. Se
+comprobó antes de añadir una entrada de cabecera para un problema inexistente.
+
 ### El límite de `forgot-password`
 
 `POST /api/users/forgot-password` no tenía **ningún** límite: no incrementa
