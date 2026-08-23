@@ -1908,38 +1908,6 @@ export interface Template {
           }
         | {
             heading?: string | null;
-            /**
-             * The block stores the reference only: price, currency and stock resolve live per market.
-             */
-            products: (number | Product)[];
-            appearance?: {
-              /**
-               * Air between this section and the one above, on the brand scale.
-               */
-              spaceBlockStart?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
-              /**
-               * Air between this section and the next, on the brand scale.
-               */
-              spaceBlockEnd?: ('none' | 'sm' | 'md' | 'lg' | 'xl') | null;
-              /**
-               * A theme role, never a colour. Inverted and accent rebind the text so contrast holds.
-               */
-              background?: ('none' | 'surface' | 'raised' | 'inverse' | 'accent') | null;
-              /**
-               * Logical, not physical: it flips by itself in Arabic.
-               */
-              align?: ('start' | 'center') | null;
-              /**
-               * Nests one brand theme inside this section only; the rest of the page is untouched.
-               */
-              themeScope?: ('inherit' | 'volt' | 'carbon' | 'club') | null;
-            };
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'productShowcase';
-          }
-        | {
-            heading?: string | null;
             lead?: string | null;
             /**
              * Up to 4 columns. The figures and their state (measured, target) come from the catalogue, not from here.
@@ -5414,23 +5382,6 @@ export interface TemplatesSelect<T extends boolean = true> {
                     background?: T;
                     columns?: T;
                     reveal?: T;
-                    themeScope?: T;
-                  };
-              id?: T;
-              blockName?: T;
-            };
-        productShowcase?:
-          | T
-          | {
-              heading?: T;
-              products?: T;
-              appearance?:
-                | T
-                | {
-                    spaceBlockStart?: T;
-                    spaceBlockEnd?: T;
-                    background?: T;
-                    align?: T;
                     themeScope?: T;
                   };
               id?: T;

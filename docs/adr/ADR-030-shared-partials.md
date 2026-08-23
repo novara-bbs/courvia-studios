@@ -47,8 +47,18 @@ Tres precedentes del propio repo cierran casi todas las preguntas de diseño:
 
 2. **Una sección nueva, `partialRef`**, balda `content` (hoy 8/12, pasa a
    9/12 — sigue por debajo del techo de balda). Es una sección de **contenido
-   normal**, no `bound`: vive en cualquier página, no en una plantilla, y un
-   editor la coloca donde hace falta como cualquier otro bloque.
+   normal**, no `bound`: no lee nada del producto de la página, así que un
+   editor la coloca donde haga falta como cualquier otro bloque — en una
+   página suelta **o dentro de una plantilla** (`Templates.blocks` sigue
+   ofreciendo el vocabulario de contenido completo vía
+   `buildBlocks({ bound: true, … })`, y `partialRef` no tiene motivo para ser
+   la excepción: un partial en la plantilla por defecto es «este aviso sale
+   en todas las fichas de producto», tan válido como en una página cualquiera).
+   Corrección sobre la primera versión de este ADR: decía que vivía «en
+   cualquier página, no en una plantilla», y el comité de revisión lo marcó
+   como falso — el código nunca lo impidió y no había motivo real para
+   impedirlo; era la frase la que sobraba, no una regla que faltara escribir
+   en `templates.ts`.
 
 3. **Campo único: una referencia a `Partials`.** Sigue el patrón de
    `kind: "products"` (`relationship`, no `hasMany`): el bloque guarda el
@@ -69,19 +79,33 @@ Tres precedentes del propio repo cierran casi todas las preguntas de diseño:
    la misma razón que `partialRef`. `pnpm migrate:new` sacó a la luz un
    defecto preexistente y ajeno a esta decisión: esa sección declara
    `dbName: "showcase"` — una tabla sin prefijo de colección, para no pasar
-   los 63 caracteres de Postgres — y `Templates` ya la ofrece hoy sin campos
-   propios (`buildBlocks({ bound: true })` no filtra nada). El adaptador de
-   Postgres de Payload modela una sola fila de relación por nombre de tabla
-   de bloque: con `pages` y `templates` compartiendo «showcase», la primera
-   migración generada para `Partials` **reasignaba** su FK de `pages` a la
-   última colección procesada — de haberse aplicado, habría roto los
-   `productShowcase` ya guardados en páginas publicadas. `Partials` no causa
-   la colisión Pages/Templates —existe desde WP13 y sigue sin dispararse
-   porque nadie ha usado `productShowcase` dentro de una plantilla—, pero
-   sumar un tercer aspirante a esa misma tabla la habría convertido en una
-   migración que corrompe datos. Se excluye aquí; arreglarla de raíz (una
-   tabla por colección) es un `dbName` distinto en `product-showcase/index.tsx`
-   y su propia migración, fuera del alcance de este ADR.
+   los 63 caracteres de Postgres. El adaptador de Postgres de Payload modela
+   una sola fila de relación por nombre de tabla de bloque: la primera
+   migración generada para `Partials` **reasignaba** la FK de «showcase» de
+   `pages(id)` a la última colección procesada — de haberse aplicado, habría
+   roto los `productShowcase` ya guardados en páginas publicadas.
+
+   **Y no se quedó en documentarlo.** `Templates.blocks` (`templates.ts`)
+   ya ofrecía `productShowcase` desde WP13 sin ninguna barrera —
+   `buildBlocks({ bound: true })` no filtraba nada—, así que la colisión
+   real no era «Partials contra Pages», era «Pages y Templates ya la
+   comparten hoy, sin que ningún test lo impida»: el día que un editor
+   arrastrara ese bloque a una plantilla, la siguiente `pnpm migrate:new`
+   por cualquier motivo habría generado la misma migración corruptora que
+   esta, y esta vez nadie la habría leído a mano antes de aplicarla. El
+   comité de revisión de este ADR lo señaló como importante y con razón:
+   dejarlo solo en prosa no es lo que pide `.claude/rules/database.md`
+   («sin ese test las tres primeras son aspiraciones»). Se cerró en el sitio
+   real del riesgo: `templates.ts` ahora llama
+   `buildBlocks({ bound: true, exclude: ["productShowcase"] })` — comprobado
+   contra la base local que no genera ninguna migración (`pnpm migrate:new`
+   respondió «No schema changes detected»: la tabla compartida no codifica
+   qué colecciones la ofrecen, solo su única FK, ya apuntada a `pages` desde
+   antes de este ADR) y que ninguna plantilla sembrada usaba ese bloque
+   (`seed-templates.ts` solo lleva las cinco vinculadas de WP13). Arreglar la
+   colisión de raíz —una tabla física por colección, sin `dbName` compartido—
+   sigue fuera de alcance: exigiría cambiar `product-showcase/index.tsx` y su
+   propia migración, y no es necesario para que este ADR sea seguro.
 
 5. **Sin versiones ni borradores**, por el mismo argumento que `Templates`
    (`templates.ts`, nota 1): un partial gobierna N páginas publicadas a la
@@ -105,6 +129,55 @@ Tres precedentes del propio repo cierran casi todas las preguntas de diseño:
    un partial invalida **solo su propia etiqueta de caché**
    (`partial:{id}`), sin tener que enumerar qué páginas lo referencian para
    invalidarlas una por una.
+
+7. **Un partial que resuelve pero no tiene nada dentro no avisa — ni en
+   producción ni en preview —, y eso es una propiedad heredada, no un
+   descuido de `partialRef`.** El comité de revisión lo encontró; la primera
+   redacción de este punto describía el caso equivocado, y solo correrlo de
+   verdad lo dejó claro (`partial-ref.http.test.ts` lo prueba, no solo lo
+   describe). Hay dos casos, y son distintos:
+
+   - **El id no resuelve en absoluto** (el partial fue borrado, o nunca
+     existió). `getPage`/`getDraftPage` populan `partial` a `depth: 1`, así
+     que Payload intenta resolver la relación antes de que esta app vea la
+     página; una referencia a un documento borrado **puebla a nada**, y
+     `partialRefId()` lo lee exactamente como «no se eligió ningún bloque»
+     — la misma rama que un editor que nunca eligió uno. `ctx.renderPartial`
+     no llega a invocarse. Este caso YA tenía diagnóstico —«no hay ningún
+     bloque elegido», algo impreciso para un borrado, pero visible— y sigue
+     teniéndolo: sin banda en producción, con el aviso puesto en preview.
+   - **El id sí resuelve, a un partial que no tiene nada que mostrar** (el
+     caso ordinario: un editor lo crea y no lo rellena todavía; o, más raro,
+     un error real de lectura). Aquí es donde `SectionRenderer`
+     (`packages/sections/src/render/index.tsx`) decide si emite el
+     `<section>` contenedor mirando el valor que `render()` devuelve **de
+     forma síncrona**, y `ctx.renderPartial(id)` ya devolvió un elemento
+     React —`<SectionPartial>`— en el instante en que el id resolvió:
+     `getPartial` resuelve a `null` o a `[]` **después**, dentro de ese
+     componente asíncrono, cuando la decisión de envolver ya está tomada.
+     El resultado es una banda vacía, con el ritmo vertical de
+     `spaceBlockStart`/`spaceBlockEnd` puesto y nada dentro, silenciosa en
+     producción **y en preview** — el mismo «parece un bug de diseño, no
+     contenido que falta» que `render/index.tsx` dice evitar para cualquier
+     otra sección, y que aquí sí ocurre.
+
+   No es exclusivo de `partialRef`: `specTable` y `productShowcase` tienen la
+   misma forma —un `<div>` de vuelta síncrona que envuelve una llamada a
+   `ctx.render*` cuyo resultado real solo se conoce más tarde, dentro de un
+   componente de servidor asíncrono— y el mismo silencio cuando su lista de
+   referencias resuelve a cero filas. `partialRef` no lo inventa; lo hereda.
+
+   Arreglarlo de raíz —que `SectionRenderer` espere la resolución antes de
+   decidir si envuelve— exigiría que la función de render fuera asíncrona
+   para las 25 secciones y su arnés de test entero (`render.test.tsx` usa
+   `renderToStaticMarkup`, que no espera componentes asíncronos), un cambio
+   de contrato transversal que ninguna de las tres secciones afectadas
+   necesitaba hasta ahora y que este ADR no decide por su cuenta. Lo que sí
+   se hizo: `apps/web/src/content/get-partial.ts` ya no afirma en su propio
+   comentario que un partial ausente produce «a named diagnostic in
+   preview» —era falso para el caso que sí pasa por esa función—, y
+   `partial-ref.http.test.ts` deja los dos comportamientos reales afirmados
+   en tests en vez de sin probar, incluyendo que **no son el mismo caso**.
 
 ## Justificación
 
@@ -163,3 +236,16 @@ Alternativas descartadas:
 - El techo de ADR-028 dijo que algún día hablaría de campos y no de bloques,
   si el panel llegara a ir lento por volumen de campos. Esta sección añade
   un campo (`partial`), no varios: no adelanta esa conversación.
+- `Templates` deja de ofrecer `productShowcase` en su selector de bloques
+  (punto 4b). Sin coste real: ninguna plantilla sembrada lo usaba y no se
+  perdió ninguna migración al quitarlo (`pnpm migrate:new` no generó
+  ninguna). Sí es un cambio de superficie del panel fuera del propio
+  `partialRef`, y queda aquí para que no se lea como un efecto secundario
+  silencioso.
+- Un `partialRef` que apunta a un partial sin bloques deja una banda vacía
+  sin avisar, igual en producción que en preview (punto 7) — es una
+  propiedad que ya tenían `specTable` y `productShowcase` con una lista
+  vacía de referencias, y `partialRef` la hereda en vez de inventarla. Un
+  `partialRef` que apunta a un partial **borrado** es otro caso, con el
+  diagnóstico que ya existía para «no hay ningún bloque elegido»: los dos
+  quedan documentados y probados por separado en vez de confundidos.

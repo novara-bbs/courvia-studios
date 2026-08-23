@@ -8,9 +8,35 @@
  * shared block is one section among many others that render fine, the same
  * invariant the renderer itself already gives every section
  * (`render/index.tsx`: "a bad block never takes the page down"). So a
- * failure logs and answers `null`, which `partialRef`'s own render function
- * already turns into "render nothing" in production and a named diagnostic
- * in preview.
+ * failure logs and answers `null`.
+ *
+ * Two different things happen to a `partialRef` when its target is gone,
+ * and only one of them goes through THIS function. `getPage`/`getDraftPage`
+ * populate `partial` at `depth: 1`, so Payload tries to resolve the
+ * relationship before this app ever sees the page; a reference to a
+ * DELETED document populates to nothing, `partialRefId()` reads that as "no
+ * partial chosen," and `partial-ref/index.tsx` already has a diagnostic for
+ * exactly that case — `getPartial` is never called. Measured, not assumed:
+ * `partial-ref.http.test.ts` publishes a page against a partial it then
+ * deletes and asserts the named preview diagnostic actually appears.
+ *
+ * What DOES reach this function, and can still surprise: an id that
+ * resolves fine — the partial exists — but that answers `null` from HERE,
+ * for a database error or (the ordinary case) a partial an editor saved
+ * with no blocks yet. That `null` arrives too late for `partialRef` to
+ * speak: `SectionRenderer` decides whether to emit the `<section>` wrapper
+ * by looking at `render()`'s return value SYNCHRONOUSLY, and
+ * `partialRef.render` already handed back a React element
+ * (`<SectionPartial>`) the instant an id resolved — this promise settles
+ * only after that decision is made. The result is a wrapped, EMPTY band,
+ * silent in production and in preview alike, not the loud diagnostic the
+ * sibling "no id chosen" / "no renderPartial injected" branches get.
+ * `specTable` and `productShowcase` share the same shape for the same
+ * reason (an async `ctx.render*` behind a synchronous wrapper) and the same
+ * silent-empty behaviour when their references resolve to nothing.
+ * ADR-030 §Decisión 7 records this rather than papering over it, and
+ * `partial-ref.http.test.ts` asserts both scenarios — including that they
+ * are not the same one.
  */
 import config from "@payload-config";
 import { cacheLife, cacheTag } from "next/cache";

@@ -166,7 +166,21 @@ export const Templates: CollectionConfig = {
       // `bound: true` = también las secciones vinculadas. Es la única
       // superficie que las ofrece; `pages` llama a buildBlocks() sin
       // opciones y no las ve (src/payload/blocks.ts explica por qué).
-      blocks: buildBlocks({ bound: true }),
+      //
+      // `exclude: ["productShowcase"]` (ADR-030, revisión del comité): esa
+      // sección declara `dbName: "showcase"` — una tabla física sin prefijo
+      // de colección — y el adaptador de Postgres solo modela un
+      // `_parent_id` por tabla de bloque. `pages` ya es su único dueño desde
+      // que existe (`showcase_parent_id_fk` → `pages(id)`); ofrecerla aquí
+      // también la convertía en una segunda aspirante sin ninguna barrera de
+      // código, así que la primera plantilla que la usara habría reasignado
+      // esa FK en la siguiente migración y roto los `productShowcase` ya
+      // publicados en páginas — el mismo riesgo que `partials.ts` documenta
+      // para su propia colección, aquí cerrado en el sitio real donde podía
+      // dispararse: ninguna plantilla sembrada la usa (`seed-templates.ts`
+      // solo lleva las cinco vinculadas), así que quitarla del selector no
+      // pierde ningún contenido guardado.
+      blocks: buildBlocks({ bound: true, exclude: ["productShowcase"] }),
       admin: {
         description: {
           es: "El orden es el orden en pantalla. Las secciones de producto (cabecera, relato, ficha técnica, gama, formulario) no piden contenido: lo toman del producto.",

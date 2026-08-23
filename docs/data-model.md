@@ -137,9 +137,11 @@ Acceso: `read`/`create`/`update` solo admin; `shipments` no se puede borrar
 `waitlist`, más los cinco **vinculados** de WP13, que no tienen campos de
 contenido y solo viven en una plantilla: `productHero` · `productStory` · `productSpecs` ·
 `productRange` · `productLead`. `partialRef` (ADR-030) es distinto de los dos
-grupos anteriores: tiene contenido —una referencia, no texto propio— y vive
-en cualquier página, no en una plantilla; lo que renderiza son los bloques de
-una colección Partials aparte, sincronizados en cada sitio que lo use.
+grupos anteriores: tiene contenido —una referencia, no texto propio— y no es
+`bound`, así que un editor lo coloca en cualquier página **y también** dentro
+de una plantilla, como cualquier bloque de contenido; lo que renderiza son
+los bloques de una colección Partials aparte, sincronizados en cada sitio
+que lo use.
 
 Son los `type` que declara cada `defineSection` en `packages/sections/src/blocks/`, que es
 de donde `apps/web/src/payload/blocks.ts` genera la configuración de Payload — no se
