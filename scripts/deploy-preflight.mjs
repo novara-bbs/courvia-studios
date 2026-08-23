@@ -41,12 +41,11 @@ function audience() {
 }
 
 /**
- * Las dos que hacen fallar el build, y solo esas dos.
+ * Las que hacen fallar el build, y solo esas.
  *
- * Deliberadamente corta. `NEXT_PUBLIC_SITE_URL` llega sola en Vercel;
- * `CRON_SECRET`, las de S3 y las de correo tienen ausencia SIGNIFICATIVA —
- * sin ellas la función se desactiva a propósito, no se rompe— y meterlas
- * aquí convertiría un despliegue de prueba en imposible.
+ * Deliberadamente corta: `CRON_SECRET`, las de S3 y las de correo tienen
+ * ausencia SIGNIFICATIVA —sin ellas la función se desactiva a propósito, no se
+ * rompe— y meterlas aquí convertiría un despliegue de prueba en imposible.
  */
 const REQUIRED = [
   {
@@ -59,10 +58,42 @@ const REQUIRED = [
   },
 ];
 
+/**
+ * El origen público, que es obligatorio SOLO en producción y admite dos
+ * formas.
+ *
+ * Aquí ponía que `NEXT_PUBLIC_SITE_URL` «llega sola en Vercel», y eso es
+ * verdad a medias de la manera más cara posible: la que llega sola es
+ * `VERCEL_PROJECT_PRODUCTION_URL`, una variable de sistema DISTINTA, que
+ * `src/seo/site-url.ts` usa como respaldo. Si el proyecto tiene desactivada la
+ * exposición de variables de sistema, no llega ninguna de las dos y
+ * `siteUrl()` **lanza** — reproducido el 23 ago 2026 con un build limpio:
+ *
+ *   Error: NEXT_PUBLIC_SITE_URL is not set on a production deploy: every
+ *   canonical, hreflang and sitemap URL would point at localhost.
+ *   Export encountered an error on /(frontend)/[region]/[slug]/page
+ *
+ * Se exige **una de las dos**, no las dos: pedir `NEXT_PUBLIC_SITE_URL` cuando
+ * el respaldo está puesto haría fallar builds que funcionan.
+ *
+ * Solo en producción, porque solo ahí lanza `site-url.ts`: en preview la
+ * ausencia cae en `http://localhost:3000` y eso es correcto para una URL que
+ * nadie indexa.
+ */
+const PRODUCTION_ORIGIN = {
+  names: ["NEXT_PUBLIC_SITE_URL", "VERCEL_PROJECT_PRODUCTION_URL"],
+  why:
+    "sin ninguna de las dos, `siteUrl()` lanza en el prerenderizado y el build muere; " +
+    "la segunda la inyecta Vercel salvo que el proyecto no exponga sus variables de sistema",
+};
+
 const where = audience();
 if (where === "local") process.exit(0);
 
 const missing = REQUIRED.filter((variable) => env(variable.name) === undefined);
+if (env("VERCEL_ENV") === "production" && !PRODUCTION_ORIGIN.names.some((n) => env(n))) {
+  missing.push({ name: PRODUCTION_ORIGIN.names.join(" o "), why: PRODUCTION_ORIGIN.why });
+}
 if (missing.length === 0) process.exit(0);
 
 const vercelEnv = env("VERCEL_ENV");
@@ -78,7 +109,11 @@ const scope =
 console.error(
   [
     "",
-    `  Este build no puede desplegarse: faltan ${String(missing.length)} de ${String(REQUIRED.length)} variables obligatorias.`,
+    // El denominador cuenta el origen solo cuando se exige, o un build de
+    // producción diría «faltan 3 de 2».
+    `  Este build no puede desplegarse: faltan ${String(missing.length)} de ${String(
+      env("VERCEL_ENV") === "production" ? REQUIRED.length + 1 : REQUIRED.length,
+    )} variables obligatorias.`,
     "",
     ...missing.map((variable) => `    ${variable.name}\n      ${variable.why}`),
     "",

@@ -102,8 +102,58 @@ describe("el preflight de despliegue", () => {
     expect(code).toBe(1);
   });
 
-  it("con las dos puestas, deja compilar", () => {
-    expect(run({ VERCEL_ENV: "production", DATABASE_URL: "postgres://x", PAYLOAD_SECRET: "s" }).code).toBe(0);
+  it("con las dos puestas, deja compilar un preview", () => {
+    expect(
+      run({ VERCEL_ENV: "preview", DATABASE_URL: "postgres://x", PAYLOAD_SECRET: "s" }).code,
+    ).toBe(0);
+  });
+
+  /*
+   * ---------------------------------------------------------------------
+   * EL ORIGEN PÚBLICO, QUE SOLO ES OBLIGATORIO EN PRODUCCIÓN
+   * ---------------------------------------------------------------------
+   *
+   * El preflight decía que `NEXT_PUBLIC_SITE_URL` «llega sola en Vercel» y por
+   * eso no la pedía. Es verdad a medias de la forma más cara: la que llega
+   * sola es `VERCEL_PROJECT_PRODUCTION_URL`, otra variable, y si el proyecto
+   * no expone sus variables de sistema no llega ninguna.
+   *
+   * Reproducido el 23 ago 2026 con un build de producción limpio:
+   *
+   *   Error: NEXT_PUBLIC_SITE_URL is not set on a production deploy…
+   *   Export encountered an error on /(frontend)/[region]/[slug]/page
+   *
+   * O sea, 56 segundos de compilación para enterarse. Estas tres pruebas son
+   * las que hacen que cueste 30 ms.
+   */
+  it("un build de producción sin NINGÚN origen no llega a compilar", () => {
+    const { code, stderr } = run({
+      VERCEL: "1",
+      VERCEL_ENV: "production",
+      DATABASE_URL: "postgres://x",
+      PAYLOAD_SECRET: "s",
+    });
+    expect(code, "el build habría muerto 56 s después en el prerenderizado").toBe(1);
+    expect(stderr).toContain("NEXT_PUBLIC_SITE_URL o VERCEL_PROJECT_PRODUCTION_URL");
+    // El denominador cuenta el origen solo cuando se exige.
+    expect(stderr).toContain("faltan 1 de 3");
+  });
+
+  it("y le basta CUALQUIERA de las dos, no las dos", () => {
+    // Exigir `NEXT_PUBLIC_SITE_URL` con el respaldo puesto haría fallar builds
+    // que funcionan: `siteUrl()` acepta las dos.
+    const base = { VERCEL: "1", VERCEL_ENV: "production", DATABASE_URL: "x", PAYLOAD_SECRET: "s" };
+    expect(run({ ...base, VERCEL_PROJECT_PRODUCTION_URL: "courvia.vercel.app" }).code).toBe(0);
+    expect(run({ ...base, NEXT_PUBLIC_SITE_URL: "https://courvia.com" }).code).toBe(0);
+  });
+
+  it("pero en preview su ausencia no es un fallo, porque ahí no lanza", () => {
+    // Sin origen, `siteUrl()` cae en localhost — correcto para una URL que
+    // nadie indexa. Pedirlo aquí convertiría cada rama en un despliegue
+    // imposible.
+    expect(
+      run({ VERCEL: "1", VERCEL_ENV: "preview", DATABASE_URL: "x", PAYLOAD_SECRET: "s" }).code,
+    ).toBe(0);
   });
 });
 

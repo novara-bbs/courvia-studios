@@ -133,20 +133,22 @@ Es el mensaje del propio guardián `isDatabaselessBuild`. Conclusiones:
 
 - **El Root Directory está bien**: el build corre desde `/vercel/path0/apps/web` y llega al
   prerenderizado.
-- Faltan **dos** variables en Preview: `DATABASE_URL` y `PAYLOAD_SECRET`.
-  `NEXT_PUBLIC_SITE_URL` llega sola en Vercel, y ningún proveedor de pago hace falta para
-  compilar (`getPaymentProviders` devuelve vacío sin lanzar).
+- Faltan **dos** variables en Preview: `DATABASE_URL` y `PAYLOAD_SECRET`. Ningún proveedor
+  de pago hace falta para compilar (`getPaymentProviders` devuelve vacío sin lanzar).
+  <br>**Corregido el 23 ago**: aquí ponía que «`NEXT_PUBLIC_SITE_URL` llega sola en
+  Vercel». La que llega sola es `VERCEL_PROJECT_PRODUCTION_URL`, otra variable, que
+  `site-url.ts` usa como respaldo; sin ninguna de las dos el build de **producción** muere.
+  En Preview sigue sin hacer falta, que es lo que hacía la frase difícil de desmentir.
 - **El arreglo obvio viola el §18 del encargo.** Copiar el `DATABASE_URL` de producción a
   Preview convierte cada `/admin` de cada preview en escritura sobre producción. Preview
   necesita **su propia base**: un segundo proyecto Supabase de staging, con las 16
   migraciones aplicadas por CI. El branching de Supabase es más elegante y más caro; no
   hace falta todavía.
-- **Producción nunca ha desplegado por otra razón**: la rama de producción es `main`, y
-  `main` es solo el «Initial commit». Aunque se pongan las variables, desplegaría un README
-  vacío. Comprobado lanzando un despliegue de `main`: muere en el primer segundo con «The
-  specified Root Directory "apps/web" does not exist», porque ahí no existe. `main` **es
-  ancestro** de HEAD, así que fusionar es un avance rápido corriente — pero es decisión del
-  propietario.
+- ~~**Producción nunca ha desplegado por otra razón**: la rama de producción es `main`, y
+  `main` es solo el «Initial commit»~~ — **ya no**. El 22 de agosto el trabajo se fusionó y
+  `origin/main` es `7968890`, con el árbol completo; desde entonces hay despliegues de
+  producción, y fallan por las causas de arriba y no por esta. Se deja tachado en vez de
+  borrado porque un diagnóstico que empieza por la causa resuelta cuesta horas.
 - **Y hay una cuarta cosa, encontrada el 21 ago con el MCP de Supabase ya autenticado: la
   base de producción que la documentación nombra no está en esta cuenta.** CLAUDE.md §3 y
   `docs/operations.md` (cuatro menciones) documentan el proyecto `xurdwzbefgxpfzgkbbkf`.

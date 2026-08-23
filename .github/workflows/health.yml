@@ -22,16 +22,31 @@
 # fuera.
 #
 # ---------------------------------------------------------------------------
-# FALLA SI NO ESTÁ CONFIGURADO, A PROPÓSITO
+# TRES REQUISITOS, Y CADA UNO DEPENDE DEL ANTERIOR
 # ---------------------------------------------------------------------------
 #
-# Sin la variable `HEALTH_URL` este workflow **falla**, no se salta. Un
-# vigilante sin configurar que sale verde es la misma avería que vino a
-# arreglar: silencio indistinguible de salud. Es la misma forma que la ruta del
-# cron cuando le falta `CRON_SECRET` — 503, no «corre para todos».
+# 1. **Este fichero tiene que estar en la RAMA POR DEFECTO.** GitHub ejecuta los
+#    workflows programados solo desde ella, y tampoco ofrece `workflow_dispatch`
+#    para los que no están ahí. Mientras esto viva únicamente en una rama de
+#    trabajo, GitHub no lo registra: `actions/workflows` devuelve solo `ci.yml`
+#    y aquí no hay nada que salga rojo. Comprobado el 23 ago 2026 — o sea que el
+#    vigilante escrito para que un cron muerto se note en menos de un día estuvo
+#    él mismo en ese estado, que es la avería exacta que vino a cerrar.
+# 2. **Tiene que haber un despliegue de producción vivo**, o no hay URL que
+#    vigilar. Hoy no lo hay (`docs/deployment.md`).
+# 3. **`HEALTH_URL`**, en Settings → Secrets and variables → Actions →
+#    Variables:  HEALTH_URL = https://<dominio>/next/health
 #
-# Se configura una vez, en Settings → Secrets and variables → Actions →
-# Variables:  HEALTH_URL = https://<dominio>/next/health
+# El tercero es el único que este fichero puede comprobar, y lo comprueba
+# fallando: sin la variable el job **falla**, no se salta. Un vigilante sin
+# configurar que sale verde es la misma avería que vino a arreglar — silencio
+# indistinguible de salud. Es la misma forma que la ruta del cron cuando le
+# falta `CRON_SECRET`: 503, no «corre para todos».
+#
+# Los dos primeros no puede comprobarlos: un workflow que no se ejecuta no
+# puede quejarse de no ejecutarse. Por eso están escritos aquí y en el runbook,
+# y por eso `apps/web/src/deploy/deploy-contract.test.ts` exige que sigan
+# escritos.
 #
 # ---------------------------------------------------------------------------
 # DOS COSAS QUE NO SE PUEDEN COMPROBAR DESDE EL REPOSITORIO

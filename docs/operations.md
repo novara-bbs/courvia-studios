@@ -133,11 +133,26 @@ resumen del tick ni el error de un trabajo. Sin autenticar porque el vigilante
 es un `curl`, y meterle un secreto sería un secreto más que rotar para proteger
 un booleano.
 
-**Quién vigila:** `.github/workflows/health.yml`, diario a las 09:00 UTC. Exige
-la variable de repositorio `HEALTH_URL` (Settings → Secrets and variables →
-Actions → Variables) y **falla a propósito si no está**: un vigilante sin
-configurar que sale verde es la misma avería que vino a arreglar. Se puede
-disparar a mano con `workflow_dispatch`.
+**Quién vigila:** `.github/workflows/health.yml`, diario a las 09:00 UTC.
+
+**Necesita tres cosas, y cada una depende de la anterior. Hoy no tiene
+ninguna:**
+
+1. **Estar en la rama por defecto.** GitHub ejecuta los workflows programados
+   **solo** desde ella, y tampoco ofrece `workflow_dispatch` a los que no están
+   ahí. Mientras el fichero viva únicamente en la rama de trabajo, GitHub no lo
+   registra —`actions/workflows` devuelve solo `ci.yml`— y no hay nada que
+   pueda salir rojo. Comprobado el 23 ago 2026.
+2. **Un despliegue de producción vivo**, o no hay URL que vigilar
+   (`docs/deployment.md`: los 40 despliegues están en `ERROR`).
+3. **La variable de repositorio `HEALTH_URL`** (Settings → Secrets and
+   variables → Actions → Variables). Es la única de las tres que el propio
+   workflow puede comprobar, y **falla a propósito si no está**: un vigilante
+   sin configurar que sale verde es la misma avería que vino a arreglar.
+
+Que el punto 1 no estuviera escrito hasta hoy es el mismo fallo en pequeño: el
+runbook enumeraba `HEALTH_URL` como único requisito, así que alguien podía
+ponerla, ver el workflow sin ejecuciones y suponer que todo iba bien.
 
 **El canal de `OPS_EMAIL` NO sirve para esto** y conviene saber por qué: viaja
 dentro del outbox, y el outbox lo drena el cron. Un aviso que se apaga
@@ -327,13 +342,43 @@ Dos ficheros, dos trabajos: `apps/web/.env.example` es la plantilla que alguien 
 
 ### 19.0 Estado de infraestructura
 
-**Estado actual (20 ago 2026):**
-- **Supabase**: el schema `payload` está desplegado en el proyecto `courvia-studios` (`xurdwzbefgxpfzgkbbkf`) con **RLS deny-all en todas las tablas**. Las migraciones se aplicaron vía MCP, cada batch con su fila en el ledger de migraciones: batches 1–6 aplicados; el 7 pendiente de aplicar.
+> **Esta sección se reescribió entera el 23 ago 2026, y merece decir por qué.**
+> Decía tres cosas falsas, dos de ellas **a cuatro líneas de distancia y
+> contradiciéndose entre sí**: que el esquema estaba desplegado en un proyecto
+> concreto de Supabase con «batches 1–6 aplicados y el 7 pendiente», que ese
+> mismo proyecto estaba «sin tablas, lienzo limpio», y que el team de Vercel no
+> tenía todavía proyecto Courvia. Es la sección que abre quien quiere saber qué
+> existe. Desde ahora separa **medido** de **no verificable**, y lleva fecha.
 
-**Histórico — snapshot del 19 ago 2026 (superado por lo anterior):**
-- **Supabase**: proyecto `courvia-studios` (`xurdwzbefgxpfzgkbbkf`), región **eu-west-1**, Postgres **17.6**, estado ACTIVE_HEALTHY, **sin tablas** en `public`/`payload` → lienzo limpio, listo para las migraciones de S0.
-- **Vercel**: el team actual no tenía proyecto Courvia todavía → crearlo/vincularlo en S0 (`vercel link` desde `apps/web` o desde el dashboard, con framework Next.js).
-- **GitHub**: no verificable desde aquel chat (sin conector GitHub); el repo creado por el usuario se validaría al clonar en la primera sesión de Claude Code.
+**Medido el 23 ago 2026:**
+
+- **Vercel** — el proyecto existe: `courvia-studios` en el team
+  `novara-bbs' projects`, ligado al repositorio de GitHub. Tiene **40
+  despliegues y los 40 en `ERROR`**, producción incluida. El sitio **no se ha
+  servido nunca desde una URL real**. Las causas y su orden de arreglo están en
+  `docs/deployment.md`.
+- **GitHub** — `origin/main` lleva el árbol completo desde el 22 ago
+  (`7968890`). Solo hay **un workflow registrado**, `ci.yml`; ver el apartado de
+  salud sobre por qué `health.yml` todavía no cuenta.
+- **Migraciones** — **24** en `apps/web/src/migrations/`, de
+  `20260819_124931_initial` a `20260822_192825_fase8_colector_de_csp`. La
+  numeración por «batches» de la versión anterior de esta sección no
+  corresponde a nada del repositorio actual.
+
+**No verificable, y por eso no se afirma:**
+
+- **La base de datos de producción.** CLAUDE.md §3 y este documento nombran el
+  proyecto de Supabase `xurdwzbefgxpfzgkbbkf`. Con el MCP autenticado,
+  `list_projects` devuelve dos proyectos y **ninguno es ese**
+  (`docs/plan-dual-commerce.md`, `docs/tco-dos-motores.md`). El MCP ve una sola
+  cuenta y el propietario puede tener otra, así que esto se reporta como
+  **medición y no como conclusión** — pero mientras no se aclare, **no hay base
+  de producción que nadie pueda señalar**, y sin ella no hay `DATABASE_URL` de
+  Production, ni despliegue, ni cron, ni nada de lo que cuelga de ellos.
+- Por lo mismo, **el estado del esquema en producción**: cuántas de las 24
+  migraciones tiene aplicadas es una pregunta sin sujeto hasta entonces. El
+  procedimiento para comprobarlo, cuando lo haya, está en `docs/deployment.md`
+  (paso 3 del primer despliegue: confirmar el ledger `payload.payload_migrations`).
 
 ### 19.1 Setup (una vez, desde un ordenador — terminal normal)
 ```bash

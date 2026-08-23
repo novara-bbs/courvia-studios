@@ -17,7 +17,7 @@
  * not finished on green CI alone.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -124,6 +124,63 @@ describe("the documentation matches the configuration", () => {
     // Until a storage adapter lands, this warning is the only thing standing
     // between an editor and silently losing every image they upload.
     expect(doc).toMatch(/efímero/);
+  });
+});
+
+/**
+ * Un workflow programado que no está en la rama por defecto NO EXISTE.
+ *
+ * ---------------------------------------------------------------------------
+ * Por qué esto merece un test y no un comentario
+ * ---------------------------------------------------------------------------
+ *
+ * GitHub ejecuta los `schedule` solo desde la rama por defecto, y tampoco
+ * ofrece `workflow_dispatch` a los que no están ahí. Un vigilante en una rama
+ * de trabajo no da error, no aparece en la lista de workflows y no tiene
+ * ejecuciones: **exactamente lo mismo que uno que funciona y nunca encuentra
+ * nada**.
+ *
+ * Pasó con `health.yml`, escrito el 22 ago 2026 para que «un cron muerto se
+ * note en menos de un día» y descubierto el 23 en ese estado, con el runbook
+ * enumerando `HEALTH_URL` como su único requisito. La forma del fallo es la que
+ * el repositorio persigue: un guardián que parece instalado.
+ *
+ * Este test no puede comprobar en qué rama está el fichero —el checkout de CI
+ * es el de la rama que se prueba— así que comprueba lo único que sí protege:
+ * que la dependencia esté ESCRITA donde la lee quien configura, en el propio
+ * workflow y en el runbook.
+ */
+describe("un workflow programado dice que depende de la rama por defecto", () => {
+  const workflowDir = path.join(repoRoot, ".github", "workflows");
+
+  /** Los que declaran `on: schedule`, leídos del disco. */
+  function scheduled(): { name: string; source: string }[] {
+    return readdirSync(workflowDir)
+      .filter((file) => /\.ya?ml$/u.test(file))
+      .map((name) => ({ name, source: readFileSync(path.join(workflowDir, name), "utf8") }))
+      .filter((file) => /^\s*schedule:/mu.test(file.source));
+  }
+
+  it("hay al menos uno, o este test no afirma nada", () => {
+    expect(scheduled().map((file) => file.name)).toContain("health.yml");
+  });
+
+  it("cada uno lo explica en su cabecera", () => {
+    for (const file of scheduled()) {
+      expect(
+        /rama por defecto/iu.test(file.source),
+        `${file.name} programa un cron y no dice que GitHub solo lo ejecuta desde la rama ` +
+          "por defecto. Sin esa línea, un vigilante en una rama de trabajo es " +
+          "indistinguible de uno que funciona y nunca encuentra nada",
+      ).toBe(true);
+    }
+  });
+
+  it("y el runbook nombra los tres requisitos, en orden de dependencia", () => {
+    const runbook = read("docs/operations.md");
+    expect(runbook).toContain("rama por defecto");
+    expect(runbook).toContain("despliegue de producción vivo");
+    expect(runbook).toContain("HEALTH_URL");
   });
 });
 
