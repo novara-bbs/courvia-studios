@@ -12,11 +12,36 @@
       "dependsOn": [
         "^build"
       ],
+      // Toda variable que el código LEA EN TIEMPO DE BUILD va aquí, y no por
+      // higiene: `env` es lo que entra en el hash de la tarea. Una variable que
+      // llega al proceso pero no al hash produce la peor forma de fallo — un
+      // build cacheado que se reutiliza con el valor de otro.
+      //
+      // Medido el 23 ago 2026, no supuesto: con `VERCEL_PROJECT_PRODUCTION_URL`
+      // sin declarar, un build pedido con `aaa.example` devolvió
+      // `Cached: 3 cached, 3 total` y un robots.txt horneado con el origen
+      // ANTERIOR. Es decir: cada canonical, cada hreflang, cada `metadataBase` y
+      // el sitemap entero pueden servirse con el dominio de otro build. El día
+      // que se añada un dominio propio, la caché seguiría publicando el viejo y
+      // el síntoma sería «he cambiado el dominio y no ha pasado nada».
+      //
+      // Es la misma avería que ya costó una tarea entera en este repo —el build
+      // de Next dependiendo de datos que turbo no hashea— con otra variable.
+      //
+      // `src/deploy/turbo-env-contract.test.ts` compara esta lista contra las
+      // variables que el código lee de verdad, así que añadir una lectura nueva
+      // en tiempo de build pone el test en rojo.
       "env": [
         "NODE_ENV",
         "NEXT_PUBLIC_*",
         "VERCEL_ENV",
         "VERCEL",
+        // El respaldo del origen público cuando no hay NEXT_PUBLIC_SITE_URL
+        // (`src/seo/site-url.ts`). Lo inyecta Vercel.
+        "VERCEL_PROJECT_PRODUCTION_URL",
+        // El origen del bucket que entra en `img-src`/`media-src` de la CSP
+        // (`next.config.ts`, `mediaOrigin()`), resuelto en build.
+        "S3_ENDPOINT",
         "CI"
       ],
       "outputs": [
@@ -61,6 +86,23 @@
         "$TURBO_ROOT$/packages/ui/src/**/*.css",
         "$TURBO_ROOT$/packages/sections/src/**/*.css",
         "$TURBO_ROOT$/apps/web/app/**/*.css"
+      ]
+    },
+    // `registry.test.ts` compara el registro contra el párrafo «Bloques» de
+    // este archivo (`readFileSync`, fuera del árbol del paquete), y turbo no
+    // sabe hashear una lectura que su fingerprint por defecto no ve. Medido
+    // el 23 ago 2026, no supuesto: dos ediciones de esa frase en la misma
+    // sesión pasaron en local con caché caliente y solo fallaron en CI —
+    // `pnpm turbo run test --filter=@courvia/sections --force` es lo que las
+    // hizo rojas. Misma avería que el `env` de `build`, con un doc en vez de
+    // una variable.
+    "@courvia/sections#test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/docs/data-model.md"
       ]
     },
     "@courvia/web#test": {

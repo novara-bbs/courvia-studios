@@ -21,6 +21,7 @@ import { PANEL_GROUPS, panelText } from "./admin-copy";
 import type { LocalizedText } from "./admin-copy";
 import { catalogHooks, revalidateCatalog } from "./catalog-revalidation";
 import { editorialKeyField } from "./commerce-connections";
+import { redirectOnSlugChange } from "./page-redirects";
 import { previewRegion, previewUrl } from "./preview";
 
 /** True once a document is (or has ever been) publicly visible. Draft
@@ -212,7 +213,10 @@ export const Categories: CollectionConfig = {
   },
   access: { read: anyone, create: isAuthenticated, update: isAuthenticated, delete: isAdmin },
   hooks: {
-    afterChange: [() => revalidateCatalog()],
+    // Renombrar una categoría publicada escribe su propia redirección,
+    // igual que en `pages`. Va ANTES de la invalidación para que el tag que
+    // se tira ya refleje la regla nueva.
+    afterChange: [redirectOnSlugChange("/c"), () => revalidateCatalog()],
     afterDelete: [() => revalidateCatalog()],
   },
   fields: [
@@ -309,6 +313,19 @@ export const Products: CollectionConfig = {
   },
   hooks: {
     afterChange: [
+      /*
+       * Renombrar un producto PUBLICADO escribe su propia redirección
+       * `/robots/{viejo}` → `/robots/{nuevo}`.
+       *
+       * Faltaba, y el agravante es reciente: desde ADR-026 el proxy sirve
+       * **404 reales**, así que hasta hoy renombrar un producto indexado no
+       * dejaba una redirección ausente sino una puerta cerrada — y el
+       * comentario de tres líneas más abajo ya prometía que este hook lo
+       * recogía. Un autoguardado de borrador no cuenta: `publishedSlug`
+       * devuelve `null` mientras no haya versión publicada, que es la misma
+       * regla que aplica `affectsPublished` justo debajo.
+       */
+      redirectOnSlugChange("/robots"),
       ({ doc, previousDoc }) => {
         // Draft autosave (375 ms) does not alter the published page; only
         // revalidate when a published version is involved.

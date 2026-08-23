@@ -39,6 +39,7 @@ describe("registry completeness", () => {
       "hero",
       "hotspots",
       "mediaText",
+      "partialRef",
       "productHero",
       "productLead",
       "productRange",
@@ -238,28 +239,26 @@ describe("every field is named in the editor's language", () => {
  * a line in a diff that a reviewer reads as what it is: a decision that ADR-028
  * says needs its own ADR.
  */
-describe("the section ceiling (ADR-028)", () => {
+describe("the section ceiling (ADR-028, raised by ADR-030)", () => {
   /**
-   * 24, from ADR-028: 19 content sections + the bound sections of WP13.
-   *
-   * The registry now holds exactly 24. ADR-028 predicted 23 and one of
-   * margin because it counted four bound sections; WP13 shipped five —
-   * `productHero` merges the buybox, the gallery and the offers table (one
-   * grid owns the sticky rail), but the story, the spec sheet, the form and
-   * the range each stayed a slot an editor can move or drop, which was the
-   * point of the work. The margin is spent: section 25 needs a new ADR,
-   * which is what this constant existing next to the assertion is for.
+   * 25, from ADR-030. ADR-028 set it at 24 — 19 content sections + the bound
+   * sections of WP13 — and its own comment said the margin was spent:
+   * "section 25 needs a new ADR". This is that ADR: `partialRef` (ADR-030)
+   * is the one new section it buys, for shared/synced content, and nothing
+   * else. The registry now holds exactly 25, so the SAME margin-spent
+   * situation applies again — section 26 needs its own ADR, which is what
+   * this constant existing next to the assertion is for.
    */
-  const SECTION_CEILING = 24;
+  const SECTION_CEILING = 25;
   /** Payload's block drawer is a six-column grid, so twelve is two rows: a
    *  whole shelf still reads at a glance instead of scrolling as a list. */
   const SHELF_CEILING = 12;
 
-  it("holds no more sections than ADR-028 allows", () => {
+  it("holds no more sections than ADR-028/ADR-030 allow", () => {
     const registered = Object.keys(SECTIONS);
     expect(
       registered.length,
-      `${String(registered.length)} secciones registradas; el techo es ${String(SECTION_CEILING)} (ADR-028). ` +
+      `${String(registered.length)} secciones registradas; el techo es ${String(SECTION_CEILING)} (ADR-028/ADR-030). ` +
         "Subirlo es un ADR nuevo, no editar esta constante.",
     ).toBeLessThanOrEqual(SECTION_CEILING);
   });

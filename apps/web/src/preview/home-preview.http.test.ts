@@ -52,8 +52,8 @@ const dbIsDisposable =
 /**
  * Ninguno de los que ya están cogidos: 3987 (http-status), 3988
  * (product-surfaces), 3989 (chrome-shell), 3990 (product-preview), 3991
- * (editing-bridge), 3992 (pdp-template) ni 3999 (el harness de navegador,
- * `playwright.config.ts`).
+ * (editing-bridge), 3992 (pdp-template), 3994 (partial-ref) ni 3999 (el
+ * harness de navegador, `playwright.config.ts`).
  *
  * Este fichero y `pdp-template.test.ts` eligieron AMBOS el 3992, y cada
  * comentario enumeraba los puertos que evitaba sin mencionar al otro: dos

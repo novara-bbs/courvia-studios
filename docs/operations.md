@@ -44,12 +44,49 @@ producto es editable» solo lo es para quien sepa de antemano qué cinco
 secciones crear y en qué orden. Es idempotente en el único sentido que importa
 aquí: si ya hay una plantilla `product` por defecto, no la toca.
 
+### La escotilla: entrar cuando el panel te ha dejado fuera
+
+Payload bloquea una cuenta a los **cinco intentos fallidos** durante **diez
+minutos** (`maxLoginAttempts` y `lockTime`; este repo no los toca y no debe
+tocarlos). Correcto, salvo que hasta el 22 ago 2026 no había salida:
+`POST /api/users/unlock` **exige sesión** —su `access` hereda el default de
+Payload, que pide `req.user`— y `seed:admin` **se niega a correr** si ya existe
+algún usuario, para no ser una puerta trasera. La única salida era SQL a mano
+sobre `lock_until` y `login_attempts`, y no estaba escrita en ninguna parte.
+
+```bash
+ADMIN_EMAIL=tu@correo pnpm --filter @courvia/web unlock:admin
+```
+
+Pone a cero el contador de intentos de una cuenta que **ya existe**: no la crea,
+no cambia su contraseña y no le concede permisos. Si el correo no existe lo dice
+—`unlock` de la Local API devuelve un booleano y no distingue los dos casos, así
+que el script comprueba primero.
+
+**Este sí corre contra producción, y es la diferencia con las semillas.**
+`seed:e2e-operator` se niega a correr contra cualquier cosa que no sea la base
+desechable porque crea un usuario con contraseña fija; este no lleva ese
+guardarraíl **a propósito**, porque su razón de existir es justamente el momento
+en que nadie puede entrar al panel de producción. No abre ninguna puerta nueva:
+exige `DATABASE_URL`, y quien tiene esas credenciales ya puede hacer cualquier
+cosa con la base.
+
+Se descubrió el hueco al poner el límite de tasa a `forgot-password`: antes de
+tocar la autenticación conviene saber cómo se sale si algo va mal.
+
 ### El tick de mantenimiento, y cómo ejecutarlo a mano
 
 En un despliegue lo dispara Vercel Cron **una vez al día**, a las 04:00 UTC
 (`"schedule": "0 4 * * *"` en `apps/web/vercel.json`), sobre `GET /next/cron`
-(autenticado con `CRON_SECRET`; ver `docs/deployment.md`). Hace dos cosas:
-despachar el outbox y caducar los checkouts abandonados.
+(autenticado con `CRON_SECRET`; ver `docs/deployment.md`). Hace **cinco**
+cosas: despachar el outbox, caducar los checkouts abandonados, **borrar los
+carritos vencidos**, **podar los informes de CSP** y **dejar constancia de que
+corrió** en `ops-runs`.
+
+Las tres últimas no estaban aquí. La barrida de carritos entró con la Fase 4 y
+este documento —y `docs/deployment.md`— siguieron diciendo «dos» durante meses,
+en los dos únicos sitios donde un operador miraría. La constancia y la poda son
+del 22 ago 2026: la primera es de lo que va la sección siguiente.
 
 **La cadencia es diaria a propósito, y hay que saber lo que cuesta.** Vercel
 Hobby rechaza cualquier `schedule` más fino y hace fallar el despliegue al
@@ -65,7 +102,76 @@ peor caso real, con un solo tick al día:
 
 Un pedido `pending_payment` de veinte horas es, por tanto, la cadencia
 elegida y no una avería: solo hay que sospechar del cron si sobrevive a un
-tick. Mientras el plan siga en Hobby, el puente es dispararlo a mano: la misma
+tick.
+
+### Salud: cómo saber que esto sigue vivo
+
+**El fallo que no se ve.** Si el planificador de Vercel deja de disparar el
+tick no hay error en ninguna parte. Lo que se para está contado: la
+confirmación de la waitlist —la única conversión del sitio—, los correos de
+seguimiento y posventa, **la ventana legal de desistimiento** (Art. 102
+TRLGDCU: 14 días, y **doce meses si no se informa**), **`stop_picking`** —la
+contraorden que impide enviar un robot cuyo reembolso ya va de camino—, las dos
+alertas de dinero contradiciéndose y la liberación de las reservas de stock.
+
+Hasta el 22 ago 2026 la única forma de detectarlo era la heurística de arriba:
+mirar un pedido y calcular a ojo si había pasado un tick.
+
+**Ahora cada tick deja una fila** en `ops-runs` (`job`, `startedAt`,
+`finishedAt`, `status`, `summary`; 90 días de historia, podados por el propio
+tick). Una colección y no un global a propósito: un global dice cuándo fue el
+último, pero no que faltaron tres días seguidos.
+
+**`GET /next/health`** contesta la única pregunta que hace falta: **200 si el
+último tick tiene menos de 26 horas, 503 si no.** Veintiséis y no veinticuatro
+porque con cadencia diaria el peor caso legítimo ya son ~25 h (ver la tabla de
+arriba); un umbral de 24 sería un vigilante que grita todos los días, y un
+vigilante que grita todos los días se silencia.
+
+La ruta es **pública y callada**: devuelve `ok` y la edad en horas, nunca el
+resumen del tick ni el error de un trabajo. Sin autenticar porque el vigilante
+es un `curl`, y meterle un secreto sería un secreto más que rotar para proteger
+un booleano.
+
+**Quién vigila:** `.github/workflows/health.yml`, diario a las 09:00 UTC.
+
+**Necesita tres cosas, y cada una depende de la anterior. Hoy no tiene
+ninguna:**
+
+1. **Estar en la rama por defecto.** GitHub ejecuta los workflows programados
+   **solo** desde ella, y tampoco ofrece `workflow_dispatch` a los que no están
+   ahí. Mientras el fichero viva únicamente en la rama de trabajo, GitHub no lo
+   registra —`actions/workflows` devuelve solo `ci.yml`— y no hay nada que
+   pueda salir rojo. Comprobado el 23 ago 2026.
+2. **Un despliegue de producción vivo**, o no hay URL que vigilar
+   (`docs/deployment.md`: los 40 despliegues están en `ERROR`).
+3. **La variable de repositorio `HEALTH_URL`** (Settings → Secrets and
+   variables → Actions → Variables). Es la única de las tres que el propio
+   workflow puede comprobar, y **falla a propósito si no está**: un vigilante
+   sin configurar que sale verde es la misma avería que vino a arreglar.
+
+Que el punto 1 no estuviera escrito hasta hoy es el mismo fallo en pequeño: el
+runbook enumeraba `HEALTH_URL` como único requisito, así que alguien podía
+ponerla, ver el workflow sin ejecuciones y suponer que todo iba bien.
+
+**El canal de `OPS_EMAIL` NO sirve para esto** y conviene saber por qué: viaja
+dentro del outbox, y el outbox lo drena el cron. Un aviso que se apaga
+exactamente cuando se apaga lo que vigila no es un aviso.
+
+#### Cuando el vigilante salta
+
+1. **Mira `GET /next/health` a mano.** Si `ageHours` es `null`, el cron no ha
+   corrido nunca en ese despliegue: lo primero que hay que comprobar es
+   `CRON_SECRET` — sin ella la ruta responde 503 y no ejecuta nada.
+2. **Dispara el tick a mano** con la llamada autenticada de abajo. Si responde
+   200 o 207, el problema es el planificador, no la aplicación.
+3. **Mira `ops-runs` en el panel.** El `summary` de los últimos ticks dice cuál
+   de los trabajos venía fallando, y el `status` 207 marca los que fallaron a
+   medias.
+4. **Mientras tanto, los dos escapes manuales:**
+   `pnpm --filter @courvia/web sweep:checkouts` libera las reservas de stock de
+   los checkouts muertos, y `pnpm --filter @courvia/web sweep:carts` borra los
+   carritos vencidos. Mientras el plan siga en Hobby, el puente es dispararlo a mano: la misma
 llamada autenticada de abajo, con el dominio del despliegue en lugar de
 `localhost:3000`.
 
@@ -86,6 +192,94 @@ pnpm --filter @courvia/web sweep:checkouts
 ```
 
 Ejecuta `expireStaleCheckouts` (`packages/commerce-payload`): los pedidos `pending_payment` con más de 1 hora pasan a `cancelled` por la misma maquinaria que cualquier evento de pago — transición pura, lock de fila, transacción — y se liberan sus reservas de stock. Un checkout que paga durante el sweep está a salvo: el lock serializa a ambos escritores.
+
+### La CSP: cómo termina su rodaje
+
+La política de recursos se sirve **en modo informe** (`Content-Security-Policy-Report-Only`)
+desde el primer día, y por una razón buena: aplicarla a ciegas rompería
+`/admin` —el panel es un paquete de terceros— y el payload RSC de Next llega
+como `<script>` en línea. El comentario de `next.config.ts` ponía la condición
+para pasar a enforcing: *«the console is the data we need»*.
+
+Esa consola es la **del visitante**. Sin colector, la condición no se cumple
+nunca y la cabecera se queda para siempre en una que da sensación de proteger
+sin bloquear nada.
+
+**Desde el 22 ago 2026 hay colector.** `POST /next/csp-report`, con las dos
+directivas puestas (`report-uri` para Safari y Firefox, `report-to` + la
+cabecera `Reporting-Endpoints` para Chrome) y una ruta relativa, para que cada
+despliegue informe a sí mismo en vez de mandarle los informes de preview a
+producción.
+
+**Lo que guarda es una agregación, no un registro.** Una fila por **(día,
+directiva, origen bloqueado)** con un contador: mil informes iguales son una
+fila. Las tres columnas están acotadas —el día avanza solo, la directiva se
+valida contra una lista cerrada, y el origen tiene techo diario con cubo de
+desbordamiento (`(otros)`)—, que es lo que hace que un endpoint público
+escribiendo en la base no sea un problema. Retención: 30 días, podados por el
+tick.
+
+**Responde 204 a todo**: informe válido, `Content-Type` equivocado, cuerpo
+enorme y cupo agotado. Distinguirlos le diría a quien prueba dónde está cada
+borde, y el navegador ni reintenta ni enseña el resultado a nadie.
+
+#### Cómo leerlo, y cuándo aplicar la política
+
+1. **Mira `Informes de CSP` en el panel**, ordenado por contador. Lo que
+   aparece son los recursos que la política de hoy bloquearía.
+2. **`inline` y `eval` son los que mandan.** Mientras `script-src` siga
+   informando `inline` en volumen, aplicar la política rompería el sitio: son
+   los que hoy obligan a `'unsafe-inline'`.
+3. **Un origen de terceros con contador alto** es o una integración que falta
+   declarar (se añade a la directiva) o una extensión del visitante (se
+   ignora: no podemos ni debemos permitirla).
+4. **La fila `(otros)`** significa que ese día se pasó del techo de orígenes
+   distintos. Es señal de ruido —una extensión, o alguien probando—, no de una
+   integración nuestra.
+5. **Aplicar** es mover la directiva ya limpia de `contentSecurityPolicy()` a
+   `ENFORCED_POLICY` en `next.config.ts`. De una en una, y `img-src` tiene una
+   condición adicional escrita en `mediaOrigin()`: hoy se resuelve en tiempo de
+   build y un mismo build va a preview y a producción.
+
+**Y una expectativa que conviene bajar antes de mirar los datos.** La política
+de informe **ya permite `'unsafe-inline'`** en `script-src` y en `style-src`, y
+`blob:` en `img-src`/`worker-src`. O sea que aplicarla compra bastante menos de
+lo que sugiere la palabra «enforcing»: lo que este colector puede descubrir de
+verdad son **orígenes de terceros** —`connect-src`, `img-src`, `frame-src`— y
+de qué esquemas (`data:`, `blob:`) depende el sitio. Quitar `'unsafe-inline'`
+de `script-src`, que es lo que de verdad cerraría un XSS, exige nonces por
+petición, o sea un middleware que esta aplicación no tiene y que rompería el
+prerenderizado que sostiene ADR-015. Eso es otra decisión, y grande.
+
+Consecuencia práctica: **el panel también informa** —la entrada de
+`/admin/:path*` solo reemplaza la cabecera *enforcing*, no la de informe— pero
+como casi todo lo que hace ya está permitido, no hace falta filtrarlo. Se
+comprobó antes de añadir una entrada de cabecera para un problema inexistente.
+
+### El límite de `forgot-password`
+
+`POST /api/users/forgot-password` no tenía **ningún** límite: no incrementa
+`loginAttempts`, no mira `lockUntil`, y cada petición manda un correo desde
+nuestro dominio verificado. Bastaba con conocer el correo de un editor para
+llenarle el buzón.
+
+Desde el 22 ago 2026 hay dos cubos: **3 por dirección** (una ficha cada 5 min)
+y **3 por buzón** (una cada 15 min). El segundo es el que cierra el caso
+interesante: quien rota IPs esquiva el primero, pero no puede rotar a quién
+quiere inundar.
+
+**El login NO se limita por IP**, y es una decisión: Payload ya bloquea por
+cuenta a los cinco intentos durante diez minutos, y un límite por dirección
+encima de eso compra poco a cambio de poder dejar fuera del panel a quien tiene
+la contraseña bien. Si alguien se queda fuera igualmente, la salida es
+`unlock:admin` (arriba).
+
+Va como hook `beforeOperation` de la colección y no como envoltorio del route
+handler, porque `/api/graphql` expone `mutation forgotPasswordUser` que llama a
+la misma operación: un envoltorio dejaría esa puerta abierta dando sensación de
+estar cerrada.
+
+---
 
 ---
 
@@ -163,13 +357,43 @@ Dos ficheros, dos trabajos: `apps/web/.env.example` es la plantilla que alguien 
 
 ### 19.0 Estado de infraestructura
 
-**Estado actual (20 ago 2026):**
-- **Supabase**: el schema `payload` está desplegado en el proyecto `courvia-studios` (`xurdwzbefgxpfzgkbbkf`) con **RLS deny-all en todas las tablas**. Las migraciones se aplicaron vía MCP, cada batch con su fila en el ledger de migraciones: batches 1–6 aplicados; el 7 pendiente de aplicar.
+> **Esta sección se reescribió entera el 23 ago 2026, y merece decir por qué.**
+> Decía tres cosas falsas, dos de ellas **a cuatro líneas de distancia y
+> contradiciéndose entre sí**: que el esquema estaba desplegado en un proyecto
+> concreto de Supabase con «batches 1–6 aplicados y el 7 pendiente», que ese
+> mismo proyecto estaba «sin tablas, lienzo limpio», y que el team de Vercel no
+> tenía todavía proyecto Courvia. Es la sección que abre quien quiere saber qué
+> existe. Desde ahora separa **medido** de **no verificable**, y lleva fecha.
 
-**Histórico — snapshot del 19 ago 2026 (superado por lo anterior):**
-- **Supabase**: proyecto `courvia-studios` (`xurdwzbefgxpfzgkbbkf`), región **eu-west-1**, Postgres **17.6**, estado ACTIVE_HEALTHY, **sin tablas** en `public`/`payload` → lienzo limpio, listo para las migraciones de S0.
-- **Vercel**: el team actual no tenía proyecto Courvia todavía → crearlo/vincularlo en S0 (`vercel link` desde `apps/web` o desde el dashboard, con framework Next.js).
-- **GitHub**: no verificable desde aquel chat (sin conector GitHub); el repo creado por el usuario se validaría al clonar en la primera sesión de Claude Code.
+**Medido el 23 ago 2026:**
+
+- **Vercel** — el proyecto existe: `courvia-studios` en el team
+  `novara-bbs' projects`, ligado al repositorio de GitHub. Tiene **40
+  despliegues y los 40 en `ERROR`**, producción incluida. El sitio **no se ha
+  servido nunca desde una URL real**. Las causas y su orden de arreglo están en
+  `docs/deployment.md`.
+- **GitHub** — `origin/main` lleva el árbol completo desde el 22 ago
+  (`7968890`). Solo hay **un workflow registrado**, `ci.yml`; ver el apartado de
+  salud sobre por qué `health.yml` todavía no cuenta.
+- **Migraciones** — **24** en `apps/web/src/migrations/`, de
+  `20260819_124931_initial` a `20260822_192825_fase8_colector_de_csp`. La
+  numeración por «batches» de la versión anterior de esta sección no
+  corresponde a nada del repositorio actual.
+
+**No verificable, y por eso no se afirma:**
+
+- **La base de datos de producción.** CLAUDE.md §3 y este documento nombran el
+  proyecto de Supabase `xurdwzbefgxpfzgkbbkf`. Con el MCP autenticado,
+  `list_projects` devuelve dos proyectos y **ninguno es ese**
+  (`docs/plan-dual-commerce.md`, `docs/tco-dos-motores.md`). El MCP ve una sola
+  cuenta y el propietario puede tener otra, así que esto se reporta como
+  **medición y no como conclusión** — pero mientras no se aclare, **no hay base
+  de producción que nadie pueda señalar**, y sin ella no hay `DATABASE_URL` de
+  Production, ni despliegue, ni cron, ni nada de lo que cuelga de ellos.
+- Por lo mismo, **el estado del esquema en producción**: cuántas de las 24
+  migraciones tiene aplicadas es una pregunta sin sujeto hasta entonces. El
+  procedimiento para comprobarlo, cuando lo haya, está en `docs/deployment.md`
+  (paso 3 del primer despliegue: confirmar el ledger `payload.payload_migrations`).
 
 ### 19.1 Setup (una vez, desde un ordenador — terminal normal)
 ```bash

@@ -78,7 +78,16 @@ export type FieldSpec =
   /** Products picked from the catalog. Renderers never price these
    * themselves: they extract slugs (productSlugs()) and hand them to the
    * injected ctx.renderProductGrid, which prices per market. */
-  | ({ kind: "products"; required?: boolean; max?: number } & FieldCopy);
+  | ({ kind: "products"; required?: boolean; max?: number } & FieldCopy)
+  /**
+   * One shared partial (ADR-030). A single reference, never a list — two
+   * fragments on a page are two `partialRef` blocks, not one field with two
+   * ids, so an editor reorders them independently like any other section.
+   * Renderers never read a partial's content themselves: they extract the
+   * id (partialRefId()) and hand it to the injected ctx.renderPartial,
+   * which resolves and renders it at the composition root.
+   */
+  | ({ kind: "partial"; required?: boolean } & FieldCopy);
 
 export type Fields = Record<string, FieldSpec>;
 
@@ -115,6 +124,22 @@ const UPLOAD_SHAPE = z.union([
   z.number(),
   z.string(),
   z.looseObject({ url: z.string().nullish(), alt: z.string().nullish() }),
+]);
+
+/**
+ * One referenced partial: populated doc or bare id.
+ *
+ * Unlike `PRODUCT_REF_SHAPE`, the populated shape does not name a field the
+ * renderer reads (a product needs `slug` to build its grid; a partial's
+ * render never touches its own content — `ctx.renderPartial` re-resolves it
+ * independently, see `RenderContext.renderPartial`). So the populated branch
+ * only has to prove it IS a document — carrying an `id` — for `partialRefId`
+ * to extract.
+ */
+const PARTIAL_REF_SHAPE = z.union([
+  z.number(),
+  z.string(),
+  z.looseObject({ id: z.union([z.number(), z.string()]) }),
 ]);
 
 /** One picked product: populated doc or bare id. */
@@ -246,6 +271,20 @@ export function intrinsicSize(media: MediaValue): { width?: number; height?: num
     : { width: media.width, height: media.height };
 }
 
+/**
+ * The id of a referenced partial, whether the field arrived populated
+ * (depth>=1: `{ id, blocks: [...] }`) or as a bare relation id (depth 0).
+ * `null` when the field is empty — a `partialRef` with nothing chosen yet.
+ */
+export function partialRefId(value: unknown): string | number | null {
+  if (typeof value === "number" || typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) {
+    const id = (value as { id?: unknown }).id;
+    if (typeof id === "number" || typeof id === "string") return id;
+  }
+  return null;
+}
+
 /** Slugs of the populated docs in a products field (ids are skipped). */
 export function productSlugs(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -281,6 +320,9 @@ function fieldToZod(spec: FieldSpec): z.ZodType {
       break;
     case "products":
       schema = z.array(PRODUCT_REF_SHAPE);
+      break;
+    case "partial":
+      schema = PARTIAL_REF_SHAPE;
       break;
   }
   const required = "required" in spec && spec.required === true;

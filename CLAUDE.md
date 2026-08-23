@@ -2,7 +2,7 @@
 
 > **Se lee entero en cada sesión.** Por eso contiene solo lo que aplica siempre: identidad, reglas duras, puertos y flujo de trabajo. Arquitectura, mercados, modelo de datos y roadmap viven en `docs/` y se leen cuando la tarea los toca.
 > Para otras herramientas (Codex, ChatGPT): `AGENTS.md` es un symlink de este archivo.
-> Última revisión: 20 ago 2026.
+> Última revisión: 23 ago 2026.
 
 ## Índice de documentación
 
@@ -145,7 +145,7 @@ Firma exacta: `packages/commerce-domain/src/payment.ts` (la fuente de verdad es 
 - **Tema activo + overrides → Global `ThemeSettings` de Payload** (una sola fuente de verdad). Override = **JSON parcial validado con Zod**; whitelist: `font.display`, `container.width`, `radius.*`, `color.accent`, `color.surface`. **Restaurar = borrar la clave** → vuelve al valor de Git.
 - Render: **CSS variables + `data-theme` en `<html>` desde el servidor** (patrón next-themes, **sin FOUC**). *El tradeoff que esta línea describía murió, y la línea le sobrevivió meses:* ya no hay cookie de visitante ni layout que la lea. El tema sale del CMS dentro de un ámbito cacheado —`getSiteTheme()` con `"use cache"`, `cacheLife("max")` y `cacheTag("theme")`, invalidado al publicar— con `cacheComponents` activo, así que **las portadas de región salen del build como HTML estático con el tema horneado dentro**. Lo sujeta `apps/web/src/theme/theme-is-not-dynamic.test.ts`, visto en rojo metiendo `next/headers` en el layout: hasta el 22 ago 2026 la propiedad más cara del sistema vivía en un comentario.
 - **Nombres de tema:** `data-theme` usa los alias cortos `volt` · `carbon` · `club`, que mapean a las claves canónicas `volt-precision` · `carbon-drive` · `club-real` de `brand/courvia-tokens.json` (los **valores exactos** de tokens los manda siempre el JSON).
-- **Bloques Payload: específicos, no genéricos, y con techo — 24 en total y 12 por balda del selector** (ADR-028). Hoy hay 19 y WP13 suma cuatro vinculadas. El techo lo vigila `packages/sections/src/registry.test.ts`, no la buena voluntad; subirlo otra vez es un ADR nuevo. La cifra anterior (10-12) se escribió cuando el selector era una lista plana de nombres: hoy agrupa en cuatro baldas y cada sección lleva miniatura.
+- **Bloques Payload: específicos, no genéricos, y con techo — 25 en total y 12 por balda del selector** (ADR-028, subido por ADR-030). Hoy hay 20 de contenido y WP13 suma cinco vinculadas. El techo lo vigila `packages/sections/src/registry.test.ts`, no la buena voluntad; subirlo otra vez es un ADR nuevo. La cifra anterior (10-12) se escribió cuando el selector era una lista plana de nombres: hoy agrupa en cuatro baldas y cada sección lleva miniatura.
 
 | Tema | Uso | bg / surface | accent (AA) | Tipografías |
 |---|---|---|---|---|
@@ -198,7 +198,7 @@ Las decisiones 01–14 están resumidas abajo y desarrolladas en `docs/`. Las de
 | 12 | Tokens: JSON DTCG tipado + script propio; Style Dictionary solo con más plataformas |
 | 13 | Puerto `PaymentProvider` con eventos normalizados; idempotencia `(provider, provider_event_id)` |
 | 14 | Multi-gateway por mercado en `MarketSettings.paymentProviders[]`; el cliente elige |
-| **15–28** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL · commerce en el CMS · catálogo real Tempo/Go/Rally con régimen de evidencia · vocabulario de composición (sin HTML libre) · portabilidad del puerto de commerce (Shopify: catálogo sí, checkout no) · mercados publicados frente a preparados · SEO por página, redirecciones editoriales y 404 real desde el proxy · el envío como documento · techo de secciones en 24 con test |
+| **15–30** | Ver [`docs/adr/`](docs/adr/): tema desde CMS · registro de secciones · paquete por puerto · catálogo propio · `@courvia/platform` · regiones en la URL · commerce en el CMS · catálogo real Tempo/Go/Rally con régimen de evidencia · vocabulario de composición (sin HTML libre) · portabilidad del puerto de commerce (Shopify: catálogo sí, checkout no) · mercados publicados frente a preparados · SEO por página, redirecciones editoriales y 404 real desde el proxy · el envío como documento · techo de secciones en 24 con test · dos motores de comercio, una sola autoridad por transacción · bloques compartidos (`partialRef`), techo a 25 |
 
 ---
 

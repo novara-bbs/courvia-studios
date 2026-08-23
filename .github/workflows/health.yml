@@ -1,0 +1,99 @@
+# El vigilante del cron.
+#
+# ---------------------------------------------------------------------------
+# QUÉ VIGILA, Y POR QUÉ NO PUEDE VIGILARLO NADA DE DENTRO
+# ---------------------------------------------------------------------------
+#
+# `GET /next/cron` es lo único que drena el outbox, caduca los checkouts
+# abandonados y borra los carritos vencidos. Si el planificador de Vercel deja
+# de dispararlo NO HAY ERROR EN NINGUNA PARTE — `docs/deployment.md` lo dice:
+# «un cron que apunta a una URL que no responde no da error: simplemente no
+# despacha nada, para siempre».
+#
+# Y lo que se para está contado: la confirmación de la waitlist (la única
+# conversión del sitio), los correos de seguimiento y posventa, la ventana
+# legal de desistimiento (Art. 102 TRLGDCU: 14 días, y doce meses si no se
+# informa), la contraorden que impide enviar un robot cuyo reembolso ya va de
+# camino, y la liberación de las reservas de stock.
+#
+# El canal de alertas del sitio NO sirve para avisar de esto: viaja dentro del
+# outbox, y el outbox lo drena el cron. Un aviso que se apaga exactamente
+# cuando se apaga lo que vigila no es un aviso. Por eso el vigilante vive
+# fuera.
+#
+# ---------------------------------------------------------------------------
+# TRES REQUISITOS, Y CADA UNO DEPENDE DEL ANTERIOR
+# ---------------------------------------------------------------------------
+#
+# 1. **Este fichero tiene que estar en la RAMA POR DEFECTO.** GitHub ejecuta los
+#    workflows programados solo desde ella, y tampoco ofrece `workflow_dispatch`
+#    para los que no están ahí. Mientras esto viva únicamente en una rama de
+#    trabajo, GitHub no lo registra: `actions/workflows` devuelve solo `ci.yml`
+#    y aquí no hay nada que salga rojo. Comprobado el 23 ago 2026 — o sea que el
+#    vigilante escrito para que un cron muerto se note en menos de un día estuvo
+#    él mismo en ese estado, que es la avería exacta que vino a cerrar.
+# 2. **Tiene que haber un despliegue de producción vivo**, o no hay URL que
+#    vigilar. Hoy no lo hay (`docs/deployment.md`).
+# 3. **`HEALTH_URL`**, en Settings → Secrets and variables → Actions →
+#    Variables:  HEALTH_URL = https://<dominio>/next/health
+#
+# El tercero es el único que este fichero puede comprobar, y lo comprueba
+# fallando: sin la variable el job **falla**, no se salta. Un vigilante sin
+# configurar que sale verde es la misma avería que vino a arreglar — silencio
+# indistinguible de salud. Es la misma forma que la ruta del cron cuando le
+# falta `CRON_SECRET`: 503, no «corre para todos».
+#
+# Los dos primeros no puede comprobarlos: un workflow que no se ejecuta no
+# puede quejarse de no ejecutarse. Por eso están escritos aquí y en el runbook,
+# y por eso `apps/web/src/deploy/deploy-contract.test.ts` exige que sigan
+# escritos.
+#
+# ---------------------------------------------------------------------------
+# DOS COSAS QUE NO SE PUEDEN COMPROBAR DESDE EL REPOSITORIO
+# ---------------------------------------------------------------------------
+#
+#  - **Minutos de Actions.** En un repositorio privado este job consume del
+#    cupo. Son segundos al día, pero el cupo existe.
+#  - **GitHub desactiva los workflows programados** cuando un repositorio pasa
+#    un tiempo sin actividad, y avisa por correo antes. Si esto deja de
+#    ejecutarse sin motivo, mira ahí primero.
+#
+# `workflow_dispatch` está para poder probarlo ahora mismo sin esperar a
+# mañana.
+name: Salud
+
+on:
+  schedule:
+    # 09:00 UTC. El tick es a las 04:00 (apps/web/vercel.json), así que a esta
+    # hora un cron sano lleva ~5 h y uno muerto ya pasa del umbral de 26 h en
+    # cuanto se salta un día.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  cron-vivo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Comprobar que el mantenimiento sigue corriendo
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
+        run: |
+          if [ -z "${HEALTH_URL}" ]; then
+            echo "::error::HEALTH_URL no está configurada, así que nadie está vigilando el cron."
+            echo "Settings → Secrets and variables → Actions → Variables:"
+            echo "  HEALTH_URL = https://<dominio>/next/health"
+            echo "Este job falla a propósito: un vigilante sin configurar no puede salir verde."
+            exit 1
+          fi
+
+          # `--fail` convierte el 503 del endpoint en un exit code, que es
+          # todo lo que hace falta: el cuerpo se imprime para el informe, pero
+          # quien decide es el estado.
+          echo "GET ${HEALTH_URL}"
+          if ! body=$(curl --fail --silent --show-error --max-time 20 "${HEALTH_URL}"); then
+            echo "::error::El mantenimiento no responde sano. Runbook: docs/operations.md §Salud."
+            curl --silent --show-error --max-time 20 "${HEALTH_URL}" || true
+            exit 1
+          fi
+          echo "${body}"

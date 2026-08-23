@@ -20,6 +20,9 @@ import * as migration_20260821_235907_fase4_carrito from './20260821_235907_fase
 import * as migration_20260822_003001_fase4b_sin_versiones_en_mercados from './20260822_003001_fase4b_sin_versiones_en_mercados';
 import * as migration_20260822_072445_fase5_envio_por_mercado from './20260822_072445_fase5_envio_por_mercado';
 import * as migration_20260822_102710_fase8_ventana_de_desistimiento from './20260822_102710_fase8_ventana_de_desistimiento';
+import * as migration_20260822_185435_fase8_vigilancia_del_cron from './20260822_185435_fase8_vigilancia_del_cron';
+import * as migration_20260822_192825_fase8_colector_de_csp from './20260822_192825_fase8_colector_de_csp';
+import * as migration_20260823_180134_fase_adr030_shared_partials from './20260823_180134_fase_adr030_shared_partials';
 
 export const migrations = [
   {
@@ -130,6 +133,21 @@ export const migrations = [
   {
     up: migration_20260822_102710_fase8_ventana_de_desistimiento.up,
     down: migration_20260822_102710_fase8_ventana_de_desistimiento.down,
-    name: '20260822_102710_fase8_ventana_de_desistimiento'
+    name: '20260822_102710_fase8_ventana_de_desistimiento',
+  },
+  {
+    up: migration_20260822_185435_fase8_vigilancia_del_cron.up,
+    down: migration_20260822_185435_fase8_vigilancia_del_cron.down,
+    name: '20260822_185435_fase8_vigilancia_del_cron',
+  },
+  {
+    up: migration_20260822_192825_fase8_colector_de_csp.up,
+    down: migration_20260822_192825_fase8_colector_de_csp.down,
+    name: '20260822_192825_fase8_colector_de_csp',
+  },
+  {
+    up: migration_20260823_180134_fase_adr030_shared_partials.up,
+    down: migration_20260823_180134_fase_adr030_shared_partials.down,
+    name: '20260823_180134_fase_adr030_shared_partials'
   },
 ];

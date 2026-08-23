@@ -15,11 +15,12 @@
  * than survived at request time: a loop, a destination outside the site, a
  * source that shadows a real route or a live page.
  */
-import type { CollectionConfig, PayloadRequest, TextFieldSingleValidation } from "payload";
+import type { CollectionConfig, PayloadRequest, TextFieldSingleValidation, Where } from "payload";
 import { revalidateTag } from "next/cache";
 
 import {
   REDIRECT_CODES,
+  RESERVED_ROUTES,
   isReservedPath,
   isValidPath,
   normalizePath,
@@ -105,6 +106,27 @@ const REDIRECT_ERROR = {
   },
 } as const;
 
+/**
+ * ¿Sirve el sitio esta URL ahora mismo?
+ *
+ * `_status` solo se compara cuando la colección tiene borradores: `categories`
+ * no los tiene y sus documentos no llevan esa columna, así que exigir
+ * `published` ahí no encontraría nunca nada — y una categoría viva quedaría
+ * tapada por una redirección sin que nada avisara.
+ */
+async function livesIn(
+  req: PayloadRequest,
+  collection: "pages" | "products" | "categories",
+  slug: string,
+): Promise<boolean> {
+  const where: Where =
+    collection === "categories"
+      ? { slug: { equals: slug } }
+      : { slug: { equals: slug }, _status: { equals: "published" } };
+  const found = await req.payload.count({ collection, where, overrideAccess: true, req });
+  return found.totalDocs > 0;
+}
+
 const validateFrom: TextFieldSingleValidation = async (value, options) => {
   const { data, id, req } = options;
   const say = (copy: (typeof REDIRECT_ERROR)[keyof typeof REDIRECT_ERROR]): string =>
@@ -121,18 +143,40 @@ const validateFrom: TextFieldSingleValidation = async (value, options) => {
   const to = typeof raw === "string" ? normalizePath(raw) : null;
   if (to !== null && to === from) return say(REDIRECT_ERROR.selfLoop);
 
-  // A route in the app always wins over a row in a table, so a rule that
-  // could never fire is a rule that lies to whoever reads the list.
-  if (isReservedPath(from)) return say(REDIRECT_ERROR.reserved);
+  /*
+   * Una ruta del código siempre gana a una fila de una tabla, así que una
+   * regla que nunca podría dispararse es una regla que miente a quien lee la
+   * lista.
+   *
+   * Pero «ruta del código» tiene dos formas y aquí solo se miraba una.
+   * `/comparar` la sirve un fichero y siempre existe. `/robots/tempo-r1` la
+   * sirve un fichero **para los slugs que el catálogo tenga publicados**, y
+   * `isReservedPath` sin manifiesto contesta `true` para cualquiera de ellos —
+   * conservador y correcto en el proxy, y equivocado aquí.
+   *
+   * La consecuencia era que renombrar un producto no podía escribir su
+   * redirección: la validación rechazaba la regla por proteger una URL que
+   * acababa de dejar de existir. Desde ADR-026 el proxy sirve **404 reales**,
+   * así que eso no era una redirección ausente sino una puerta cerrada en la
+   * dirección que Google tenía indexada.
+   *
+   * Se resuelve preguntando a la colección hija, que es la única que sabe la
+   * respuesta. Y de paso la validación deja de ser solo sobre `pages`.
+   */
+  const segments = from.slice(1).split("/");
+  const [head, tail] = segments;
+  const child = head === undefined ? undefined : RESERVED_ROUTES[head]?.child;
 
-  const slug = from.slice(1);
-  const live = await req.payload.count({
-    collection: "pages",
-    where: { slug: { equals: slug }, _status: { equals: "published" } },
-    overrideAccess: true,
-    req,
-  });
-  if (live.totalDocs > 0) return say(REDIRECT_ERROR.livePage).replace("{path}", from);
+  if (segments.length === 2 && child != null && tail !== undefined) {
+    // `/robots/{slug}` o `/c/{slug}`: existe solo si el documento existe.
+    if (await livesIn(req, child, tail)) {
+      return say(REDIRECT_ERROR.livePage).replace("{path}", from);
+    }
+  } else if (isReservedPath(from)) {
+    return say(REDIRECT_ERROR.reserved);
+  } else if (await livesIn(req, "pages", from.slice(1))) {
+    return say(REDIRECT_ERROR.livePage).replace("{path}", from);
+  }
 
   if (to !== null && wouldCycle(await otherRules(req, id), from, to)) {
     return say(REDIRECT_ERROR.indirectLoop);

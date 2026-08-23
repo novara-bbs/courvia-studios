@@ -259,7 +259,22 @@ export function collectionTable(
     throw new Error("the outbox dispatcher needs a Postgres adapter (payload.db.pool)");
   }
   const schema = db.schemaName ?? "public";
-  const table = db.tableNameMap?.get(slug) ?? slug;
+  /*
+   * El slug NO es el nombre de la tabla en cuanto lleva un guion.
+   *
+   * `tableNameMap` nace vacío y se llena con los nombres ya convertidos, así
+   * que buscar por el slug tal cual devuelve `undefined` y el respaldo era el
+   * propio slug. Con `outbox` y `orders` daba igual —una palabra, sin guiones—
+   * y por eso funcionó desde el primer día. `csp-reports` fue el primero que lo
+   * intentó y murió en la validación de abajo con «unusable identifier», que
+   * al menos falló fuerte en vez de generar SQL contra una tabla inexistente.
+   *
+   * Payload nombra las tablas con `toSnakeCase(slug)`; aquí basta con el guion
+   * porque ningún slug de este repo es camelCase, y lo que se salga de eso lo
+   * caza la comprobación siguiente en lugar de colarse.
+   */
+  const snake = slug.replace(/-/gu, "_");
+  const table = db.tableNameMap?.get(snake) ?? db.tableNameMap?.get(slug) ?? snake;
   // Defensive, though both values are ours: an identifier cannot be
   // parameterized, so it is quoted AND constrained rather than trusted.
   for (const part of [schema, table]) {

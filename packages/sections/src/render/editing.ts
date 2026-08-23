@@ -87,12 +87,14 @@ function entriesFor(spec: FieldSpec, path: string, value: unknown): EditableEntr
       const media = mediaValue(value);
       return media === null ? [] : [{ kind: "media", path, text: media.url }];
     }
-    // A select stores an enum and renders as behaviour, a products field
-    // renders live catalog cards this content does not own, and rich text is
-    // an opaque editor state this package is not allowed to parse (dsl/fields.ts).
-    // A click on any of them falls back to the block, which is the honest answer.
+    // A select stores an enum, a products field renders live catalog cards
+    // this content does not own, a partial resolves through injected context
+    // (ADR-030), and rich text is an opaque editor state this package is not
+    // allowed to parse (dsl/fields.ts). A click on any of them falls back to
+    // the block, which is the honest answer.
     case "select":
     case "products":
+    case "partial":
     case "richText":
       return [];
   }

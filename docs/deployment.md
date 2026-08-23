@@ -61,9 +61,22 @@ es el del propio guardián de `src/server/build-env.ts`:
     DATABASE_URL is not set in this production build… (VERCEL_ENV=preview)
     [cause]: Error: missing secret key. A secret key is needed to secure Payload.
 
-Solo dos: `NEXT_PUBLIC_SITE_URL` la inyecta Vercel, y ningún proveedor de pago
-hace falta para compilar — `getPaymentProviders()` devuelve un registro vacío
-sin lanzar.
+Ningún proveedor de pago hace falta para compilar — `getPaymentProviders()`
+devuelve un registro vacío sin lanzar.
+
+Aquí ponía «`NEXT_PUBLIC_SITE_URL` la inyecta Vercel», y es **falso con una
+verdad al lado**, que es la peor forma de estarlo: la que Vercel inyecta es
+`VERCEL_PROJECT_PRODUCTION_URL`, **otra variable**, que `src/seo/site-url.ts`
+usa como respaldo. Si el proyecto tiene desactivada la exposición de variables
+de sistema no llega ninguna de las dos, y el build de producción **muere** —
+reproducido el 23 ago 2026 con un build limpio:
+
+    Error: NEXT_PUBLIC_SITE_URL is not set on a production deploy: every
+    canonical, hreflang and sitemap URL would point at localhost.
+    Export encountered an error on /(frontend)/[region]/[slug]/page
+
+Desde entonces el preflight exige **una de las dos** cuando
+`VERCEL_ENV=production`, así que esa ausencia cuesta 30 ms en vez de 56 s.
 
 **El arreglo NO es copiar el `DATABASE_URL` de producción a Preview.** Cada
 despliegue de preview trae su propio `/admin`, y apuntarlo a la base de
@@ -71,23 +84,62 @@ producción convierte cada rama en escritura sobre datos reales. Preview
 necesita **su propia base**: un segundo proyecto de Supabase, con las
 migraciones aplicadas por CI.
 
-**3 · Producción no ha desplegado nunca, y no es por las variables.** La rama
-de producción del proyecto es `main`, y `main` es solo el «Initial commit».
-Lanzar un despliegue de `main` falla en el primer segundo:
+**3 · Producción no había desplegado nunca, y entonces no era por las
+variables.** La rama de producción del proyecto es `main`, y el 21 de agosto
+`main` era solo el «Initial commit». Un despliegue de `main` moría en el primer
+segundo:
 
     Cloning github.com/novara-bbs/courvia-studios (Branch: main, Commit: d1cc9b8)
     The specified Root Directory "apps/web" does not exist.
 
-Ahí no hay `apps/web` porque ahí no hay nada. Hay dos salidas y las dos son
-decisión del propietario: fusionar el trabajo a `main` —que es un avance
-rápido corriente, `main` es ancestro de la rama— o apuntar la rama de
-producción a la rama de trabajo.
+**Esta causa ya no aplica**, y conviene que quede escrito o el diagnóstico
+siguiente empieza mirando donde no es: el 22 de agosto el trabajo se fusionó y
+`origin/main` es `7968890`, con el árbol completo. Desde entonces sí hay
+despliegues de producción — y fallan por las causas 2 y 4.
 
 **Lo que sí se arregló en código:** el build comprueba las variables **antes**
-de compilar (`apps/web/scripts/deploy-preflight.mjs`, invocado desde el script
-`build`) y nombra **todas** las que faltan de una vez. Sin eso, un despliegue
-sin variables gasta 56 s para nombrar solo la primera, y la segunda aparece
-enterrada como `[cause]`: dos ciclos completos para descubrir dos ausencias.
+de compilar (`scripts/deploy-preflight.mjs`, en la RAÍZ del repositorio —se
+movió ahí en `d8c1ceb` porque en `apps/web` disparaba un aviso de arch— e
+invocado desde el script `build` de `apps/web`) y nombra **todas** las que
+faltan de una vez. Sin eso, un despliegue sin variables gasta 56 s para nombrar
+solo la primera, y la segunda aparece enterrada como `[cause]`: dos ciclos
+completos para descubrir dos ausencias.
+
+### La avería del 23 de agosto: un build cacheado con el dominio de otro
+
+Las dos anteriores eran de configuración. Esta es de código, y es la más
+silenciosa de las tres porque **no produce ningún error**.
+
+`src/seo/site-url.ts` lee `VERCEL_PROJECT_PRODUCTION_URL` como respaldo del
+origen público. Esa variable **llega** al proceso de build, pero no estaba
+declarada en `turbo.json`, y `env` es lo que entra en el **hash de la tarea**.
+Una variable que llega al proceso y no al hash significa que dos builds con
+valores distintos comparten caché. Medido:
+
+```
+$ VERCEL_PROJECT_PRODUCTION_URL=aaa.example pnpm turbo run build --filter=@courvia/web
+Cached: 3 cached, 3 total
+$ grep Sitemap .next/server/app/robots.txt.body
+Sitemap: https://courvia-studios.vercel.app/sitemap.xml     ← el origen del build ANTERIOR
+```
+
+Pedí un build con un dominio y turbo me devolvió otro horneado con el anterior:
+cada canonical, cada `hreflang`, el `metadataBase` de todas las páginas de
+región y el sitemap entero. El síntoma el día que se añada un dominio propio
+sería **«he cambiado el dominio y no ha pasado nada»**, sin nada rojo en
+ninguna parte.
+
+Arreglado declarando `VERCEL_PROJECT_PRODUCTION_URL` y `S3_ENDPOINT` —la otra
+lectura en tiempo de build, el origen del bucket en la CSP— en
+`tasks.build.env`. Tras el arreglo, los mismos dos builds dan `Cached: 0` y el
+origen correcto.
+
+**Y el guardián que debía haberlo cazado miraba al sitio equivocado:**
+`turbo-env-contract.test.ts` comparaba `turbo.json` contra el bloque `env:` de
+`ci.yml`, y CI no define `VERCEL*` ni tiene bucket. Ahora compara contra **las
+variables que el código lee**, con una lista explícita —`OUTPUT_INDEPENDENT`—
+para las que se leen pero no cambian la salida del build. Una lectura nueva sin
+clasificar pone el test en rojo.
 
 ### Variables de entorno (las pone el propietario, no el agente)
 
@@ -95,7 +147,7 @@ enterrada como `[cause]`: dos ciclos completos para descubrir dos ausencias.
 |---|---|---|
 | `DATABASE_URL` | Production/Preview | Supabase con **pooler** (puerto 6543, `?pgbouncer=true`): serverless abre muchas conexiones cortas y el pooler las absorbe. La contraseña la pega el propietario. |
 | `PAYLOAD_SECRET` | Production/Preview | Aleatorio largo; distinto del local. |
-| `NEXT_PUBLIC_SITE_URL` | Production | `https://{dominio}` — canónicas/hreflang; `siteUrl()` revienta el build de producción si falta. |
+| `NEXT_PUBLIC_SITE_URL` | Production | `https://{dominio}` — canónicas/hreflang. **Obligatoria salvo que llegue `VERCEL_PROJECT_PRODUCTION_URL`**, que es la variable de sistema que Vercel inyecta y que `siteUrl()` usa como respaldo; sin ninguna de las dos, el build de producción muere. El preflight lo comprueba antes de compilar. En cuanto haya dominio propio, **ponla**: el respaldo apunta a la URL `*.vercel.app`, y publicar canónicas hacia ella es peor que no publicarlas. |
 | `STRIPE_WEBHOOK_SECRET` | cuando se conecte | Activa el adaptador Stripe (solo webhooks). |
 | `STRIPE_SECRET_KEY` | cuando se conecte | Solo para la tarea de integración aprobada. |
 | `PAYMENT_FAKE_SECRET` | **solo Preview/dev** | Fail-closed: bloqueado con `VERCEL_ENV=production`, y con `NODE_ENV=production` exige además `PAYMENT_FAKE_UNSAFE_ALLOW=1` (solo el servidor local en modo prod). |
@@ -104,10 +156,11 @@ enterrada como `[cause]`: dos ciclos completos para descubrir dos ausencias.
 | `S3_REGION` | opcional | Por defecto `auto`; los proveedores compatibles la ignoran. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Production/Preview | Correo saliente. **Sin ellas, en un despliegue cada envío FALLA en voz alta** (la fila del outbox se pone en rojo) en vez de tragarse el mensaje. Las dos van juntas. `EMAIL_FROM` es un remitente de un dominio verificado en Resend: `Courvia <hola@dominio>`. |
 | `CRON_SECRET` | Production (y Preview si se quiere el tick allí) | Autentica `GET /next/cron`. Vercel lo envía solo, como `Authorization: Bearer`. **Sin ella la ruta responde 503 y no ejecuta nada.** |
+| `OPS_EMAIL` | Production | La dirección de operaciones. Con ella se mandan cuatro efectos: las dos alertas de dinero contradiciéndose (`alert_payment_conflict`, `alert_refund_failure`) y la orden y **contraorden** de almacén (`start_picking`, `stop_picking`). **Sin ella esos handlers NO se registran** y las filas se quedan pendientes y visibles en el censo, sin destinatario. Estaba en `.env.example` y no en esta tabla: se podía desplegar siguiendo este documento y quedarse sin ningún canal de alerta. |
 
 ### Cron de mantenimiento: `GET /next/cron`
 
-Un único tick programado en `apps/web/vercel.json` hace dos trabajos:
+Un único tick programado en `apps/web/vercel.json` hace **cinco** cosas:
 
 1. **Despacha el outbox** — saca de la tabla los efectos que la máquina de
    estados encoló dentro de su transacción y los ejecuta fuera de ella
@@ -116,6 +169,20 @@ Un único tick programado en `apps/web/vercel.json` hace dos trabajos:
 2. **Caduca los checkouts abandonados** — los pedidos `pending_payment` de
    más de una hora pasan a `cancelled` y sueltan su reserva de stock, por la
    misma máquina de estados que cualquier evento de pago.
+3. **Borra los carritos vencidos** — `carts.expiresAt` no lo leía nadie y la
+   tabla crecía para siempre. Borrar un carrito no libera stock, porque un
+   carrito nunca reservó ninguno: es un `DELETE`, no una transición.
+4. **Poda los informes de CSP** — `csp-reports` la escribe un endpoint público
+   que llama el navegador; la ventana de retención es lo que impide que acabe
+   siendo la tabla que vino a vigilar.
+5. **Deja constancia de que corrió** en `ops-runs`, que es lo que hace que «el
+   cron dejó de dispararse» se pueda detectar. Ver el runbook de salud en
+   `docs/operations.md`.
+
+Los puntos 3 a 5 faltaban en esta lista. El 3 entró con la Fase 4 y este
+documento siguió diciendo «dos» durante meses; luego alguien corrigió el número
+a «cuatro» y **no añadió los elementos**, que es peor: una lista que se
+contradice a sí misma se lee entera y se cree la parte equivocada.
 
 | Cosa | Valor | Dónde |
 |---|---|---|

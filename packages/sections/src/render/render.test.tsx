@@ -45,6 +45,7 @@ const ctx: RenderContext = {
   renderSpecTable: (slugs) => <table data-slugs={slugs.join(",")} />,
   subject,
   renderProductSurface: (surface) => <div data-surface={surface} />,
+  renderPartial: (id) => <div data-partial={String(id)} />,
 };
 
 const previewCtx: RenderContext = { ...ctx, preview: true };

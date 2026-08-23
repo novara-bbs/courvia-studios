@@ -17,6 +17,9 @@ import { emailAdapter } from "./src/email/adapter";
 import { withAdminPasswordReset } from "./src/email/admin-password-reset";
 import { Brands, Categories, Inventory, Leads, Prices, Products, Variants } from "./src/payload/catalog";
 import { Carts, Orders, Outbox, Payments, Returns } from "./src/payload/commerce";
+import { withForgotPasswordLimit } from "./src/payload/auth-rate-limit";
+import { CspReports } from "./src/payload/csp-reports";
+import { OpsRuns } from "./src/payload/ops-runs";
 import {
   CommerceBindings,
   CommerceConnections,
@@ -26,6 +29,7 @@ import {
 import { Media } from "./src/payload/media";
 import { Carriers, Shipments, withFulfilment } from "./src/payload/orders-fulfilment";
 import { Pages } from "./src/payload/pages";
+import { Partials } from "./src/payload/partials";
 import { Redirects } from "./src/payload/redirects";
 import { Templates } from "./src/payload/templates";
 import { storagePlugins } from "./src/payload/storage";
@@ -212,10 +216,17 @@ export default buildConfig({
   },
 
   collections: [
-    // The reset email's copy lives with the rest of the copy, not in the
-    // collection that governs who may do what (src/email/admin-password-reset.ts).
-    withAdminPasswordReset(Users),
+    // El copy del correo de reset vive con el resto del copy, y el límite de
+    // tasa con el resto de los límites: `users.ts` dice quién puede hacer qué,
+    // no cómo se escribe un correo ni cuántas veces se puede pedir uno.
+    // El límite es de `forgot-password` y SOLO de él — el login ya tiene el
+    // bloqueo por cuenta de Payload, y ahí un límite por IP puede dejar fuera
+    // a quien tiene la contraseña bien (src/payload/auth-rate-limit.ts).
+    withForgotPasswordLimit(withAdminPasswordReset(Users)),
     Media,
+    // Antes de Pages y Templates: las dos pueden llevar un bloque `partialRef`
+    // que referencia esta colección (ADR-030).
+    Partials,
     Pages,
     // Antes de Products: es la colección que su campo `template` referencia.
     Templates,
@@ -243,6 +254,12 @@ export default buildConfig({
     Returns,
     Carriers,
     Shipments,
+    // Telemetría de operación, no contenido: una fila por tick del cron, para
+    // que «el cron dejó de correr» sea detectable. Sin ella lo único que se
+    // para son los correos al cliente, la ventana legal de desistimiento y la
+    // liberación de stock — y nada da error en ninguna parte.
+    OpsRuns,
+    CspReports,
   ],
   globals: [ThemeSettings, MarketSettings, Navigation],
 

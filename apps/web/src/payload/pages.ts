@@ -372,7 +372,7 @@ export const Pages: CollectionConfig = {
       // transaction (src/payload/page-redirects.ts). It runs BEFORE the
       // revalidation below so that the tag it invalidates already reflects
       // the new rule.
-      redirectOnSlugChange,
+      redirectOnSlugChange(),
       ({ doc, previousDoc }) => {
         try {
           revalidateTag(`page:${doc.slug}`, "max");
