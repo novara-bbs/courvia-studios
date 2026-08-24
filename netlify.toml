@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm --filter @courvia/web migrate && pnpm --filter @courvia/web seed:catalog && pnpm --filter @courvia/web seed:markets && pnpm --filter @courvia/web seed:templates && pnpm --filter @courvia/web seed:content && pnpm turbo run build --filter=@courvia/web"
+  command = "pnpm turbo run build --filter=@courvia/web"
   publish = "apps/web/.next"
 
 [[plugins]]
