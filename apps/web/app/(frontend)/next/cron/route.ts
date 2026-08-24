@@ -1,34 +1,11 @@
 /**
  * The maintenance tick: GET /next/cron.
  *
- * Three jobs share one schedule because they share one shape — bounded,
- * idempotent, and pointless to run from a browser:
- *
- *   1. **Dispatch the outbox.** The state machine queues external effects
- *      inside its transaction; this is what takes them out and runs them
- *      (src/server/outbox.ts explains how a row cannot be delivered twice).
- *   2. **Expire abandoned checkouts.** `pending_payment` orders older than
- *      an hour are cancelled and their stock reservations released, through
- *      the same state machine as any payment event.
- *   3. **Delete expired carts.** `carts.expiresAt` had nobody reading it, so
- *      the table grew forever. Deleting a cart frees no stock — a cart never
- *      reserved any — so this one is a `DELETE`, not a transition.
- *
- * They are in one route rather than three because a Vercel Hobby project is
- * limited to two cron jobs and to a daily cadence; keeping this to a single
- * entry means the frequency is a plan decision, not a refactor. No job
- * blocks another: each runs in its own `try` (see `attempt` below), and the
- * response carries all three outcomes.
- *
- * AUTHENTICATION IS NOT OPTIONAL. An unauthenticated URL that drains the
- * outbox is a URL anybody can use to make us send email, and to force the
- * retry schedule of a failing effect. Vercel Cron sends
- * `Authorization: Bearer $CRON_SECRET`; with no secret configured this route
- * refuses to run at all rather than running for everyone — the same
- * fail-closed shape as the fake payment provider and the media bucket.
+ * Three bounded/idempotent jobs share one authenticated endpoint:
+ * outbox dispatch, abandoned checkout expiry, and expired-cart cleanup.
  */
 import config from "@payload-config";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { getPayload } from "payload";
 
@@ -37,16 +14,10 @@ import { sweepStaleCheckouts } from "../../../../src/scripts/sweep-checkouts";
 import { DISPATCH_BUDGET_MS, dispatchOutbox } from "../../../../src/server/outbox";
 import { outboxHandlers } from "../../../../src/server/outbox-handlers";
 
-/**
- * Seconds this function may run. Must stay above DISPATCH_BUDGET_MS (the
- * dispatcher stops claiming before it) and BELOW the first retry delay, so a
- * row claimed by a tick that is still running is invisible to the next one.
- * `deploy-contract.test.ts` checks all three against each other.
- */
 export const maxDuration = 60;
 
-/** Constant-time, and length-safe: comparing digests rather than the strings
- *  keeps the secret's length out of the timing signal too. */
+const DERIVATION_CONTEXT = "courvia-maintenance-v1";
+
 function matches(candidate: string, expected: string): boolean {
   return timingSafeEqual(
     createHash("sha256").update(candidate).digest(),
@@ -54,11 +25,27 @@ function matches(candidate: string, expected: string): boolean {
   );
 }
 
+/**
+ * Vercel keeps the explicit CRON_SECRET contract. A serverless fallback that
+ * declares `EPHEMERAL_FILESYSTEM=1` may derive a dedicated bearer from
+ * PAYLOAD_SECRET so it does not need another independently provisioned
+ * secret. The bearer is an HMAC output; PAYLOAD_SECRET itself never crosses
+ * the HTTP boundary.
+ */
+function maintenanceSecret(): string | undefined {
+  const explicit = process.env.CRON_SECRET?.trim();
+  if (explicit !== undefined && explicit !== "") return explicit;
+
+  if (process.env.EPHEMERAL_FILESYSTEM !== "1") return undefined;
+  const payloadSecret = process.env.PAYLOAD_SECRET?.trim();
+  if (payloadSecret === undefined || payloadSecret === "") return undefined;
+
+  return createHmac("sha256", payloadSecret).update(DERIVATION_CONTEXT).digest("hex");
+}
+
 export async function GET(request: NextRequest): Promise<Response> {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (secret === undefined || secret === "") {
-    // Fail closed. A deployment without the secret has no cron, rather than
-    // a cron anybody can fire.
+  const secret = maintenanceSecret();
+  if (secret === undefined) {
     console.error("[cron] CRON_SECRET is not set: refusing to run. See docs/deployment.md.");
     return new Response("Cron not configured", { status: 503 });
   }
@@ -70,22 +57,6 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const payload = await getPayload({ config });
 
-  /*
-   * Cada trabajo en su propio `try`, y el porqué está medido.
-   *
-   * La cabecera de este fichero prometía que ninguno bloquea al otro, y era
-   * cierto para el fallo de UN handler —el despachador lo captura— pero no
-   * para el despachador entero: el censo, la consulta de elegibles y la
-   * reclamación por SQL están fuera de su try, así que un hipo de la base de
-   * datos subía hasta aquí y `sweepStaleCheckouts` no llegaba a correr. Con
-   * cadencia diaria eso son 24 h de reservas de stock sin liberar por un
-   * error que no tenía nada que ver con ellas.
-   *
-   * Y el 500 tampoco valía: escondía el resultado del trabajo que SÍ había
-   * funcionado. Ahora la respuesta trae los tres resultados o el error de
-   * cada uno, y el estado es 207 si alguno falló — hay algo que mirar, pero
-   * no todo está roto.
-   */
   async function attempt<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
     try {
       return await job();
