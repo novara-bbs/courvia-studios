@@ -1,10 +1,6 @@
 /**
  * Storage selection is the difference between an image that survives a
  * deploy and one that does not, so it gets tested rather than trusted.
- *
- * Every case below is one the deployment can actually be in: local dev,
- * a configured bucket, a HALF-configured bucket (the dangerous one), and a
- * Vercel deployment with nothing set.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -17,6 +13,7 @@ const KEYS = [
   "S3_ACCESS_KEY_ID",
   "S3_SECRET_ACCESS_KEY",
   "VERCEL",
+  "EPHEMERAL_FILESYSTEM",
 ] as const;
 
 let saved: Record<string, string | undefined>;
@@ -48,58 +45,63 @@ describe("readStorageConfig", () => {
   it("reads a complete configuration from the environment", () => {
     configure({
       S3_REGION: "eu-west-3",
-      S3_ENDPOINT: "https://ref.storage.supabase.co/storage/v1/s3",
+      S3_ENDPOINT: "https://storage.example.test/s3",
     });
     expect(readStorageConfig()).toEqual({
       bucket: "courvia-media",
       region: "eu-west-3",
-      endpoint: "https://ref.storage.supabase.co/storage/v1/s3",
+      endpoint: "https://storage.example.test/s3",
       accessKeyId: "key",
       secretAccessKey: "secret",
     });
   });
 
-  it("defaults the region, because S3-compatible providers ignore it but the SDK demands one", () => {
+  it("defaults the region for S3-compatible providers", () => {
     configure();
     expect(readStorageConfig()?.region).toBe("auto");
   });
 
   it("treats a HALF-configured bucket as unconfigured", () => {
-    // The dangerous middle: a bucket name and no credentials would otherwise
-    // read as "configured" and fail at the first upload, or worse, fall
-    // through to a disk that evaporates.
     process.env.S3_BUCKET = "courvia-media";
     expect(readStorageConfig()).toBeNull();
-
     process.env.S3_ACCESS_KEY_ID = "key";
     expect(readStorageConfig()).toBeNull();
   });
 
   it("ignores blank and whitespace-only values", () => {
-    // A variable created in a dashboard and left empty is not a value.
     configure({ S3_BUCKET: "   " });
     expect(readStorageConfig()).toBeNull();
   });
 });
 
 describe("the ephemeral-filesystem guard", () => {
-  it("knows a Vercel runtime from a machine with a real disk", () => {
+  it("knows Vercel is ephemeral", () => {
     expect(filesystemIsEphemeral()).toBe(false);
     process.env.VERCEL = "1";
     expect(filesystemIsEphemeral()).toBe(true);
   });
 
-  it("allows uploads locally with no bucket — that disk survives", () => {
+  it("supports an explicit portable declaration for other serverless hosts", () => {
+    process.env.EPHEMERAL_FILESYSTEM = "1";
+    expect(filesystemIsEphemeral()).toBe(true);
+  });
+
+  it("does not treat arbitrary values as the portable declaration", () => {
+    process.env.EPHEMERAL_FILESYSTEM = "0";
+    expect(filesystemIsEphemeral()).toBe(false);
+  });
+
+  it("allows uploads locally with no bucket", () => {
     expect(uploadsWouldBeLost()).toBe(false);
   });
 
   it("REFUSES uploads on an ephemeral filesystem with no bucket", () => {
-    process.env.VERCEL = "1";
+    process.env.EPHEMERAL_FILESYSTEM = "1";
     expect(uploadsWouldBeLost()).toBe(true);
   });
 
   it("allows uploads on an ephemeral filesystem once a bucket exists", () => {
-    process.env.VERCEL = "1";
+    process.env.EPHEMERAL_FILESYSTEM = "1";
     configure();
     expect(uploadsWouldBeLost()).toBe(false);
   });
