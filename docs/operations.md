@@ -16,6 +16,8 @@ En Claude Code web, el hook **SessionStart** (`.claude/hooks/session-start.sh`, 
 
 `apps/web/.env.example` es la plantilla: copiarla a `apps/web/.env.local` (ignorado por Git). Obligatorias en local: `DATABASE_URL` (apunta al Postgres del 5433), `PAYLOAD_SECRET` y `PAYMENT_FAKE_SECRET` (proveedor de pago fake de desarrollo, bloqueado en producción por el gate fail-closed). El resto — `NEXT_PUBLIC_SITE_URL`, `STRIPE_WEBHOOK_SECRET`, `CRON_SECRET`, el correo (`RESEND_API_KEY` + `EMAIL_FROM`), Plausible y las claves del test de exposición — son opcionales y van comentadas en la plantilla. Sin las dos del correo, en local los mensajes van a consola; en un despliegue su ausencia hace que cada envío falle en voz alta en vez de tragarse el mensaje.
 
+Para probar WordPress headless, `COURVIA_EDITORIAL_SOURCE=wordpress` cambia únicamente las páginas editoriales. Requiere `WORDPRESS_API_URL`; borradores y publicación requieren además usuario/Application Password y los dos secretos firmados. La instalación puente está en `integrations/wordpress/` y la frontera completa en ADR-030. Nunca se activan Payload y WordPress como escritores simultáneos del mismo contenido.
+
 ### Migraciones: `pnpm migrate:new <nombre>`
 
 `scripts/migrate-new.mjs` crea la migración (`payload migrate:create`) **y** sanea en el mismo paso lo que el generador olvida: separa el import runtime (`sql`) del import de tipos (`import type { MigrateDownArgs, MigrateUpArgs }` — el generador los emite como import runtime y eso revienta en ESM) y reduce las firmas de `up`/`down` a `{ db }` (los argumentos sin usar fallan el lint). Si la plantilla del generador cambia, el script falla en voz alta en lugar de dejar pasar un archivo roto.

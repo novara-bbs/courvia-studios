@@ -1,6 +1,17 @@
 # Despliegue
 
-> Objetivo: ver Courvia en una URL real. Primera opción: **Vercel** (soporte
+## Estado real — 26 de agosto de 2026
+
+La revisión funcional está publicada en **Netlify**, no en Vercel:
+
+- Web: `https://courvia-studios-neon.netlify.app/es`
+- Panel del proyecto: `https://app.netlify.com/projects/courvia-studios-neon`
+- El deploy usa `COURVIA_PUBLIC_PREVIEW=1`: es revisable por enlace pero permanece `noindex` hasta aprobar legal, contenido final, dominio y apertura comercial.
+- El proyecto de Vercel existe, pero sus builds no tienen `DATABASE_URL` ni `PAYLOAD_SECRET`; no se ha copiado una base de producción a Preview porque eso permitiría que una rama escribiese datos reales.
+
+Payload sigue siendo el CMS activo. WordPress está preparado como fuente editorial opcional mediante [ADR-030](adr/ADR-030-wordpress-editorial-port.md), pero no se activa hasta disponer de hosting PHP/MySQL, URL y credenciales propias.
+
+> Objetivo: ver Courvia en una URL real. La arquitectura conserva **Vercel** como primera opción teórica (soporte
 > de primera clase para Next 16, PPR/cacheComponents y el proxy). Netlify u
 > otros funcionan pero exigen adaptación propia; abajo se anota lo mínimo.
 > Los secretos viven en Vercel/GitHub Environments — nunca en el repo, y el
@@ -218,13 +229,11 @@ Límite conocido: un pipeline autohospedado (Docker + `next start`) no expone
 ninguna de esas señales, así que se trataría como un build local. Si algún día
 existe, su build tiene que correr con `DATABASE_URL` configurada.
 
-## Netlify u otros
+## Netlify — despliegue activo
 
-Posible con el adaptador Next de Netlify, pero PPR/cacheComponents y el
-proxy están probados solo en Vercel. Si algún día importa, es un spike
-propio: no asumir paridad. Autohospedado (Docker + `next start`) también
-funciona — es exactamente lo que corre en desarrollo — pero pierdes el CDN
-y el ISR distribuido.
+El adaptador oficial de Next para Netlify compila la aplicación actual, incluidas PPR/cacheComponents, funciones, proxy y el cron. El proyecto activo es `courvia-studios-neon`; cada publicación debe terminar con una comprobación HTTP de `/es`, `/es/robots` y una ficha, además de revisar el deploy en el panel. Autohospedado (Docker + `next start`) también funciona, pero pierde el CDN y el ISR distribuido.
+
+El panel de administración de Payload forma parte de la misma aplicación y usa la misma base. No se debe crear un primer usuario ni sembrar contenido en una base de revisión compartida sin confirmar antes que `DATABASE_URL` apunta al entorno correcto. Las subidas permanecen bloqueadas si falta almacenamiento S3-compatible: un filesystem serverless no es persistente.
 
 ## Checklist del primer deploy (Vercel)
 

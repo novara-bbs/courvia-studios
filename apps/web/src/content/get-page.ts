@@ -9,6 +9,12 @@ import { getPayload } from "payload";
 
 import type { PageSeoFields, PageSeoImage } from "../seo/page-metadata";
 import { assertNoFixtureData, isDatabaselessBuild } from "../server/build-env";
+import { editorialSource } from "./editorial-source";
+import {
+  getWordPressDraftPage,
+  getWordPressPage,
+  listWordPressPages,
+} from "./wordpress-pages";
 
 export interface PageDocument {
   slug: string;
@@ -58,6 +64,7 @@ export async function getPage(slug: string, locale: LocaleId): Promise<PageDocum
   "use cache";
   cacheLife("max");
   cacheTag(`page:${slug}`, "media");
+  if (editorialSource() === "wordpress") return getWordPressPage(slug, locale);
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({
@@ -95,6 +102,11 @@ export async function listPublishedSlugs(): Promise<string[]> {
   cacheLife("max");
   cacheTag("pages", "media");
   let slugs: string[];
+  if (editorialSource() === "wordpress") {
+    slugs = [...new Set((await listWordPressPages()).map((page) => page.slug))];
+    assertNoFixtureData(slugs, "the list of published page slugs");
+    return slugs;
+  }
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({
@@ -135,6 +147,13 @@ export async function listIndexableSlugs(): Promise<string[]> {
   "use cache";
   cacheLife("max");
   cacheTag("pages", "media");
+  if (editorialSource() === "wordpress") {
+    return [
+      ...new Set(
+        (await listWordPressPages()).flatMap((page) => (page.seo.noIndex ? [] : [page.slug])),
+      ),
+    ];
+  }
   try {
     const payload = await getPayload({ config });
     const result = await payload.find({
@@ -163,6 +182,7 @@ export async function listIndexableSlugs(): Promise<string[]> {
  * the authenticated /next/preview endpoint, which is the actual access gate.
  */
 export async function getDraftPage(slug: string, locale: LocaleId): Promise<PageDocument | null> {
+  if (editorialSource() === "wordpress") return getWordPressDraftPage(slug, locale);
   const payload = await getPayload({ config });
   const result = await payload.find({
     collection: "pages",
