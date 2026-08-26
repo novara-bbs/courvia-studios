@@ -1,7 +1,7 @@
 import type { LocaleId } from "@courvia/platform";
 import { SECTIONS } from "@courvia/sections/registry";
 
-import type { PageDocument } from "./get-page";
+import type { PageDocument } from "./page-document";
 
 interface WordPressPage {
   slug?: unknown;
@@ -194,4 +194,3 @@ export async function listWordPressPages(): Promise<PageDocument[]> {
   const params = new URLSearchParams({ status: "publish" });
   return (await collection(params)).map(parseWordPressPage);
 }
-

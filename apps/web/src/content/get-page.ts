@@ -15,16 +15,9 @@ import {
   getWordPressPage,
   listWordPressPages,
 } from "./wordpress-pages";
+import type { PageDocument } from "./page-document";
 
-export interface PageDocument {
-  slug: string;
-  title: string;
-  blocks: unknown;
-  /** Always present, always resolved: the fallback chain lives in
-   *  src/seo/page-metadata.ts, and a route must never have to ask whether
-   *  the editor filled a field in. */
-  seo: PageSeoFields;
-}
+export type { PageDocument } from "./page-document";
 
 interface RawSeo {
   title?: unknown;
