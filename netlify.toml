@@ -2,5 +2,13 @@
   command = "pnpm turbo run build --filter=@courvia/web"
   publish = "apps/web/.next"
 
+[build.environment]
+  # This deployment is a public review, not the commercial launch. Keeping
+  # the flag in versioned Netlify configuration ensures Next can emit the
+  # noindex header while compiling SSR/PPR routes. Remove it only after the
+  # legal identity and launch copy have been approved.
+  COURVIA_PUBLIC_PREVIEW = "1"
+  EPHEMERAL_FILESYSTEM = "1"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
