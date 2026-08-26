@@ -87,4 +87,13 @@ describe("lo que CI configura llega a la tarea", () => {
       ]),
     );
   });
+
+  it("reenvía al build el origen, el bucket y la compuerta de publicación", () => {
+    const forwarded = turboForwardedNames();
+    expect(forwards(forwarded, "VERCEL_PROJECT_PRODUCTION_URL")).toBe(true);
+    expect(forwards(forwarded, "S3_ENDPOINT")).toBe(true);
+    expect(forwards(forwarded, "COURVIA_PUBLIC_PREVIEW")).toBe(true);
+    expect(forwards(forwarded, "COURVIA_EDITORIAL_SOURCE")).toBe(true);
+    expect(forwards(forwarded, "WORDPRESS_API_URL")).toBe(true);
+  });
 });

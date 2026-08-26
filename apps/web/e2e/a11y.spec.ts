@@ -94,6 +94,21 @@ test.describe("accesibilidad AA, tema a tema", () => {
 });
 
 test.describe("el teclado llega a todo lo que importa", () => {
+  for (const width of [320, 390]) {
+    test(`la acción principal sigue disponible en el menú a ${String(width)}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto("/es");
+      const menu = page.locator("details.site-menu");
+      await menu.locator("summary.site-menu-toggle").click();
+      const cta = menu.locator("a.site-menu-cta");
+      await expect(cta).toBeVisible();
+      await expect(cta).toHaveAttribute("href", /^\/es(?:\/|$)/u);
+      await expect(cta).not.toHaveText("");
+    });
+  }
+
   test("la navegación móvil se abre, se recorre con Tab y se cierra con Escape", async ({
     page,
   }) => {

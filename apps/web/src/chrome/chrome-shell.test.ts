@@ -212,16 +212,30 @@ describe.skipIf(!hasDb || !dbIsDisposable)("the shell the browser receives", () 
 
         const inline = /<nav class="site-nav-desktop"[\s\S]*?<\/nav>/.exec(document_);
         const panel = /<nav class="site-menu-panel"[\s\S]*?<\/nav>/.exec(document_);
+        const panelList = /<ul class="site-menu-list"[\s\S]*?<\/ul>/.exec(String(panel?.[0]));
         expect(inline, `${String(region)}: no inline nav`).not.toBeNull();
         expect(panel, `${String(region)}: no menu panel`).not.toBeNull();
+        expect(panelList, `${String(region)}: no menu link list`).not.toBeNull();
 
         const hrefs = (fragment: string) =>
           [...fragment.matchAll(/href="([^"]+)"/g)].map((match) => String(match[1]));
-        // Same destinations in both renderings: CSS decides which one exists
-        // at a given width, so a link added to one and not the other would
-        // simply vanish below 680px.
-        expect(hrefs(String(panel?.[0])), String(region)).toEqual(hrefs(String(inline?.[0])));
-        expect(hrefs(String(panel?.[0])).length).toBeGreaterThan(0);
+        // Same navigation destinations in both renderings: CSS decides which
+        // one exists at a given width, so a link added to one and not the
+        // other would simply vanish below 680px.
+        expect(hrefs(String(panelList?.[0])), String(region)).toEqual(
+          hrefs(String(inline?.[0])),
+        );
+        expect(hrefs(String(panelList?.[0])).length).toBeGreaterThan(0);
+
+        // The compact bar hides the CTA below 480px, so the drawer must carry
+        // the same destination as a real, labelled link of its own.
+        const desktopCta = /<a[^>]*class="site-header-cta"[^>]*>/.exec(document_);
+        const mobileCta = /<a[^>]*class="site-menu-cta"[^>]*>/.exec(document_);
+        expect(desktopCta, `${String(region)}: no desktop CTA`).not.toBeNull();
+        expect(mobileCta, `${String(region)}: no mobile CTA`).not.toBeNull();
+        expect(hrefs(String(mobileCta?.[0])), String(region)).toEqual(
+          hrefs(String(desktopCta?.[0])),
+        );
 
         // Named in the page's own language, from next-intl.
         const nav = messages(String(locale)).nav;
