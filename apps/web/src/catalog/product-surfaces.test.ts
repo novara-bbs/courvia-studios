@@ -159,6 +159,16 @@ describe.skipIf(!hasDb || !dbIsDisposable)("what the catalogue surfaces send", (
     expect(main.indexOf('href="#lista-espera"')).toBeLessThan(main.indexOf('id="lista-espera"'));
   });
 
+  it("limits the numeric statutory warranty to Spain", async () => {
+    const spanish = textOf(mainOf(await html("/es/robots/tempo-r1"), "page--pdp"));
+    const british = textOf(mainOf(await html("/en-gb/robots/tempo-r1"), "page--pdp"));
+    expect(spanish).toContain("36 meses de garantía legal en España");
+    expect(british).toContain(
+      "Warranty and service terms for this market will be published before reservations open.",
+    );
+    expect(british).not.toContain("36-month");
+  });
+
   /**
    * <main> used to contain exactly ONE link — /es/privacidad, inside the
    * consent line — so a visitor the rail did not convince had nowhere to go.

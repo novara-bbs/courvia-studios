@@ -11,6 +11,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { conceptImagesForProduct } from "./product-concept-images";
+
 export async function ProductCard({
   robot,
   region,
@@ -54,13 +56,19 @@ export async function ProductCard({
   const t = await getTranslations({ locale: def.locale, namespace: "catalog" });
   const Heading = headingLevel;
   const status = robot.launchStatus ?? "available";
+  const conceptFallback =
+    robot.image === undefined ? conceptImagesForProduct(robot.slug, def.locale)[0] : undefined;
+  const imageSource = robot.image?.url ?? conceptFallback?.src;
+  const imageWidth = robot.image?.width ?? conceptFallback?.src.width ?? 860;
+  const imageHeight = robot.image?.height ?? conceptFallback?.src.height ?? 645;
+  const isConcept = robot.image?.concept === true || conceptFallback !== undefined;
 
   return (
     <Link className="catalog-card" href={`/${region}/robots/${robot.slug}`}>
-      {robot.image === undefined ? null : (
+      {imageSource === undefined ? null : (
         <span className="catalog-card-media">
           <Image
-            src={robot.image.url}
+            src={imageSource}
             /* Decorative INSIDE this link: the whole card is one <a>, so the
              * alt is read first and the accessible name opened with 100+
              * characters of image description before naming the product
@@ -70,11 +78,14 @@ export async function ProductCard({
              * still serves the PDP gallery, where the image stands alone and
              * carries a <figcaption>. */
             alt=""
-            width={robot.image.width ?? 860}
-            height={robot.image.height ?? 645}
+            width={imageWidth}
+            height={imageHeight}
             sizes="(max-width: 680px) 100vw, 320px"
             loading={eager ? "eager" : "lazy"}
           />
+          {isConcept ? (
+            <span className="catalog-card-concept">{t("conceptRender")}</span>
+          ) : null}
         </span>
       )}
       <Heading>{robot.title}</Heading>

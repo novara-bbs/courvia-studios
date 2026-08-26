@@ -240,6 +240,10 @@ describe("security headers", () => {
  * image search, which is the failure the robots.txt rules exist to prevent.
  */
 describe("headers a review found missing", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   const find = (
     entries: Array<{ source: string; headers: Array<{ key: string; value: string }> }>,
     source: string,
@@ -259,6 +263,19 @@ describe("headers a review found missing", () => {
   it("tells crawlers not to index the REST API", async () => {
     const entries = await securityHeaders();
     expect(find(entries, "/api/:path*", "X-Robots-Tag")).toBe("noindex, nofollow");
+  });
+
+  it("keeps a public review deployment out of search without hiding uploaded files", async () => {
+    vi.stubEnv("COURVIA_PUBLIC_PREVIEW", "1");
+    const entries = await securityHeaders();
+    expect(find(entries, "/:path*", "X-Robots-Tag")).toBe("noindex, nofollow");
+    expect(find(entries, "/api/media/file/:path*", "X-Robots-Tag")).toBe("all");
+  });
+
+  it("does not noindex the storefront after the release gate is cleared", async () => {
+    vi.stubEnv("COURVIA_PUBLIC_PREVIEW", "0");
+    const entries = await securityHeaders();
+    expect(find(entries, "/:path*", "X-Robots-Tag")).toBeUndefined();
   });
 
   it("exempts the upload file route, and declares it AFTER the API rule", async () => {

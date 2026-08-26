@@ -21,6 +21,10 @@ export async function SiteHeader({ region }: { region: RegionId }) {
     href: `/${region}${link.href === "/" ? "" : link.href}`,
     label: link.label,
   }));
+  const headerCta =
+    nav.headerCta === null
+      ? null
+      : { href: `/${region}${nav.headerCta.href}`, label: nav.headerCta.label };
 
   return (
     <header className="site-header">
@@ -31,7 +35,7 @@ export async function SiteHeader({ region }: { region: RegionId }) {
         <Link className="wordmark" href={`/${region}`} aria-label="Courvia">
           COURVIA<span className="wordmark-ball" aria-hidden="true" />
         </Link>
-        {links.length === 0 ? null : (
+        {links.length === 0 && headerCta === null ? null : (
           <nav className="site-nav-desktop" aria-label={t("mainNav")}>
             <ul className="site-nav">
               {links.map((link) => (
@@ -42,9 +46,9 @@ export async function SiteHeader({ region }: { region: RegionId }) {
             </ul>
           </nav>
         )}
-        {nav.headerCta === null ? null : (
-          <Link className="site-header-cta" href={`/${region}${nav.headerCta.href}`}>
-            {nav.headerCta.label}
+        {headerCta === null ? null : (
+          <Link className="site-header-cta" href={headerCta.href}>
+            {headerCta.label}
           </Link>
         )}
         {/* El contador se pinta en cliente desde una cookie legible. Leer la
@@ -59,6 +63,7 @@ export async function SiteHeader({ region }: { region: RegionId }) {
         {links.length === 0 ? null : (
           <MobileMenu
             links={links}
+            cta={headerCta}
             labels={{ nav: t("mainNav"), open: t("openMenu"), close: t("closeMenu") }}
           />
         )}

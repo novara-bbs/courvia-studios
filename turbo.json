@@ -17,6 +17,9 @@
         "NEXT_PUBLIC_*",
         "VERCEL_ENV",
         "VERCEL",
+        "VERCEL_PROJECT_PRODUCTION_URL",
+        "S3_ENDPOINT",
+        "COURVIA_PUBLIC_PREVIEW",
         "CI"
       ],
       "outputs": [

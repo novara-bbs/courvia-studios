@@ -11,6 +11,7 @@ export interface MobileMenuLink {
 
 export interface MobileMenuProps {
   links: readonly MobileMenuLink[];
+  cta: MobileMenuLink | null;
   /** Resolved on the server: no visible string lives in this component. */
   labels: { nav: string; open: string; close: string };
 }
@@ -29,7 +30,7 @@ export interface MobileMenuProps {
  *
  * The links arrive as props so the Payload read stays on the server.
  */
-export function MobileMenu({ links, labels }: MobileMenuProps) {
+export function MobileMenu({ links, cta, labels }: MobileMenuProps) {
   const panel = useRef<HTMLDetailsElement>(null);
   const pathname = usePathname();
 
@@ -67,6 +68,11 @@ export function MobileMenu({ links, labels }: MobileMenuProps) {
             </li>
           ))}
         </ul>
+        {cta === null ? null : (
+          <Link className="site-menu-cta" href={cta.href}>
+            {cta.label}
+          </Link>
+        )}
       </nav>
     </details>
   );

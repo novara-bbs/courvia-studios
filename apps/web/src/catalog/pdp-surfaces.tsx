@@ -34,6 +34,10 @@ import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 
 import { ProductCard } from "./product-card";
+import {
+  conceptImageCountForProduct,
+  conceptImagesForProduct,
+} from "./product-concept-images";
 import { AddToCart } from "../cart/add-to-cart";
 import { LeadForm } from "../leads/lead-form";
 
@@ -73,7 +77,10 @@ export function productSubjectOf(
     market: REGION_DEFINITIONS[region].market,
     status: product.launchStatus ?? "available",
     skus: variants.map((offer) => offer.sku),
-    imageCount: product.images?.length ?? 0,
+    imageCount:
+      product.images === undefined || product.images.length === 0
+        ? conceptImageCountForProduct(product.slug)
+        : product.images.length,
     specCount: product.specs.length,
     hasDescription: product.description !== undefined && product.description !== null,
     relatedSlugs: related.map((other) => other.slug),
@@ -118,6 +125,12 @@ export async function makeProductSurfaces({
       : status === "preorder"
         ? t("preorderTitle")
         : t("leadTitle");
+  const warrantyCopy =
+    product.warrantyMonths === undefined
+      ? null
+      : region === "es"
+        ? t("warranty", { months: product.warrantyMonths })
+        : t("warrantyPending");
 
   const rail = (
     /* The buy rail: who this is, what state it is in, and ONE action. It
@@ -142,33 +155,55 @@ export async function makeProductSurfaces({
             <p className="pdp-price">{t("fromPrice", { price: format(fromPrice, def.hreflang) })}</p>
           )}
         </header>
-        {product.warrantyMonths === undefined ? null : (
-          <p className="pdp-warranty">{t("warranty", { months: product.warrantyMonths })}</p>
-        )}
+        {warrantyCopy === null ? null : <p className="pdp-warranty">{warrantyCopy}</p>}
         <LinkButton href={`#${LEAD_ANCHOR}`}>{askLabel}</LinkButton>
       </div>
     </div>
   );
 
+  const editorImages = product.images ?? [];
+  const fallbackImages =
+    editorImages.length === 0 ? conceptImagesForProduct(product.slug, def.locale) : [];
+  const galleryImages =
+    editorImages.length > 0
+      ? editorImages.map((image) => ({
+          key: image.url,
+          src: image.url,
+          alt: image.alt,
+          width: image.width ?? 1600,
+          height: image.height ?? 1200,
+          concept: image.concept === true,
+          caption: image.caption,
+        }))
+      : fallbackImages.map((image) => ({
+          key: image.key,
+          src: image.src,
+          alt: image.alt,
+          width: image.src.width,
+          height: image.src.height,
+          concept: true,
+          caption: image.caption,
+        }));
+
   const gallery =
-    product.images === undefined || product.images.length === 0 ? null : (
+    galleryImages.length === 0 ? null : (
       // Canonical gallery (brand book §26): hero first and full-width, the
       // rest in a two-up grid; every non-photographic asset carries the
       // "render conceptual" label the evidence register mandates (E-028).
       <section className="pdp-gallery" aria-label={t("galleryTitle")}>
-        {product.images.map((image, index) => (
-          <figure key={image.url} className="pdp-media">
+        {galleryImages.map((image, index) => (
+          <figure key={image.key} className="pdp-media">
             <Image
-              src={image.url}
+              src={image.src}
               alt={image.alt}
-              width={image.width ?? 1600}
-              height={image.height ?? 1200}
+              width={image.width}
+              height={image.height}
               sizes={
                 index === 0 ? "(max-width: 860px) 100vw, 860px" : "(max-width: 860px) 100vw, 430px"
               }
               priority={index === 0}
             />
-            {image.concept === true ? <span className="pdp-concept">{t("conceptRender")}</span> : null}
+            {image.concept ? <span className="pdp-concept">{t("conceptRender")}</span> : null}
             {image.caption === undefined ? null : <figcaption>{image.caption}</figcaption>}
           </figure>
         ))}

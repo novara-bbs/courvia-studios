@@ -791,7 +791,7 @@ await seedComposedPage(
       blockType: "hero",
       level: "h1",
       heading: "Hablemos de tu pista",
-      lead: "Cuéntanos dónde juegas y qué quieres mejorar. Te escribimos en menos de un día laborable.",
+      lead: "Cuéntanos dónde juegas y qué quieres mejorar. Te responderemos con la disponibilidad actual para tu zona.",
       appearance: { spaceBlockEnd: "md" },
     },
     {
@@ -806,7 +806,7 @@ await seedComposedPage(
       items: [
         {
           question: "¿Hacéis demos fuera de España?",
-          answer: richTextP("Vendemos en España, Reino Unido y Emiratos. Cuéntanos tu ciudad y vemos cómo organizarla."),
+          answer: richTextP("Estamos validando la gama en España y preparando Reino Unido y Emiratos. Cuéntanos tu ciudad; te avisamos cuando podamos organizar una demo en tu zona."),
         },
         {
           question: "¿Qué incluye la garantía?",
@@ -825,7 +825,7 @@ await seedComposedPage(
       blockType: "hero",
       level: "h1",
       heading: "Let's talk about your court",
-      lead: "Tell us where you play and what you want to improve. We write back within one working day.",
+      lead: "Tell us where you play and what you want to improve. We will reply with current availability for your area.",
       appearance: { spaceBlockEnd: "md" },
     },
     {
@@ -840,7 +840,7 @@ await seedComposedPage(
       items: [
         {
           question: "Do you run demos outside Spain?",
-          answer: richTextP("We sell in Spain, the UK and the UAE. Tell us your city and we'll see how to arrange it."),
+          answer: richTextP("We are validating the range in Spain and preparing the UK and UAE. Tell us your city and we will let you know when a demo can be arranged in your area."),
         },
         {
           question: "What does the warranty include?",
@@ -866,14 +866,14 @@ await seedComposedPage(
       level: "h1",
       eyebrow: "Courvia Sports",
       heading: "La casa de los robots de pista",
-      lead: "Diseñamos en España robots lanzapelotas para pádel, tenis y pickleball, con una obsesión: que entrenes más y montes menos.",
+      lead: "Estamos desarrollando en España robots lanzapelotas para pádel, tenis y pickleball, con una obsesión: que entrenes más y montes menos.",
       appearance: { spaceBlockEnd: "md" },
     },
     {
       blockType: "featureGrid",
       heading: "Cómo trabajamos",
       items: [
-        { title: "Se mide o no se afirma", body: "Cada dato de una ficha sale de un banco de pruebas, no de un folleto." },
+        { title: "Se mide o no se afirma", body: "Cada dato publica su estado: objetivo de diseño, dato de fábrica o verificado en banco. No presentamos una meta como resultado." },
         { title: "Reparable por diseño", body: "Ruedas, motores y baterías se cambian con herramientas normales. Los repuestos son parte del producto." },
         { title: "La bola manda", body: "La de pádel bota distinto. Cada deporte tiene su calibración, no un adaptador." },
       ],
@@ -906,7 +906,7 @@ await seedComposedPage(
       blockType: "featureGrid",
       heading: "How we work",
       items: [
-        { title: "Measured or not claimed", body: "Every figure on a spec sheet comes from a test bench, not a brochure." },
+        { title: "Measured or not claimed", body: "Every figure publishes its state: design target, factory data or bench verified. We do not present a target as a result." },
         { title: "Repairable by design", body: "Wheels, motors and batteries swap out with ordinary tools. Spare parts are part of the product." },
         { title: "The ball rules", body: "A padel ball bounces differently. Each sport gets its own calibration, not an adapter." },
       ],

@@ -154,6 +154,19 @@ const ADMIN_POLICY = `frame-ancestors 'none'; ${ENFORCED_BASE}`;
  */
 const UPLOADS_POLICY = "default-src 'none'; sandbox; frame-ancestors 'none'";
 
+/**
+ * A directly viewable review deployment is not automatically a public
+ * launch. While legal identity and launch claims are still under review,
+ * Netlify sets this flag and the application itself emits noindex on every
+ * HTML/function response. Doing this in netlify.toml would miss SSR, ISR,
+ * PPR and route handlers because OpenNext serves them through functions.
+ */
+function publicPreviewRobotsHeaders(): Array<{ key: string; value: string }> {
+  return process.env.COURVIA_PUBLIC_PREVIEW === "1"
+    ? [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]
+    : [];
+}
+
 export async function securityHeaders(): Promise<
   Array<{ source: string; headers: Array<{ key: string; value: string }> }>
 > {
@@ -184,6 +197,7 @@ export async function securityHeaders(): Promise<
         // would kill editing while blocking nothing an attacker can do.
         { key: "Content-Security-Policy", value: ENFORCED_POLICY },
         { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicy() },
+        ...publicPreviewRobotsHeaders(),
       ],
     },
     {

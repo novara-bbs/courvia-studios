@@ -269,9 +269,8 @@ code {
  * anticipa para el nav y resuelve con `overflow-x`; para un botón con
  * `white-space: nowrap` esa salida no existe.
  *
- * Ocultarlo no pierde la acción: el menú lleva la navegación completa, y la
- * portada y la ficha tienen su propio formulario de lista de espera — que es
- * a donde este botón apunta.
+ * Ocultarlo en la barra no pierde la acción: `MobileMenu` la vuelve a pintar
+ * como CTA explícito dentro del panel, donde sí dispone del ancho completo.
  *
  * 480 es el primer breakpoint del sistema (CLAUDE.md §5), no un número
  * elegido para que pase el test: a 390px el CTA cabría por 14px, y 14px de
@@ -462,6 +461,23 @@ code {
 
 .site-menu-list a:hover {
   color: var(--cv-color-link);
+}
+
+.site-menu-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--cv-space-12);
+  margin-block-start: var(--cv-space-4);
+  color: var(--cv-color-on-fill-accent);
+  background: var(--cv-color-fill-accent);
+  border-radius: var(--cv-radius-pill);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.site-menu-cta:hover {
+  filter: brightness(1.05);
 }
 
 @media (min-width: 480px) {
@@ -679,6 +695,7 @@ a {
 }
 
 .catalog-card-media {
+  position: relative;
   display: block;
   aspect-ratio: 4 / 3;
   overflow: hidden;
@@ -1012,6 +1029,7 @@ a {
   }
 }
 
+.catalog-card-concept,
 .pdp-concept {
   position: absolute;
   inset-block-start: var(--cv-space-2);
